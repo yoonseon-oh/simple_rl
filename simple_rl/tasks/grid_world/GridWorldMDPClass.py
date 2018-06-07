@@ -64,6 +64,9 @@ class GridWorldMDP(MDP):
         self.name = name
         self.lava_locs = lava_locs
 
+    def set_slip_prob(self, slip_prob):
+        self.slip_prob = slip_prob
+
     def _reward_func(self, state, action):
         '''
         Args:
@@ -158,6 +161,9 @@ class GridWorldMDP(MDP):
 
     def __str__(self):
         return self.name + "_h-" + str(self.height) + "_w-" + str(self.width)
+
+    def __repr__(self):
+        return self.__str__()
 
     def get_goal_locs(self):
         return self.goal_locs
