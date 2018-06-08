@@ -3,11 +3,8 @@ from simple_rl.planning import ValueIteration
 from simple_rl.tasks import GridWorldMDP
 from simple_rl.utils.additional_datastructures import Stack
 
-from Queue import  PriorityQueue
-import numpy as np
 from collections import defaultdict
 import copy
-import pdb
 
 
 class BoundedRTDP(Planner):
