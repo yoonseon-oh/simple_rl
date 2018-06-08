@@ -21,14 +21,24 @@ class BoundedRTDP(Planner):
         self.trans_dict = self.vi.trans_dict
         self.max_diff = (self.upper_values[self.mdp.init_state] - self.lower_values[self.mdp.init_state]) / tau
 
-    def plan(self, state):
-        pass
+    def plan(self, state=None, horizon=100):
+        state = self.mdp.get_init_state() if state is None else state
+
+        action_seq = []
+        state_seq = [state]
+        steps = 0
+
+        while (not state.is_terminal()) and steps < horizon:
+            next_action = self.policy(state)
+            action_seq.append(next_action)
+            state = self.transition_func(state, next_action)
+            state_seq.append(state)
+            steps += 1
+
+        return action_seq, state_seq
 
     def policy(self, state):
-        pass
-
-    def __str__(self):
-        return self.name
+        return self._greedy_action(state, self.upper_values)
 
     def _run_sample_trial(self):
         init_state = self.mdp.init_state
@@ -42,7 +52,7 @@ class BoundedRTDP(Planner):
             self.lower_values[state] = self._qvalue(state, action, self.lower_values)
             expected_gap_distribution = self._expected_gap_distribution(state, action)
             expected_gap = sum(expected_gap_distribution.values())
-            print 'State: ({}, {})\tAction: {}\tExpectedGap: {}\tMaxDiff: {}'.format(state.x, state.y, action, expected_gap, self.max_diff)
+            print '{}\tAction: {}\tExpectedGap: {}\tMaxDiff: {}'.format(state, action, expected_gap, self.max_diff)
             if expected_gap < self.max_diff:
                 break
             state = self._pick_next_state(expected_gap_distribution, expected_gap)
@@ -84,6 +94,12 @@ class BoundedRTDP(Planner):
 
     def run(self):
         self._run_sample_trial()
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class MonotoneLowerBound(Planner):
@@ -136,6 +152,6 @@ class MonotoneUpperBound(Planner):
 
 
 if __name__ == '__main__':
-    mdp = GridWorldMDP(width=6, height=6, goal_locs=[(6, 6)], slip_prob=0.25)
+    mdp = GridWorldMDP(width=6, height=6, goal_locs=[(6, 6)], lava_locs=[(3, 3)], slip_prob=0.2)
     bounded_rtdp = BoundedRTDP(mdp)
     bounded_rtdp.run()
