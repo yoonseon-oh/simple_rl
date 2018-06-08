@@ -126,6 +126,9 @@ class MonotoneLowerBound(Planner):
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return self.__str__()
+
 
 class MonotoneUpperBound(Planner):
     def __init__(self, mdp, name='MonotoneUpperBound'):
@@ -146,6 +149,9 @@ class MonotoneUpperBound(Planner):
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return self.__str__()
 
 
 if __name__ == '__main__':
