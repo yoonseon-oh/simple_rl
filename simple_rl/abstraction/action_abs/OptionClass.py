@@ -1,9 +1,11 @@
 # Python imports.
 from collections import defaultdict
 import random
+from sklearn import tree
 
 # Other imports.
 from simple_rl.mdp.StateClass import State
+from simple_rl.planning.SymbolicAlgebraClass import Symbol
 
 class Option(object):
 
@@ -20,11 +22,30 @@ class Option(object):
 		self.name = name
 		self.term_prob = term_prob
 
+		self.effect_features = []
+		self.effect_labels = []
+		self.precond_features = []
+		self.precond_labels = []
+
+		self.effects_classifier = tree.DecisionTreeClassifier()
+		self.precond_classifier = tree.DecisionTreeClassifier()
+
+		self.effects_symbol = None
+		self.precond_symbol = None
+
 		if type(policy) is defaultdict or type(policy) is dict:
 			self.policy_dict = dict(policy)
 			self.policy = self.policy_from_dict
 		else:
 			self.policy = policy
+
+	def __eq__(self, other):
+		return isinstance(other, type(self)) \
+			   and ((self.init_predicate, self.term_predicate, self.term_prob, self.policy) ==
+					(other.init_predicate, other.term_predicate, other.term_prob, other.policy))
+
+	def __hash__(self):
+		return hash((self.init_predicate, self.term_predicate, self.term_prob, self.policy))
 
 	def is_init_true(self, ground_state):
 		return self.init_predicate.is_true(ground_state)
@@ -41,17 +62,21 @@ class Option(object):
 	def set_name(self, new_name):
 		self.name = new_name
 
-	def act_until_terminal(self, cur_state, transition_func):
+	def act_until_terminal(self, cur_state, transition_func, verbose=False):
 		'''
 		Summary:
 			Executes the option until termination.
 		'''
+		if verbose: print 'Starting option execution from {}\nWith Action {}'.format(cur_state, self.policy(cur_state))
+		intermediate_states_encountered = [cur_state]
 		if self.is_init_true(cur_state):
 			cur_state = transition_func(cur_state, self.act(cur_state))
 			while not self.is_term_true(cur_state):
+				intermediate_states_encountered.append(cur_state)
+				if verbose: print 'action = {}'.format(self.policy(cur_state))
 				cur_state = transition_func(cur_state, self.act(cur_state))
 
-		return cur_state
+		return cur_state, intermediate_states_encountered
 
 	def rollout(self, cur_state, reward_func, transition_func, step_cost=0):
 		'''
@@ -89,3 +114,14 @@ class Option(object):
 
 	def __str__(self):
 		return "option." + str(self.name)
+
+	def construct_effects_symbol(self, states, trained_classifier):
+		name = self.name + '_' + 'effects_symbol'
+		self.effects_symbol = Symbol(name=name, grounding_classifier=trained_classifier, states_set=states)
+
+	def construct_precondition_symbol(self, states, trained_classifier):
+		name = self.name + '_' + 'precondition_symbol'
+		self.precond_symbol = Symbol(name=name, grounding_classifier=trained_classifier, states_set=states)
+
+	def __repr__(self):
+		return self.__str__()

@@ -18,7 +18,11 @@ import copy
 from simple_rl.mdp.oomdp.OOMDPClass import OOMDP
 from simple_rl.mdp.oomdp.OOMDPObjectClass import OOMDPObject
 from simple_rl.tasks.taxi.TaxiStateClass import TaxiState
-from simple_rl.tasks.taxi import taxi_helpers
+from simple_rl.tasks.taxi.taxi_helpers import *
+from simple_rl.abstraction.action_abs.OptionClass import Option
+from simple_rl.planning.ValueIterationClass import ValueIteration
+from simple_rl.tasks.taxi.taxi_helpers import _is_wall_in_the_way, _move_pass_in_taxi, passenger_pickup_terminal_state,\
+    passenger_dropoff_terminal_state
 
 
 class TaxiOOMDP(OOMDP):
@@ -29,7 +33,8 @@ class TaxiOOMDP(OOMDP):
     ATTRIBUTES = ["x", "y", "has_passenger", "in_taxi", "dest_x", "dest_y"]
     CLASSES = ["agent", "wall", "passenger"]
 
-    def __init__(self, width, height, agent, walls, passengers, slip_prob=0, gamma=0.99):
+    def __init__(self, width, height, agent, walls, passengers, reward_func=None, terminal_func=None,
+                 slip_prob=0, gamma=0.99):
         self.height = height
         self.width = width
 
@@ -38,7 +43,13 @@ class TaxiOOMDP(OOMDP):
         pass_objs = self._make_oomdp_objs_from_list_of_dict(passengers, "passenger")
 
         init_state = self._create_state(agent_obj, wall_objs, pass_objs)
-        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, self._taxi_reward_func, init_state=init_state, gamma=gamma)
+
+        reward_function = self._taxi_reward_func if reward_func is None else reward_func
+        self.term_func = passenger_dropoff_terminal_state if terminal_func is None else passenger_pickup_terminal_state
+
+        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, reward_function, init_state=init_state,
+                       gamma=gamma)
+
         self.slip_prob = slip_prob
 
     def _create_state(self, agent_oo_obj, walls, passengers):
@@ -130,8 +141,7 @@ class TaxiOOMDP(OOMDP):
             next_state = state
 
         # Make terminal.
-        if taxi_helpers.is_taxi_terminal_state(next_state):
-            next_state.set_terminal(True)
+        next_state.set_terminal(self.term_func(next_state))
 
         # All OOMDP states must be updated.
         next_state.update()
@@ -171,7 +181,7 @@ class TaxiOOMDP(OOMDP):
             (TaxiState)
         '''
 
-        if taxi_helpers._is_wall_in_the_way(state, dx=dx, dy=dy):
+        if _is_wall_in_the_way(state, dx=dx, dy=dy):
             # There's a wall in the way.
             return state
 
@@ -183,7 +193,7 @@ class TaxiOOMDP(OOMDP):
         agent_att["y"] += dy
 
         # Move passenger.
-        taxi_helpers._move_pass_in_taxi(next_state, dx=dx, dy=dy)
+        _move_pass_in_taxi(next_state, dx=dx, dy=dy)
 
         return next_state
 
@@ -234,6 +244,7 @@ class TaxiOOMDP(OOMDP):
                     agent.set_attribute("has_passenger", 0)
 
         return next_state
+
 
 def _error_check(state, action):
     '''

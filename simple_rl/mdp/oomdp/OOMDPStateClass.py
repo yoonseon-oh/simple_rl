@@ -36,12 +36,15 @@ class OOMDPState(State):
         Summary:
             Turn object attributes into a feature list.
         '''
+        state_vector = self.get_state_vector()
+        self.data = tuple(state_vector)
+
+    def get_state_vector(self):
         state_vec = []
         for obj_class in self.objects.keys():
             for obj in self.objects[obj_class]:
                 state_vec += obj.get_obj_state()
-
-        self.data = tuple(state_vec)
+        return state_vec
 
     def __str__(self):
         result = ""

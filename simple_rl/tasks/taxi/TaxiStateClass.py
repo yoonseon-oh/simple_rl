@@ -9,6 +9,9 @@ class TaxiState(OOMDPState):
     def __init__(self, objects):
         OOMDPState.__init__(self, objects=objects)
 
+    def __repr__(self):
+        return self.__str__()
+
     def get_agent_x(self):
         return self.objects["agent"][0]["x"]
 

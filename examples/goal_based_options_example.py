@@ -12,7 +12,7 @@ from simple_rl.abstraction import AbstractionWrapper, aa_helpers, ActionAbstract
 
 def main(open_plot=True):
     # Setup MDP, Agents.
-    mdp_distr = make_mdp.make_mdp_distr(mdp_class="four_room")
+    mdp_distr = make_mdp.make_mdp_distr(mdp_class="taxi")
     ql_agent = QLearningAgent(actions=mdp_distr.get_actions())
     rand_agent = RandomAgent(actions=mdp_distr.get_actions())
 

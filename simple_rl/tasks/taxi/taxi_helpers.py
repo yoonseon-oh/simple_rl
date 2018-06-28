@@ -2,6 +2,7 @@
 
 # Other imports.
 from simple_rl.mdp.oomdp.OOMDPObjectClass import OOMDPObject
+import pdb
 
 def _is_wall_in_the_way(state, dx=0, dy=0):
     '''
@@ -36,7 +37,7 @@ def _move_pass_in_taxi(state, dx=0, dy=0):
             passenger_attr_dict_ls[i]["x"] += dx
             passenger_attr_dict_ls[i]["y"] += dy
 
-def is_taxi_terminal_state(state):
+def passenger_dropoff_terminal_state(state):
     '''
     Args:
         state (OOMDPState)
@@ -47,5 +48,12 @@ def is_taxi_terminal_state(state):
     for p in state.get_objects_of_class("passenger"):
         if p.get_attribute("in_taxi") == 1 or p.get_attribute("x") != p.get_attribute("dest_x") or \
             p.get_attribute("y") != p.get_attribute("dest_y"):
+            return False
+    return True
+
+def passenger_pickup_terminal_state(state):
+    agent = state.get_first_obj_of_class('agent')
+    for p in state.get_objects_of_class("passenger"):
+        if p.get_attribute("in_taxi") == 0 or p.get_attribute("x") != agent['x'] or p.get_attribute("y") != agent['y']:
             return False
     return True
