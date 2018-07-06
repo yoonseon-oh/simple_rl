@@ -1,5 +1,6 @@
 from sklearn.tree import DecisionTreeClassifier
 import numpy as np
+import pdb
 
 class Symbol(object):
     def __init__(self, name='', grounding_classifier=None, states_set=set()):
@@ -68,3 +69,38 @@ class Symbol(object):
             is_subset (bool)
         '''
         return self.grounding_set.issubset(symbol.grounding_set)
+
+
+class ProbabilisticSymbol(object):
+    def __init__(self, name='', grounding_classifier=None, states_set=set([])):
+        self.name = name
+        self.grounding_classifier = grounding_classifier
+        self.states = states_set
+        self.possible_states = self._construct_grounding_set()
+
+    def _construct_grounding_set(self):
+        grounding_set = set()
+        for state in self.states:
+            state_features = np.array(state.get_state_vector()).reshape(1, -1)
+            # pdb.set_trace()
+            if 'effect' in self.name:
+                effect_probability = np.exp(self.grounding_classifier.score_samples(state_features))
+                # print 'For {}, {}, effect_prob is {}'.format(self.name, state, effect_probability)
+                if effect_probability > 0:
+                    grounding_set.add(state)
+            else:
+                precond_probability = self.grounding_classifier.predict_proba(state_features)
+                # print 'For {}, {}, precond_prob is {}'.format(self.name, state, precond_probability)
+                if precond_probability[0][1] > 0:
+                    grounding_set.add(state)
+
+        return grounding_set
+
+    def feasibility(self, other):
+        probability_feasible = 0.0
+        for state in self.states:
+            state_features = np.array(state.get_state_vector()).reshape(1, -1)
+            effects_probability = self.grounding_classifier.score_samples(state_features)
+            precond_probability = other.grounding_classifier.predict(state_features)
+            probability_feasible += (effects_probability * precond_probability)
+        return probability_feasible

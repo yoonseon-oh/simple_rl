@@ -57,7 +57,7 @@ def passenger_pickup(mdp, passenger):
     term_predicate = Predicate(func=lambda state: state.get_first_obj_of_class('agent')['has_passenger'])
 
     return Option(init_predicate=init_predicate, term_predicate=term_predicate, policy=policy, term_prob=0.0,
-                  name='pickup_option')
+                  name='pickup_option', symbol_type='probabilistic')
 
 def passenger_dropoff(mdp, passenger):
     '''
@@ -81,7 +81,7 @@ def passenger_dropoff(mdp, passenger):
                                                   state.get_first_obj_of_class('agent')['has_passenger'] == False)
 
     return Option(init_predicate=init_predicate, term_predicate=term_predicate, policy=policy, term_prob=0.0,
-                  name='dropoff_option')
+                  name='dropoff_option', symbol_type='probabilistic')
 
 def setup_taxi_mdp():
     agent = {"x": 1, "y": 1, "has_passenger": 0}

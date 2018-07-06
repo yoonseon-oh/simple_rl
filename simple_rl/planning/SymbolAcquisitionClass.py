@@ -12,7 +12,7 @@ import networkx as nx
 
 class SymbolAcquisition(object):
     def __init__(self, name='taxi_set_symbols'):
-        self.mdp = construct_taxi_domain()
+        self.mdp = self.construct_taxi_domain()
         self.options = options_for_taxi_domain()
         self.states = get_states(self.mdp)
         self.name = name
@@ -48,8 +48,8 @@ class SymbolAcquisition(object):
             (b) effects classifier. Training samples of form: (s')
         '''
         for _ in range(num_times):
-            pickup_mdp = construct_taxi_domain()
-            self._collect_data_(pickup_mdp)
+            mdp = self.construct_taxi_domain()
+            self._collect_data_(mdp)
         for option in self.options:
             option.effect_features = np.array(option.effect_features)
             option.precond_features = np.array(option.precond_features)
@@ -83,13 +83,13 @@ class SymbolAcquisition(object):
                 option.precond_labels.append(0)
         return option_space
 
-def construct_taxi_domain():
-    taxi = {"x": 1, "y": 1, "has_passenger": 0}
-    passengers = [{"x": 3, "y": 2, "dest_x": 2, "dest_y": 3, "in_taxi": 0}]
-    walls = []
-    pickup_mdp = TaxiOOMDP(width=4, height=4, agent=taxi, walls=walls, passengers=passengers)
+    def construct_taxi_domain(self):
+        taxi = {"x": 1, "y": 1, "has_passenger": 0}
+        passengers = [{"x": 3, "y": 2, "dest_x": 2, "dest_y": 3, "in_taxi": 0}]
+        walls = []
+        pickup_mdp = TaxiOOMDP(width=4, height=4, agent=taxi, walls=walls, passengers=passengers)
 
-    return pickup_mdp
+        return pickup_mdp
 
 def get_states(mdp):
     vi = ValueIteration(mdp)

@@ -1,15 +1,16 @@
 # Python imports.
 from collections import defaultdict
 import random
-from sklearn import tree
+from sklearn import tree, svm
+from sklearn.neighbors import KernelDensity
 
 # Other imports.
 from simple_rl.mdp.StateClass import State
-from simple_rl.planning.SymbolicAlgebraClass import Symbol
+from simple_rl.planning.SymbolicAlgebraClass import Symbol, ProbabilisticSymbol
 
 class Option(object):
 
-	def __init__(self, init_predicate, term_predicate, policy, name="o", term_prob=0.01):
+	def __init__(self, init_predicate, term_predicate, policy, name="o", term_prob=0.01, symbol_type='set'):
 		'''
 		Args:
 			init_func (S --> {0,1})
@@ -26,9 +27,16 @@ class Option(object):
 		self.effect_labels = []
 		self.precond_features = []
 		self.precond_labels = []
+		self.reward_features = []
+		self.reward_labels = []
 
-		self.effects_classifier = tree.DecisionTreeClassifier()
-		self.precond_classifier = tree.DecisionTreeClassifier()
+		if symbol_type == 'set':
+			self.effects_classifier = tree.DecisionTreeClassifier()
+			self.precond_classifier = tree.DecisionTreeClassifier()
+		elif symbol_type == 'probabilistic':
+			self.effects_classifier = KernelDensity(kernel='gaussian', bandwidth=0.75)
+			self.precond_classifier = svm.SVC(probability=True)
+			self.reward_classifier = svm.SVR()
 
 		self.effects_symbol = None
 		self.precond_symbol = None
@@ -122,6 +130,14 @@ class Option(object):
 	def construct_precondition_symbol(self, states, trained_classifier):
 		name = self.name + '_' + 'precondition_symbol'
 		self.precond_symbol = Symbol(name=name, grounding_classifier=trained_classifier, states_set=states)
+
+	def construct_prob_effects_symbol(self, states, trained_classifier):
+		name = self.name + '_probabilistic_' + 'effects_symbol'
+		self.effects_symbol = ProbabilisticSymbol(name=name, grounding_classifier=trained_classifier, states_set=states)
+
+	def construct_prob_precond_symbol(self, states, trained_classifier):
+		name = self.name + '_probabilistic_' + 'precondition_symbol'
+		self.precond_symbol = ProbabilisticSymbol(name=name, grounding_classifier=trained_classifier, states_set=states)
 
 	def __repr__(self):
 		return self.__str__()
