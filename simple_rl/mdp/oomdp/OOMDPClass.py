@@ -17,7 +17,8 @@ class OOMDP(MDP):
     def __init__(self, actions, transition_func, reward_func, init_state, gamma=0.99):
         MDP.__init__(self, actions, transition_func, reward_func, init_state=init_state, gamma=gamma)
 
-    def _make_oomdp_objs_from_list_of_dict(self, list_of_attr_dicts, name):
+    @classmethod
+    def _make_oomdp_objs_from_list_of_dict(cls, list_of_attr_dicts, name):
         '''
         Ags:
             list_of_attr_dicts (list of dict)

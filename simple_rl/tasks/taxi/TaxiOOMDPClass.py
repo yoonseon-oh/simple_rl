@@ -29,16 +29,21 @@ class TaxiOOMDP(OOMDP):
     ATTRIBUTES = ["x", "y", "has_passenger", "in_taxi", "dest_x", "dest_y"]
     CLASSES = ["agent", "wall", "passenger"]
 
-    def __init__(self, width, height, agent, walls, passengers, slip_prob=0, gamma=0.99):
+    def __init__(self, width, height, agent, walls, passengers, goal_loc=None, slip_prob=0, gamma=0.99):
         self.height = height
         self.width = width
 
         agent_obj = OOMDPObject(attributes=agent, name="agent")
         wall_objs = self._make_oomdp_objs_from_list_of_dict(walls, "wall")
         pass_objs = self._make_oomdp_objs_from_list_of_dict(passengers, "passenger")
-
         init_state = self._create_state(agent_obj, wall_objs, pass_objs)
-        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, self._taxi_reward_func, init_state=init_state, gamma=gamma)
+
+        self.goal_location = goal_loc
+        self.terminal_func = taxi_helpers.is_taxi_terminal_state if goal_loc is None else self._navigation_terminal_func
+        rf = self._taxi_reward_func if goal_loc is None else self._navigation_reward_func
+
+        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, rf, init_state=init_state, gamma=gamma)
+
         self.slip_prob = slip_prob
 
     def _create_state(self, agent_oo_obj, walls, passengers):
@@ -92,6 +97,18 @@ class TaxiOOMDP(OOMDP):
                 return 1 - self.step_cost
         return 0 - self.step_cost
 
+    def _navigation_reward_func(self, state, action):
+        _error_check(state, action)
+        next_state = self.transition_func(state, action)
+        agent = next_state.get_first_obj_of_class('agent')
+        if (agent['x'], agent['y']) == self.goal_location:
+            return 1. - self.step_cost
+        return 0. - self.step_cost
+
+    def _navigation_terminal_func(self, state):
+        agent = state.get_first_obj_of_class('agent')
+        return (agent['x'], agent['y']) == self.goal_location
+
     def _taxi_transition_func(self, state, action):
         '''
         Args:
@@ -130,7 +147,7 @@ class TaxiOOMDP(OOMDP):
             next_state = state
 
         # Make terminal.
-        if taxi_helpers.is_taxi_terminal_state(next_state):
+        if self.terminal_func(next_state):
             next_state.set_terminal(True)
 
         # All OOMDP states must be updated.
@@ -234,6 +251,28 @@ class TaxiOOMDP(OOMDP):
                     agent.set_attribute("has_passenger", 0)
 
         return next_state
+
+    def location_for_color(self, color):
+        if color == 'red':
+            return 1, 1
+        if color == 'green':
+            return 1, self.height
+        if color == 'blue':
+            return self.width, self.height
+        if color == 'yellow':
+            return self.width, 1
+        raise ValueError('Did not expect color {}'.format(color))
+
+    def color_for_location(self, location):
+        if location == (1, 1):
+            return 'red'
+        if location == (1, self.height):
+            return 'green'
+        if location == (self.width, self.height):
+            return 'blue'
+        if location == (self.width, 1):
+            return 'yellow'
+        return ''
 
 def _error_check(state, action):
     '''

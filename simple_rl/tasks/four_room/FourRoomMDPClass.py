@@ -2,6 +2,8 @@
 
 # Python imports.
 import math
+from collections import defaultdict
+import numpy as np
 
 # Other imports
 from simple_rl.mdp.MDPClass import MDP
@@ -21,6 +23,20 @@ class FourRoomMDP(GridWorldMDP):
         '''
         GridWorldMDP.__init__(self, width, height, init_loc, goal_locs=goal_locs, walls=self._compute_walls(width, height), gamma=gamma, slip_prob=slip_prob, name=name, is_goal_terminal=is_goal_terminal, rand_init=rand_init, step_cost=step_cost)
 
+        self.room_to_locs = defaultdict()
+        for i in range(1, 5):
+            self.room_to_locs[i] = self._locs_in_room(i)
+
+    def is_loc_in_room(self, loc, room_number):
+        return loc in self.room_to_locs[room_number]
+
+    def get_room_numbers(self, loc):
+        room_numbers = []
+        for i in range(1, 5):
+            if loc in self.room_to_locs[i]:
+                room_numbers.append(i)
+        return room_numbers
+
     def _compute_walls(self, width, height):
         '''
         Args:
@@ -37,11 +53,8 @@ class FourRoomMDP(GridWorldMDP):
 
         # Wall from left to middle.
         for i in range(1, width + 1):
-            if i == half_width:
-                half_height -= 1
             if i == (width + 1) / 3 or i == math.ceil(2 * (width + 1) / 3.0):
                 continue
-
             walls.append((i, half_height))
 
         # Wall from bottom to top.
@@ -51,3 +64,34 @@ class FourRoomMDP(GridWorldMDP):
             walls.append((half_width, j))
 
         return walls
+
+    def _locs_in_room(self, room_number):
+        locs = []
+        half_width = int(math.ceil(self.width / 2.0))
+        half_height = int(math.ceil(self.height / 2.0))
+
+        start_width, end_width = 1, half_width
+        start_height, end_height = 1, half_height - 1
+
+        if room_number == 2:
+            start_width = half_width + 1
+            end_width = self.width
+            end_height += 1
+        elif room_number == 3:
+            start_height = half_height
+            end_height = self.height
+            end_width -= 1
+        elif room_number == 4:
+            start_width = half_width
+            end_width = self.width
+            start_height = half_height + 1
+            end_height = self.height
+
+        for x in range(start_width, end_width+1):
+            for y in range(start_height, end_height+1):
+                if (x, y) not in self.walls:
+                    locs.append((x, y))
+        return locs
+
+if __name__ == '__main__':
+    mdp = FourRoomMDP(width=5, height=5)

@@ -5,11 +5,12 @@ from __future__ import print_function
 
 # Other imports.
 from simple_rl.mdp.StateClass import State
+import pdb
 
 class OOMDPState(State):
     ''' OOMDP State class '''
 
-    def __init__(self, objects):
+    def __init__(self, objects, is_terminal=False):
         '''
         Args:
             objects (dict of OOMDPObject instances): {key=object class (str):val = object instances}
@@ -17,7 +18,7 @@ class OOMDPState(State):
         self.objects = objects
         self.update()
 
-        State.__init__(self, data=self.data)
+        State.__init__(self, data=self.data, is_terminal=is_terminal)
 
     def get_objects(self):
         return self.objects
@@ -50,3 +51,6 @@ class OOMDPState(State):
                 result += "\t" + str(obj)
             result += "\n"
         return result
+
+    def __repr__(self):
+        return self.__str__()
