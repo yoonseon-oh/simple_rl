@@ -1,6 +1,7 @@
 class AbstractTask(object):
-    def __init__(self):
-        pass
+    def __init__(self, name):
+        self.action_name = name
+        self.subtasks = []
 
     def __str__(self):
         pass
@@ -22,11 +23,10 @@ class AbstractTask(object):
 
 class PrimitiveAbstractTask(AbstractTask):
     def __init__(self, action_name):
-        AbstractTask.__init__(self)
-        self.action_name = action_name
+        AbstractTask.__init__(self, name=action_name)
 
     def __str__(self):
-        return '{}'.format(self.get_name())
+        return 'PrimitiveNode::{}'.format(self.get_name())
 
     def __repr__(self):
         return self.__str__()
@@ -41,40 +41,43 @@ class PrimitiveAbstractTask(AbstractTask):
         return True
 
 class NonPrimitiveAbstractTask(AbstractTask):
-    def __init__(self, action_name, subtasks):
-        AbstractTask.__init__(self)
-        self.action_name = action_name
+    def __init__(self, action_name, subtasks, terminal_func, reward_func):
+        AbstractTask.__init__(self, name=action_name)
         self.subtasks = subtasks
+        self.terminal_func = terminal_func
+        self.reward_func = reward_func
 
     def get_name(self):
         return self.action_name
 
     def __str__(self):
-        return '{}'.format(self.get_name())
+        return 'NonPrimitiveNode::{}'.format(self.get_name())
 
     def __repr__(self):
         return self.__str__()
 
     def is_task_primitive(self):
         return False
-
-class RootTaskNode(AbstractTask):
-    def __init__(self, name, children, domain, terminal_func, reward_func):
-        AbstractTask.__init__(self)
-        self.name = name
-        self.children = children
-        self.domain = domain
-        self.terminal_func = terminal_func
-        self.reward_func = reward_func
 
     def is_terminal(self, current_state):
         return self.terminal_func(current_state)
 
+class RootTaskNode(AbstractTask):
+    def __init__(self, name, children, domain, terminal_func, reward_func):
+        AbstractTask.__init__(self, name=name)
+        self.subtasks = children
+        self.domain = domain
+        self.terminal_func = terminal_func
+        self.reward_func = reward_func
+
     def __str__(self):
-        return '{}'.format(self.name)
+        return 'RootNode::{}'.format(self.action_name)
 
     def __repr__(self):
         return self.__str__()
 
     def is_task_primitive(self):
         return False
+
+    def is_terminal(self, current_state):
+        return self.terminal_func(current_state)
