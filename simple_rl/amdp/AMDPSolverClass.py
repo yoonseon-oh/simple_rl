@@ -1,6 +1,6 @@
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
-from simple_rl.AMDPs.TaskNodesClass import AbstractTask, RootTaskNode
+from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask, RootTaskNode
 
 from collections import defaultdict
 

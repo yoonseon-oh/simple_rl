@@ -1,7 +1,7 @@
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
-from simple_rl.AMDPs.TaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
+from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
 
 from collections import defaultdict
 import re

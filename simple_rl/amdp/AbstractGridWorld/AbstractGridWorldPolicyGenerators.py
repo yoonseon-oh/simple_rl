@@ -1,7 +1,6 @@
-from simple_rl.AMDPs.AbstractGridWorld.GridWorldAMDPClass import FourRoomL1GroundedAction
-from simple_rl.AMDPs.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-from simple_rl.AMDPs.AbstractGridWorld.GridWorldAMDPClass import FourRoomL1MDP, FourRoomL1State
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1State
+from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
 
 class L1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0MDP, verbose=False):
