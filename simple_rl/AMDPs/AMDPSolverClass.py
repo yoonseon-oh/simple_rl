@@ -49,7 +49,7 @@ class AMDPAgent(object):
         print 'Decomposing action {} at level {}'.format(grounded_task, level)
         state = self.state_stack[level]
 
-        policy = self.policy_generators[level].generatePolicy(state, grounded_task.action_name)
+        policy = self.policy_generators[level].generatePolicy(state, grounded_task)
         if level > 0:
             while not grounded_task.is_terminal(state):
                 action = policy[state]
