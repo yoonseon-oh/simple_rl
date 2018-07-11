@@ -1,6 +1,7 @@
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
+from simple_rl.AMDPs.TaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
 
 from collections import defaultdict
 import re
@@ -22,17 +23,45 @@ class FourRoomL1State(State):
     def __eq__(self, other):
         return isinstance(other, FourRoomL1State) and self.agent_in_room_number == other.agent_in_room_number
 
-class FourRoomL1GroundedAction(object):
-    def __init__(self, l1_action_string):
+class FourRoomL1GroundedAction(NonPrimitiveAbstractTask):
+    def __init__(self, l1_action_string, subtasks, lowerDomain):
         self.action = l1_action_string
-        goal_room = self._extract_goal_room()
+        goal_room = self.extract_goal_room(self.action)
         self.goal_state = FourRoomL1State(goal_room, is_terminal=True)
+        tf, rf = self._terminal_function, self._reward_function
+        self.l0_domain = lowerDomain
+        NonPrimitiveAbstractTask.__init__(self, l1_action_string, subtasks, tf, rf)
 
-    def _extract_goal_room(self):
-        room_numbers = re.findall(r'\d+', self.action)
+    @classmethod
+    def extract_goal_room(cls, action):
+        room_numbers = re.findall(r'\d+', action)
         if len(room_numbers) == 0:
-            raise ValueError('unable to extract room number from L1Action {}'.format(self.action))
+            raise ValueError('unable to extract room number from L1Action {}'.format(action))
         return int(room_numbers[0])
+
+    def _terminal_function(self, state):
+        if type(state) == FourRoomL1State:
+            return state == self.goal_state
+        room_number = self._room_number(state)
+        assert type(room_number) == int, 'Room number {} not convertible to int'.format(room_number)
+        return FourRoomL1State(room_number) == self.goal_state
+
+    def _reward_function(self, state):
+        if type(state) == FourRoomL1State:
+            return 1. if state == self.goal_state else 0.
+        room_number = self._room_number(state)
+        assert type(room_number) == int, 'Room number {} not convertible to int'.format(room_number)
+        return 1. if FourRoomL1State(room_number) == self.goal_state else 0.
+
+    def _room_number(self, state):
+        return self.l0_domain.get_room_numbers((int(state.x), int(state.y)))[0]
+
+class FourRoomRootGroundedAction(RootTaskNode):
+    def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func):
+        self.action = action_str
+        self.goal_state = FourRoomL1State(FourRoomL1GroundedAction.extract_goal_room(action_str), is_terminal=True)
+
+        RootTaskNode.__init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func)
 
 class FourRoomL1MDP(MDP):
     ACTIONS = ['toRoom1', 'toRoom2', 'toRoom3', 'toRoom4']
