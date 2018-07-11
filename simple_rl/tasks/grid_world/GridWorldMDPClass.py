@@ -164,6 +164,9 @@ class GridWorldMDP(MDP):
 
         return (x, y) in self.walls
 
+    def in_goal_set(self, state):
+        return (state.x, state.y) in self.goal_locs
+
     def __str__(self):
         return self.name + "_h-" + str(self.height) + "_w-" + str(self.width)
 
