@@ -1,28 +1,8 @@
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-from simple_rl.AMDPs.AbstractGridWorld.GridWorldAMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomL1State
+from simple_rl.AMDPs.AbstractGridWorld.GridWorldAMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomL1State, FourRoomRootGroundedAction
 from simple_rl.AMDPs.TaskNodesClass import PrimitiveAbstractTask, NonPrimitiveAbstractTask, RootTaskNode
 from simple_rl.AMDPs.AbstractGridWorld.AGWPolicyGenerators import L0PolicyGenerator, L1PolicyGenerator
 from simple_rl.AMDPs.AMDPSolverClass import AMDPAgent
-
-def a2rf(l0_domain, l1_action_string):
-    grounded_action = FourRoomL1GroundedAction(l1_action_string)
-    def reward_function(state):
-        if type(state) == FourRoomL1State:
-            return 1. if state == grounded_action.goal_state else 0.
-        room_number = l0_domain.get_room_numbers((int(state.x), int(state.y)))[0]
-        assert type(room_number) == int
-        return 1. if FourRoomL1State(room_number) == grounded_action.goal_state else 0.
-    return reward_function
-
-def a2tf(l0_domain, l1_action_string):
-    grounded_action = FourRoomL1GroundedAction(l1_action_string)
-    def terminal_function(state):
-        if type(state) == FourRoomL1State:
-            return state == grounded_action.goal_state
-        room_number = l0_domain.get_room_numbers((int(state.x), int(state.y)))[0]
-        assert type(room_number) == int
-        return FourRoomL1State(room_number) == grounded_action.goal_state
-    return terminal_function
 
 if __name__ == '__main__':
     start_location = (1, 1)
@@ -47,9 +27,9 @@ if __name__ == '__main__':
     l1State = l1_policy_generator.generateAbstractState(l0State)
 
     l1Subtasks = [PrimitiveAbstractTask(action) for action in l0Domain.ACTIONS]
-    a2rt = [NonPrimitiveAbstractTask(a, l1Subtasks, a2tf(l0Domain, a), a2rf(l0Domain, a)) for a in FourRoomL1MDP.ACTIONS]
-    l1Root = RootTaskNode(FourRoomL1MDP.action_for_room_number(goal_room), a2rt, l1Domain,
-                          l1Domain.terminal_func, l1Domain.reward_func)
+    a2rt = [FourRoomL1GroundedAction(a, l1Subtasks, l0Domain) for a in FourRoomL1MDP.ACTIONS]
+    l1Root = FourRoomRootGroundedAction(FourRoomL1MDP.action_for_room_number(goal_room), a2rt, l1Domain,
+                                        l1Domain.terminal_func, l1Domain.reward_func)
 
     agent = AMDPAgent(l1Root, policy_generators, l0Domain)
     agent.plan()
