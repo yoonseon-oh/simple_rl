@@ -53,6 +53,8 @@ class MDP(object):
     # ----------
     # -- Core --
     # ----------
+    def in_goal_set(self, state):
+        pass
 
     def execute_agent_action(self, action):
         '''
