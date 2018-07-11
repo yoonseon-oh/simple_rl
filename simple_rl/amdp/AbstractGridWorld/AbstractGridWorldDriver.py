@@ -1,8 +1,8 @@
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-from simple_rl.AMDPs.AbstractGridWorld.GridWorldAMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomL1State, FourRoomRootGroundedAction
-from simple_rl.AMDPs.TaskNodesClass import PrimitiveAbstractTask, NonPrimitiveAbstractTask, RootTaskNode
-from simple_rl.AMDPs.AbstractGridWorld.AGWPolicyGenerators import L0PolicyGenerator, L1PolicyGenerator
-from simple_rl.AMDPs.AMDPSolverClass import AMDPAgent
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomRootGroundedAction
+from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldPolicyGenerators import L0PolicyGenerator, L1PolicyGenerator
+from simple_rl.amdp.AMDPSolverClass import AMDPAgent
 
 if __name__ == '__main__':
     start_location = (1, 1)
