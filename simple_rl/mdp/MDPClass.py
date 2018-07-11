@@ -46,6 +46,9 @@ class MDP(object):
     def set_step_cost(self, new_step_cost):
         self.step_cost = new_step_cost
 
+    def in_goal_set(self, state):
+        pass
+
     def execute_agent_action(self, action):
         '''
         Args:
