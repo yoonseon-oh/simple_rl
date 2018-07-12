@@ -1,4 +1,6 @@
 from simple_rl.planning.ValueIterationClass import ValueIteration
+from simple_rl.mdp.StateClass import State
+from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask
 
 from collections import defaultdict
 
@@ -10,12 +12,31 @@ class AMDPPolicyGenerator(object):
      of abstract states
     '''
     def generatePolicy(self, state, grounded_task):
+        '''
+        Args:
+            state (State)
+            grounded_task (AbstractTask)
+        Returns:
+            policy (defaultdict)
+        '''
         pass
 
     def  generateAbstractState(self, state):
+        '''
+        Args:
+            state (State): state in the lower level MDP
+        Returns:
+            state (State): state in the current (higher) level of the MDP
+        '''
         pass
 
     def getPolicy(self, mdp, verbose=False):
+        '''
+        Args:
+            mdp (MDP): MDP (same level as the current Policy Generator)
+        Returns:
+            policy (defaultdict): optimal policy in mdp
+        '''
         vi = ValueIteration(mdp)
         vi.run_vi()
 
