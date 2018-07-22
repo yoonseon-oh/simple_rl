@@ -29,16 +29,18 @@ class TaxiOOMDP(OOMDP):
     ATTRIBUTES = ["x", "y", "has_passenger", "in_taxi", "dest_x", "dest_y"]
     CLASSES = ["agent", "wall", "passenger"]
 
-    def __init__(self, width, height, agent, walls, passengers, slip_prob=0, gamma=0.99):
+    def __init__(self, width, height, agent, walls, passengers, reward_func=None, slip_prob=0, gamma=0.99):
         self.height = height
         self.width = width
 
         agent_obj = OOMDPObject(attributes=agent, name="agent")
         wall_objs = self._make_oomdp_objs_from_list_of_dict(walls, "wall")
         pass_objs = self._make_oomdp_objs_from_list_of_dict(passengers, "passenger")
-
         init_state = self._create_state(agent_obj, wall_objs, pass_objs)
-        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, self._taxi_reward_func, init_state=init_state, gamma=gamma)
+        rf = self._taxi_reward_func if reward_func is None else reward_func
+
+        OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, rf, init_state=init_state, gamma=gamma)
+
         self.slip_prob = slip_prob
 
     def _create_state(self, agent_oo_obj, walls, passengers):
