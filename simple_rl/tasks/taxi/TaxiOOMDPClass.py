@@ -29,7 +29,7 @@ class TaxiOOMDP(OOMDP):
     ATTRIBUTES = ["x", "y", "has_passenger", "in_taxi", "dest_x", "dest_y"]
     CLASSES = ["agent", "wall", "passenger"]
 
-    def __init__(self, width, height, agent, walls, passengers, reward_func=None, slip_prob=0, gamma=0.99):
+    def __init__(self, width, height, agent, walls, passengers, goal_loc=None, slip_prob=0, gamma=0.99):
         self.height = height
         self.width = width
 
@@ -37,7 +37,9 @@ class TaxiOOMDP(OOMDP):
         wall_objs = self._make_oomdp_objs_from_list_of_dict(walls, "wall")
         pass_objs = self._make_oomdp_objs_from_list_of_dict(passengers, "passenger")
         init_state = self._create_state(agent_obj, wall_objs, pass_objs)
-        rf = self._taxi_reward_func if reward_func is None else reward_func
+
+        self.goal_location = goal_loc
+        rf = self._taxi_reward_func if goal_loc is None else self._navigation_reward_func
 
         OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, rf, init_state=init_state, gamma=gamma)
 
@@ -93,6 +95,14 @@ class TaxiOOMDP(OOMDP):
                         return 0 - self.step_cost
                 return 1 - self.step_cost
         return 0 - self.step_cost
+
+    def _navigation_reward_func(self, state, action):
+        _error_check(state, action)
+        next_state = self.transition_func(state, action)
+        agent = next_state.get_first_obj_of_class('agent')
+        if (agent['x'], agent['y']) == self.goal_location:
+            return 1. - self.step_cost
+        return 0. - self.step_cost
 
     def _taxi_transition_func(self, state, action):
         '''
