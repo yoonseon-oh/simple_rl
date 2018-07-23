@@ -3,6 +3,7 @@ from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL
 from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
 from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldPolicyGenerators import L0PolicyGenerator, L1PolicyGenerator
 from simple_rl.amdp.AMDPSolverClass import AMDPAgent
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapper import AbstractGridWorldL1StateMapper
 
 if __name__ == '__main__':
     start_location = (1, 1)
@@ -19,7 +20,7 @@ if __name__ == '__main__':
 
     policy_generators = []
     l0_policy_generator = L0PolicyGenerator(l0Domain)
-    l1_policy_generator = L1PolicyGenerator(l0Domain)
+    l1_policy_generator = L1PolicyGenerator(l0Domain, AbstractGridWorldL1StateMapper(l0Domain))
     policy_generators.append(l0_policy_generator)
     policy_generators.append(l1_policy_generator)
 

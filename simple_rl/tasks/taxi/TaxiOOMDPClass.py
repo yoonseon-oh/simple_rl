@@ -39,6 +39,7 @@ class TaxiOOMDP(OOMDP):
         init_state = self._create_state(agent_obj, wall_objs, pass_objs)
 
         self.goal_location = goal_loc
+        self.terminal_func = taxi_helpers.is_taxi_terminal_state if goal_loc is None else self._navigation_terminal_func
         rf = self._taxi_reward_func if goal_loc is None else self._navigation_reward_func
 
         OOMDP.__init__(self, TaxiOOMDP.ACTIONS, self._taxi_transition_func, rf, init_state=init_state, gamma=gamma)
@@ -104,6 +105,10 @@ class TaxiOOMDP(OOMDP):
             return 1. - self.step_cost
         return 0. - self.step_cost
 
+    def _navigation_terminal_func(self, state):
+        agent = state.get_first_obj_of_class('agent')
+        return (agent['x'], agent['y']) == self.goal_location
+
     def _taxi_transition_func(self, state, action):
         '''
         Args:
@@ -142,7 +147,7 @@ class TaxiOOMDP(OOMDP):
             next_state = state
 
         # Make terminal.
-        if taxi_helpers.is_taxi_terminal_state(next_state):
+        if self.terminal_func(next_state):
             next_state.set_terminal(True)
 
         # All OOMDP states must be updated.
@@ -246,6 +251,35 @@ class TaxiOOMDP(OOMDP):
                     agent.set_attribute("has_passenger", 0)
 
         return next_state
+
+    def location_for_color(self, color):
+        if color == 'red':
+            return 1, 1
+        if color == 'green':
+            return 1, self.height
+        if color == 'blue':
+            return self.width, self.height
+        if color == 'yellow':
+            return self.width, 1
+        raise ValueError('Did not expect color {}'.format(color))
+
+    def color_for_location(self, location):
+        if location == (1, 1):
+            return 'red'
+        if location == (1, self.height):
+            return 'green'
+        if location == (self.width, self.height):
+            return 'blue'
+        if location == (self.width, 1):
+            return 'yellow'
+        return ''
+
+    def in_goal_set(self, state):
+        agent = state.get_first_obj_of_class('agent')
+        passenger = state.get_first_obj_of_class('passenger')
+        return agent['x'] == passenger['x'] == passenger['dest_x'] and \
+               agent['y'] == passenger['y'] == passenger['dest_y'] and \
+               agent['has_passenger'] == passenger['in_taxi'] == False
 
 def _error_check(state, action):
     '''
