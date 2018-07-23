@@ -1,47 +1,45 @@
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1State
+from simple_rl.tasks.grid_world.GridWorldStateClass import GridWorldState
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1State, FourRoomRootGroundedAction, FourRoomL1GroundedAction
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapper import AbstractGridWorldL1StateMapper
 
 class L1PolicyGenerator(AMDPPolicyGenerator):
-    def __init__(self, l0MDP, verbose=False):
+    def __init__(self, l0MDP, state_mapper, verbose=False):
+        '''
+        Args:
+            l0MDP (FourRoomMDP): lower domain
+            state_mapper (AbstractGridWorldL1StateMapper): to map l0 states to l1 domain
+            verbose (bool): debug mode
+        '''
         self.domain = l0MDP
         self.verbose = verbose
+        self.state_mapper = state_mapper
 
     def generatePolicy(self, l1_state, grounded_action):
+        '''
+        Args:
+            l1_state (FourRoomL1State): generate policy in l1 domain starting from l1_state
+            grounded_action (FourRoomRootGroundedAction): TaskNode above defining the subgoal for current MDP
+        '''
         mdp = FourRoomL1MDP(l1_state.agent_in_room_number, grounded_action.goal_state.agent_in_room_number)
         return self.getPolicy(mdp)
 
-    # TODO: Figure out a way to project l0 state to l1 w/o having access to l0Domain in l1
     def generateAbstractState(self, l0_state):
-        l0_location = (l0_state.x, l0_state.y)
-        room = self.domain.get_room_numbers(l0_location)[0]
-        return FourRoomL1State(room)
+        return self.state_mapper.map_state(l0_state)
 
 class L0PolicyGenerator(AMDPPolicyGenerator):
-    def __init__(self, l0Domain, verbose=False):
-        self.domain = l0Domain
+    def __init__(self, l0_domain, verbose=False):
+        self.domain = l0_domain
         self.verbose = verbose
 
     def generatePolicy(self, state, grounded_task):
-        # TODO: There should be a better way to get the destination_room from the grounded_task (create GT class)
-        destination_location = self.domain._get_single_location_for_room(grounded_task.goal_state.agent_in_room_number)
+        '''
+        Args:
+             state (GridWorldState): plan in L0 starting from state
+             grounded_task (FourRoomL1GroundedAction): L1 TaskNode defining L0 subgoal
+        '''
+        destination_location = self.domain.get_single_location_for_room(grounded_task.goal_state.agent_in_room_number)
         init_location = (state.x, state.y)
         mdp = FourRoomMDP(self.domain.width, self.domain.height, init_loc=init_location, goal_locs=[destination_location])
         return self.getPolicy(mdp)
-
-if __name__ == '__main__':
-    start_location = (1, 1)
-    goal_location = (5, 5)
-
-    l0Domain = FourRoomMDP(width=5, height=5, init_loc=start_location, goal_locs=[goal_location])
-
-    start_room = l0Domain.get_room_numbers(start_location)[0]
-    goal_room = l0Domain.get_room_numbers(goal_location)[0]
-
-    l1Domain = FourRoomL1MDP(start_room, goal_room, l0Domain.gamma)
-
-    l0State = l0Domain.init_state
-    l1room = l0Domain.get_room_numbers((l0State.x, l0State.y))[0]
-    l1State = FourRoomL1State(l1room)
-
-    pg = L1PolicyGenerator(l0Domain)
