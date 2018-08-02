@@ -67,6 +67,12 @@ class GridWorldMDP(MDP):
     def set_slip_prob(self, slip_prob):
         self.slip_prob = slip_prob
 
+    def get_slip_prob(self):
+        return self.slip_prob
+
+    def is_goal_state(self, state):
+        return (state.x, state.y) in self.goal_locs
+
     def _reward_func(self, state, action):
         '''
         Args:
