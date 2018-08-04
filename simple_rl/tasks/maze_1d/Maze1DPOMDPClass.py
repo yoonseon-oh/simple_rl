@@ -11,13 +11,14 @@ class Maze1DPOMDP(POMDP):
     OBSERVATIONS = ['nothing', 'goal']
 
     def __init__(self):
-        self.states = [Maze1DState('left'), Maze1DState('middle'), Maze1DState('right'), Maze1DState('goal')]
+        self._states = [Maze1DState('left'), Maze1DState('middle'), Maze1DState('right'), Maze1DState('goal')]
 
         # Initial belief is a uniform distribution over states
         b0 = defaultdict()
-        for state in self.states: b0[state] = 0.25
+        for state in self._states: b0[state] = 0.25
 
-        POMDP.__init__(self, Maze1DPOMDP.ACTIONS, self._transition_func, self._reward_func, self._observation_func, b0)
+        POMDP.__init__(self, Maze1DPOMDP.ACTIONS, Maze1DPOMDP.OBSERVATIONS,
+                       self._transition_func, self._reward_func, self._observation_func, b0)
 
     def _transition_func(self, state, action):
         '''
@@ -56,3 +57,6 @@ class Maze1DPOMDP(POMDP):
         next_state = self._transition_func(state, action)
         observation = self._observation_func(state, action)
         return (1. - self.step_cost) if (next_state == observation == 'goal') else (0. - self.step_cost)
+
+if __name__ == '__main__':
+    maze_pomdp = Maze1DPOMDP()

@@ -1,9 +1,12 @@
 from collections import defaultdict
+from simple_rl.planning.ValueIterationClass import ValueIteration
+
+import pdb
 
 class BeliefUpdater(object):
     ''' Wrapper class for different methods for belief state updates in POMDPs. '''
 
-    def __init__(self, transition_func, reward_func, observation_func, updater_type='discrete'):
+    def __init__(self, mdp, transition_func, reward_func, observation_func, updater_type='discrete'):
         '''
         Args:
             transition_func: T(s, a) --> s'
@@ -13,6 +16,9 @@ class BeliefUpdater(object):
         '''
         self.reward_func = reward_func
         self.updater_type = updater_type
+
+        # We use the ValueIteration class to construct the transition and observation probabilities
+        self.vi = ValueIteration(mdp, sample_rate=500)
 
         self.transition_probs = self.construct_transition_matrix(transition_func)
         self.observation_probs = self.construct_observation_matrix(observation_func)
@@ -45,7 +51,8 @@ class BeliefUpdater(object):
         Returns:
             transition_probabilities (defaultdict): T(s, a, s') --> float
         '''
-        pass
+        self.vi._compute_matrix_from_trans_func()
+        return self.vi.trans_dict
 
     def construct_observation_matrix(self, observation_func):
         '''
@@ -57,4 +64,10 @@ class BeliefUpdater(object):
         Returns:
             observation_probabilities (defaultdict): O(s, z) --> float
         '''
-        pass
+        obs_dict = defaultdict(lambda:defaultdict(lambda:defaultdict(float)))
+        for state in self.vi.get_states():
+            for action in self.vi.mdp.actions:
+                for sample in range(self.vi.sample_rate):
+                    observation = observation_func(state, action)
+                    obs_dict[state][action][observation] += 1. / self.vi.sample_rate
+        return obs_dict
