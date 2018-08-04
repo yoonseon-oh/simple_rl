@@ -55,7 +55,7 @@ class POMDP(MDP):
         '''
         reward = self.belief_reward_func(self.curr_belief, action)
         observation = self.belief_observation_func(self.curr_belief, action)
-        new_belief = self.belief_updater_func(self.curr_belief, observation, action)
+        new_belief = self.belief_updater_func(self.curr_belief, action, observation)
 
         self.curr_belief = new_belief
         return reward, new_belief

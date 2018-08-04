@@ -9,6 +9,7 @@ class BeliefUpdater(object):
     def __init__(self, mdp, transition_func, reward_func, observation_func, updater_type='discrete'):
         '''
         Args:
+            mdp (POMDP)
             transition_func: T(s, a) --> s'
             reward_func: R(s, a) --> float
             observation_func: O(s) --> z
@@ -33,7 +34,24 @@ class BeliefUpdater(object):
             raise AttributeError('updater_type {} did not conform to expected type'.format(updater_type))
 
     def discrete_filter_updater(self, belief, action, observation):
-        pass
+        def _update(bel, st, spr, Tr, Ob, ac, obs):
+            return bel[st] * Ob[st][ac][obs] * Tr[st][ac][spr]
+
+        def _compute_normalization_factor(bel, Tr, Ob, ac, obs):
+            normalization_factor = sum([_update(bel, s, sp, Tr, Ob, ac, obs) for s in bel for sp in bel])
+            return normalization_factor
+
+        def _update_belief_for_state(b, s, T, O, a, z):
+            num = sum([_update(b, s, sp, T, O, a, z) for sp in b])
+            norm = _compute_normalization_factor(b, T, O, a, z)
+            return num / norm
+
+        new_belief = defaultdict()
+        for state in belief:
+            new_belief[state] = _update_belief_for_state(belief, state, self.transition_probs,
+                                                        self.observation_probs, action, observation)
+
+        return new_belief
 
     def kalman_filter_updater(self, belief, action, observation):
         pass
@@ -62,7 +80,7 @@ class BeliefUpdater(object):
             observation_func: O(s) -> z
 
         Returns:
-            observation_probabilities (defaultdict): O(s, z) --> float
+            observation_probabilities (defaultdict): O(s, a, z) --> float
         '''
         obs_dict = defaultdict(lambda:defaultdict(lambda:defaultdict(float)))
         for state in self.vi.get_states():
