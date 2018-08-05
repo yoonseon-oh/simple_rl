@@ -53,32 +53,33 @@ class POMDP(MDP):
             reward (float)
             next_belief (defaultdict)
         '''
-        reward = self.belief_reward_func(self.curr_belief, action)
-        observation = self.belief_observation_func(self.curr_belief, action)
+        reward = self.get_simulated_reward(action)
+        observation = self.get_simulated_observation(action)
         new_belief = self.belief_updater_func(self.curr_belief, action, observation)
 
+        # True underlying state inside the POMDP unobserved by any solver
+        _next_state = self.transition_func(self.cur_state, action)
+        self.cur_state = _next_state
         self.curr_belief = new_belief
-        return reward, new_belief
 
-    def belief_reward_func(self, belief, action):
+        return reward, observation, new_belief
+
+    def get_simulated_reward(self, action):
         '''
-        Convert R(s, a) to R(b, a) by taking an expectation over the belief states
+        Reward given by the simulated environment when the agent takes action from unobserved current state.
         Args:
             belief (defaultdict)
             action (str)
 
         Returns:
-            reward (float): R(b, a)
+            reward (float)
         '''
-        reward = 0.
-        for state in belief:
-            reward += belief[state] * self.reward_func(state, action)
+        reward = self.reward_func(self.cur_state, action)
         return reward
 
-    def belief_observation_func(self, belief, action):
+    def get_simulated_observation(self, action):
         '''
-        Simulate the POMDP providing the agent an observation by sampling from the
-        domain's observation function
+        Observation given by the simulated environment when the agent takes action from unobserved current state.
         Args:
             belief (defaultdict)
             action (str)
@@ -86,7 +87,5 @@ class POMDP(MDP):
         Returns:
             observation (str)
         '''
-        most_probable_state = max(belief, key=belief.get)
-        return self.observation_func(most_probable_state, action)
-
-
+        observation = self.observation_func(self.cur_state, action)
+        return observation
