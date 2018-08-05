@@ -7,8 +7,9 @@ import numpy as np
 # from libcpp.vector cimport vector
 import os
 import sys
-# from simple_rl.tasks.FetchPOMDP.jsonreader import load_json
-
+import file_reader as fr
+# from simple_rl.tasks.FetchPOMDP.config_reader import load_json
+#Run "python setup.py build_ext --inplace" to compile
 
 cdef obs_sampling_time = 0
 cdef estimate_qs_counter = 0
@@ -19,7 +20,7 @@ cdef belief_update_total_time = 0
 cdef observation_func_total_time = 0
 cdef gesture_func_total_time = 0
 cdef sample_gesture_total_time = 0
-
+# print(os.getcwd()+"\config.json")
 cdef double p_g = .1
 cdef double p_l = .95  # split into base and response probabilities
 cdef double p_r_match = .99
@@ -27,15 +28,18 @@ cdef double alpha = .2
 cdef double std_theta = .15
 cdef double discount = .9
 cdef error = 1
-cdef load_json(file_name):
-	with open(file_name) as json_data:
-		return json.load(json_data)
-cdef load_json_from_while_imported(file_name):
-	#Doesn't work - __file__ not defined for c modules.
-	#Want to get FetchPOMDP directory. Currently gets directory of file that imported this file
-	with open(os.path.join(sys.path[0], file_name)) as json_data:
-			return json.load(json_data)
-cdef config = load_json_from_while_imported("config.json")
+# cdef load_json(file_name):
+# 	# return {"items":["cup"]}
+# 	with open(file_name) as json_data:
+# 		return json.load(json_data)
+# cdef load_json_from_while_imported(file_name):
+# 	#Doesn't work - __file__ not defined for c modules.
+# 	#Want to get FetchPOMDP directory. Currently gets directory of file that imported this file
+# 	with open(os.path.join(sys.path[0], file_name)) as json_data:
+# 			return json.load(json_data)
+
+# cdef config = load_json(os.getcwd()+"\config.json")
+cdef config = fr.load_json("config.json")
 cdef bag_of_words = config["bag_of_words"]
 cpdef items = config["items"]
 cdef ATTRIBUTES = config["attributes"]
@@ -47,6 +51,7 @@ cdef double wait_cost = -1*(1.0/6.0)
 cdef double wrong_pick_cost = -20/num_items
 cdef double correct_pick_reward = 10/num_items
 cdef double info_value = 1
+import os
 
 cdef desired_item = 2
 cdef last_referenced_item = None

@@ -3,7 +3,7 @@
 # Python imports.
 import sys
 # Other imports.
-from simple_rl.tasks.FetchPOMDP.FetchPOMDPClass import FetchPOMDP
+from simple_rl.tasks.FetchPOMDP import FetchPOMDP
 from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
 
 

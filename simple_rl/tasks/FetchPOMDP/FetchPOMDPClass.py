@@ -5,19 +5,24 @@ import numpy as np
 import json
 import random
 import copy
+import os
+import sys
 from math import log
 from collections import defaultdict
 from time import time
 import timeit
 import math
 import cython
-# import pyximport;
-# pyximport.install()
-# import simple_rl.tasks.FetchPOMDP.cstuff as cstuff
-from simple_rl.tasks.FetchPOMDP import cstuff
-from simple_rl.tasks.FetchPOMDP.jsonreader import load_json
+print("In FetchPOMDPClass.py")
+print(os.getcwd()+"\config.json")
+print("sys.argv: " + str(sys.argv))
 
-jsonreader.load_json("as")
+import pyximport;
+pyximport.install()
+from simple_rl.tasks.FetchPOMDP import cstuff
+# from simple_rl.tasks.FetchPOMDP.__init__ import load_json
+
+# jsonreader.load_json("as")
 
 
 class FetchPOMDP(POMDP):
@@ -177,4 +182,4 @@ class FetchPOMDP(POMDP):
 		return self.curr_state
 	def get_mixed_belief(self):
 		return [self.curr_state["last_referenced_item"],self.curr_belief]
-# print(cstuff.get_items())
+print(cstuff.get_items())
