@@ -34,21 +34,20 @@ class BeliefUpdater(object):
             raise AttributeError('updater_type {} did not conform to expected type'.format(updater_type))
 
     def discrete_filter_updater(self, belief, action, observation):
-        def _compute_normalization_factor(bel, T, O, a, z):
-            norm = 0.
-            for sp in bel:
-                state_prob = sum([T[s][a][sp] * bel[s] for s in bel])
-                norm += (O[sp][a][z] * state_prob)
-            return norm
+        def _compute_normalization_factor(bel):
+            return sum(bel.values())
 
         def _update_belief_for_state(b, sp, T, O, a, z):
-            num = O[sp][a][z] * sum([T[s][a][sp] * b[s] for s in b])
-            norm = _compute_normalization_factor(b, T, O, a, z)
-            return num / norm if norm > 0 else 0.
+            return O[sp][a][z] * sum([T[s][a][sp] * b[s] for s in b])
 
         new_belief = defaultdict()
         for sprime in belief:
             new_belief[sprime] = _update_belief_for_state(belief, sprime, self.transition_probs, self.observation_probs, action, observation)
+
+        normalization = _compute_normalization_factor(new_belief)
+
+        for sprime in belief:
+            if normalization > 0: new_belief[sprime] /= normalization
 
         return new_belief
 
