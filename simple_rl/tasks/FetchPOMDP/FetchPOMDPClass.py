@@ -132,7 +132,7 @@ class FetchPOMDP(POMDP):
 		# print(" ")
 		return (reward, self.get_mixed_belief())
 
-	def belief_updater(self, belief, action, observation):
+	def belief_updater_func(self, belief, action, observation):
 		'''
 		:param belief: [last_referenced (index), [P(desired_item == i) i in items]]
 		:param action: action as string. ex. "pick 0"

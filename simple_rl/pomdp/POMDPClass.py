@@ -54,15 +54,11 @@ class POMDP(MDP):
             next_belief (defaultdict)
         '''
         reward = self.get_simulated_reward(action)
-        observation = self.get_simulated_observation(action)
-        new_belief = self.belief_updater_func(self.curr_belief, action, observation)
-
         # True underlying state inside the POMDP unobserved by any solver
-        _next_state = self.transition_func(self.cur_state, action)
-        self.cur_state = _next_state
-        self.curr_belief = new_belief
-
-        return reward, observation, new_belief
+        self.cur_state = self.transition_func(self.cur_state, action)
+        observation = self.get_simulated_observation(action)
+        self.curr_belief = self.belief_updater_func(self.curr_belief, action, observation)
+        return reward, observation, self.curr_belief
 
     def get_simulated_reward(self, action):
         '''
