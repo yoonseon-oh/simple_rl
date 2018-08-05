@@ -7,7 +7,7 @@ import cython
 from simple_rl.tasks.FetchPOMDP import cstuff
 
 class FetchPOMDPSolver(object):
-	def __init__(self,pomdp, horizon = 2, qvalue_method = "state based"):
+	def __init__(self,pomdp, horizon = 2, qvalue_method = "state based", use_gesture = True):
 		self.pomdp = pomdp
 		self.num_state_samples = pomdp.num_items
 		self.horizon = horizon
@@ -16,6 +16,11 @@ class FetchPOMDPSolver(object):
 			self.get_qvalues = self.get_qvalues_from_state
 		elif qvalue_method == "belief based":
 			self.get_qvalues = self.get_qvalues_from_belief
+		self.use_gesture = use_gesture
+		if use_gesture:
+			self.sample_observation = cstuff.sample_observation
+		else:
+			self.sample_observation = lambda s: {"language":cstuff.sample_language(s),"gesture":None}
 
 	def plan_from_belief(self, b):
 		sampled_states = cstuff.sample_states(b[1],self.num_state_samples)
@@ -55,7 +60,7 @@ class FetchPOMDPSolver(object):
 		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
 		#Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
-		observations = [cstuff.sample_observation(next_states[i]) for i in range(len(next_states))]
+		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
 		next_beliefs = [cstuff.belief_update(b,o) for o in observations]
 		next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
@@ -69,7 +74,7 @@ class FetchPOMDPSolver(object):
 		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
 		#Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
-		observations = [cstuff.sample_observation(next_states[i]) for i in range(len(next_states))]
+		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
 		next_beliefs = [cstuff.belief_update(b,o) for o in observations]
 		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
@@ -82,29 +87,31 @@ class FetchPOMDPSolver(object):
 		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
 		#Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
-		observations = [cstuff.sample_observation(next_states[i]) for i in range(len(next_states))]
+		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
 		next_beliefs = [cstuff.belief_update(b,o) for o in observations]
 		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
-	def get_qvalues_kl(self, b, true_state, horizon):
-		rewards = [self.pomdp.get_reward_from_state(true_state,a) for a in self.pomdp.actions]
-		if horizon == 0:
-			return rewards
-		actions = self.pomdp.actions
-		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
-		#Generalize for general BSS
-		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
-		observations = [cstuff.sample_observation(next_states[i]) for i in range(len(next_states))]
-		next_beliefs = [cstuff.belief_update(b,o) for o in observations]
-		kl_divs = [cstuff.kl_divergence(b,next_belief) for next_belief in next_beliefs]
-		rewards = [rewards[i] + info_value*kl_divs[i] for i in range(len(rewards))]
-		next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
-		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
+	# def get_qvalues_kl(self, b, true_state, horizon):
+	# 	rewards = [self.pomdp.get_reward_from_state(true_state,a) for a in self.pomdp.actions]
+	# 	if horizon == 0:
+	# 		return rewards
+	# 	actions = self.pomdp.actions
+	# 	next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
+	# 	#Generalize for general BSS
+	# 	terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
+	# 	observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
+	# 	next_beliefs = [cstuff.belief_update(b,o) for o in observations]
+	# 	kl_divs = [cstuff.kl_divergence(b,next_belief) for next_belief in next_beliefs]
+	# 	rewards = [rewards[i] + info_value*kl_divs[i] for i in range(len(rewards))]
+	# 	next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
+	# 	return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
 	def run(self, num_episodes=5):
 		#Differes from run by getting reward from mdp state in simulation
 		#TODO: Save entire history (not simulation)
+		num_correct = 0
+		num_wrong = 0
 		plan = self.plan_from_belief
 		start_time = time()
 		final_scores = []
@@ -127,18 +134,24 @@ class FetchPOMDPSolver(object):
 					running = False
 				# print("Terminal action: " + str(action))
 				# execute_start_time = time()
+				split_action = action.split(" ")
+				if split_action[0] == "pick":
+					if split_action[1] == str(self.pomdp.get_true_state()["desired_item"]):
+						num_correct += 1
+					else:
+						num_wrong += 1
 				ret = self.pomdp.execute_action(action)
 				# print("Execute time = "+ str(time() - execute_start_time))
 				reward = ret[0]
-				next_state = ret[1]
+				next_mixed_belief = ret[1]
 				# print_times()
 				discounted_sum_rewards += ((self.pomdp.gamma ** num_iter) * reward)
 				if not self.muted:
-					print('({}, {}, {}) -> {} | {}'.format(mixed_belief, action, next_state, reward, discounted_sum_rewards))
+					print('({}, {}, {}) -> {} | {}'.format(mixed_belief, action, next_mixed_belief, reward, discounted_sum_rewards))
 					print("")
 				# print_times()
-				mixed_belief = copy.deepcopy(next_state)
-				current_history = {"mixed_belief": next_state}
+				mixed_belief = copy.deepcopy(next_mixed_belief)
+				current_history = {"mixed_belief": next_mixed_belief}
 				if running:
 					action = plan(mixed_belief)
 					counter_plan_from_state += 1
@@ -168,4 +181,13 @@ class FetchPOMDPSolver(object):
 			print("belief update time: " + str(ctimes["belief_update_total_time"]))
 			print("observation_func_total_time: " + str(ctimes["observation_func_total_time"]))
 			print("gesture_func_total_time: " + str(ctimes["gesture_func_total_time"]))
-		return final_scores, counter_plan_from_state, history
+		return {"final_scores":final_scores,"counter_plan_from_state":counter_plan_from_state, "history":history,"num_correct":num_correct,"num_wrong":num_wrong}
+	def test_no_gesture(self):
+		s = {"desired_item":0, "last_referenced_item":None}
+		obs = self.sample_observation(s)
+		obs2 = cstuff.sample_language(s)
+		print('from self: ' + str(obs))
+		print('from c: ' + str(obs2))
+		# print(str(self.sample_observation))
+		if obs["gesture"] is not None and not self.use_gesture:
+			print("self.use_gesture == False but Received gesture anyway")

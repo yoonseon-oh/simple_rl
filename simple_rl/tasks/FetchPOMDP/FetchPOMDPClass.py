@@ -7,6 +7,7 @@ import random
 import copy
 import os
 import sys
+from simple_rl.tasks.FetchPOMDP import file_reader as fr
 from math import log
 from collections import defaultdict
 from time import time
@@ -53,12 +54,13 @@ class FetchPOMDP(POMDP):
 		self.std_theta = .15
 		self.std_theta_look = .3
 		self.gamma = .9
-
 		self.point_cost = -1
-		self.look_cost = -3
+		self.look_cost = -1 * (1.0/3.0)
 		self.wait_cost = -1 * (1.0 / 6.0)
 		self.wrong_pick_cost = -20 / self.num_items
 		self.correct_pick_reward = 10 / self.num_items
+		config = fr.load_json("config.json")
+		self.bag_of_words = config["bag_of_words"]
 
 		self.observation_func = cstuff.observation_func
 		self.belief_updater_type = "FetchPOMDP_belief_updater"
@@ -182,4 +184,11 @@ class FetchPOMDP(POMDP):
 		return self.curr_state
 	def get_mixed_belief(self):
 		return [self.curr_state["last_referenced_item"],self.curr_belief]
+
+	def get_constants(self):
+		c = {"wait_cost": self.wait_cost, "point_cost": self.point_cost, "wrong_pick_cost": self.wrong_pick_cost,
+		     "correct_pick_reward": self.correct_pick_reward, "items": self.items, "discount": self.gamma,
+		     "std_theta": self.std_theta,
+		     "bag_of_words": self.bag_of_words}
+		return c
 print(cstuff.get_items())

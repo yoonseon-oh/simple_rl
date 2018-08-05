@@ -1,5 +1,6 @@
-from FetchPOMDP import *
-
+from simple_rl.tasks.FetchPOMDP.FetchPOMDPClass import *
+from time import time
+import json
 
 def average(a):
 	avg = 0
@@ -89,7 +90,30 @@ def compare_horizons(n = 50):
 	with open('horizon_test.json', 'w') as fp:
 		json.dump(results, fp)
 
+def compare_gesture_no_gesture(n = 100):
+	start_static = time()
+	static_results = bs.run(num_episodes=n)
+	time_static = time() - start_static
 
-compare_static_and_static2(100
-                           )
+	start_static2 = time()
+	static2_results = bs.run2(num_episodes=n)
+	time_static2 = time() - start_static2
+	# print("static_state: "+ str(time_static) + "; "  + str(scores_static))
+	# print("static2: " + str(time_static2) + "; " + str(scores_static2))
+
+	results = {
+		"static2_scores": {"average": average(static2_results[0]), "num_positive": count_positive(static2_results[0]),
+		                   "all": static2_results[0]},
+		"static_scores": {"average": average(static_results[0]), "num_positive":count_positive(static_results[0]),"all": static_results[0]},
+		"static2_time": time_static2,
+		"static_time": time_static, "average_actions_static2": float(static2_results[1]) / n,
+		"average_actions_static": float(static_results[1]) / n}
+	results.update(get_constants())
+	# print(get_constants)
+	print(results)
+	with open('static v static2.json', 'w') as fp:
+		json.dump(results, fp)
+
+
+compare_static_and_static2(100)
 # compare_classic_and_static_run(100)

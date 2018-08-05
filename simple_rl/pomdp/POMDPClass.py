@@ -7,7 +7,7 @@ class POMDP(MDP):
     ''' Abstract class for a Partially Observable Markov Decision Process. '''
 
     def __init__(self, actions, observations, transition_func, reward_func, observation_func,
-                 init_belief, belief_updater_type='discrete', gamma=0.99, step_cost=0):
+                 init_belief, belief_updater_type='discrete', gamma=0.99, step_cost=0, transition_prob_func = None):
         '''
         In addition to the input parameters needed to define an MDP, the POMDP
         definition requires an observation function, a way to update the belief
@@ -29,7 +29,7 @@ class POMDP(MDP):
 
         # init_belief_state = BeliefState(data=init_belief.values())
         sampled_init_state = max(init_belief, key=init_belief.get)
-        MDP.__init__(self, actions, transition_func, reward_func, sampled_init_state, gamma, step_cost)
+        MDP.__init__(self, actions, transition_func, reward_func, sampled_init_state, gamma, step_cost, transition_prob_func = transition_prob_func)
 
         self.belief_updater = BeliefUpdater(self, transition_func, reward_func, observation_func, belief_updater_type)
         self.belief_updater_func = self.belief_updater.updater
@@ -85,3 +85,4 @@ class POMDP(MDP):
         '''
         observation = self.observation_func(self.cur_state, action)
         return observation
+

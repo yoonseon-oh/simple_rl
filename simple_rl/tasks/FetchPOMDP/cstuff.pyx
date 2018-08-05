@@ -46,7 +46,7 @@ cdef ATTRIBUTES = config["attributes"]
 cdef num_items = len(items)
 cdef double std_theta_look = .3
 cdef double point_cost = -1
-cdef double look_cost = -3
+cdef double look_cost = -1 * (1.0/3.0)
 cdef double wait_cost = -1*(1.0/6.0)
 cdef double wrong_pick_cost = -20/num_items
 cdef double correct_pick_reward = 10/num_items
@@ -275,7 +275,12 @@ cdef sample_gesture(s, allow_none=True):
 	sample_gesture_total_time += time() - start_time
 	return g
 
-
+cpdef sample_language(s):
+	language = sample_base_utterance(s)
+	# print("base in cstuff: " + str(language))
+	language.update(sample_response_utterance(s))
+	# print("composite in cstuff: " + str(language))
+	return language
 # Review sample response, base
 cdef sample_response_utterance(s):
 	"""
@@ -319,7 +324,7 @@ cdef sample_base_utterance(s):
 		r = random.sample(relevant_words_local, 1)
 	else:
 		r = random.sample(other_words_local, 1)
-	return r
+	return set(r)
 
 
 cpdef sample_observation(s):

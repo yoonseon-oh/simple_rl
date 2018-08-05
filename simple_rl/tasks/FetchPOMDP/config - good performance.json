@@ -1,0 +1,148 @@
+{
+  "items": [
+    {
+      "shape": "marker",
+      "color": "green",
+      "location": [
+        23,
+        45,
+        69
+      ]
+    },
+    {
+      "shape": "cup",
+      "color": "blue",
+      "location": [
+        96,
+        81,
+        85
+      ]
+    },
+    {
+      "shape": "marker",
+      "color": "yellow",
+      "location": [
+        27,
+        26,
+        12
+      ]
+    },
+    {
+      "shape": "cup",
+      "color": "blue",
+      "location": [
+        11,
+        42,
+        14
+      ]
+    },
+    {
+      "shape": "fork",
+      "color": "black",
+      "location": [
+        48,
+        56,
+        98
+      ]
+    },
+    {
+      "shape": "cup",
+      "color": "red",
+      "location": [
+        86,
+        52,
+        77
+      ]
+    },
+    {
+      "shape": "fork",
+      "color": "green",
+      "location": [
+        44,
+        70,
+        57
+      ]
+    },
+    {
+      "shape": "cup",
+      "color": "black",
+      "location": [
+        50,
+        54,
+        45
+      ]
+    },
+    {
+      "shape": "cup",
+      "color": "yellow",
+      "location": [
+        27,
+        55,
+        17
+      ]
+    },
+    {
+      "shape": "spoon",
+      "color": "yellow",
+      "location": [
+        99,
+        5,
+        95
+      ]
+    }
+  ],
+  "num_items": 10,
+  "bag_of_words": {
+    "spoon": [
+      "spoon",
+      "dipper"
+    ],
+    "cup": [
+      "cup",
+      "mug"
+    ],
+    "fork": [
+      "fork"
+    ],
+    "red": [
+      "red",
+      "pink",
+      "vermillion"
+    ],
+    "blue": [
+      "blue",
+      "turquoise"
+    ],
+    "yellow": [
+      "yellow"
+    ],
+    "green": [
+      "green"
+    ],
+    "black": [
+      "black",
+      "dark"
+    ],
+    "marker": [
+      "marker",
+      "expo"
+    ],
+    "position": []
+  },
+  "attributes": [
+    "shape",
+    "color"
+  ],
+  "p_g": 0.1,
+  "p_l": 0.95,
+  "p_r_match": 0.99,
+  "alpha": 0.2,
+  "std_theta": 0.15,
+  "std_theta_look": 0.3,
+  "point_cost": -6,
+  "look_cost": -3,
+  "wait_cost": -1,
+  "wrong_pick_cost": -20,
+  "correct_pick_reward": 10,
+  "discount": 0.9
+}

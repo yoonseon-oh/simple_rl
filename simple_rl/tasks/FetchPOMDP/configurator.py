@@ -37,21 +37,29 @@ def generate_location2(a,b,c):
 def sample(a):
 	return a[random.randrange(len(a))]
 
-
-def generate_items(shapes=["marker", "cup", "spoon", "fork"], colors=["red", "green", "blue", "black", "yellow"], n=6):
+default_shapes = ["marker", "cup", "spoon", "fork", "ball","phone"]
+default_colors = ["red", "green", "blue", "black", "yellow","white"]
+def generate_items(shapes=default_shapes, colors=default_colors, n=6):
 	items = [{"shape": sample(shapes), "color": sample(colors), "location": generate_location()} for i in range(n)]
 	for i in range(n):
 		print(str(items[i]) + ",")
 	return items
-def generate_items2(shapes=["marker", "cup", "spoon", "fork"], colors=["red", "green", "blue", "black", "yellow"], n=6):
+def generate_items2(shapes=default_shapes, colors=default_colors, n=6):
 	items = [{"shape": sample(shapes), "color": sample(colors), "location": generate_location(max = 2)} for i in range(n)]
 	for i in range(n):
 		print(str(items[i]) + ",")
 	return items
-def generate_items3(shapes=["marker", "cup", "spoon", "fork"], colors=["red", "green", "blue", "black", "yellow"], n=6):
+def generate_items3(shapes=default_shapes, colors=default_colors, n=6):
 	items = [{"shape": sample(shapes), "color": sample(colors), "location": generate_location2(100,0,0)} for i in range(n)]
 	for i in range(n):
 		print(str(items[i]) + ",")
+	return items
+def generate_items_unambiguous(shapes = default_shapes, colors = default_colors, n = 6):
+	items = []
+	for i in range(n):
+		# location = [(i+1) * 1000.0/n, 0, 0]
+		location = generate_location(max = 100)
+		items.append({"shape":shapes[i], "color":colors[i], "location":location})
 	return items
 def union_dictionary(dictionary):
 	un = set()
@@ -79,7 +87,8 @@ def get_irrelevant_words(item_index, bag):
 	return list(words)
 
 ATTRIBUTES = ["shape", "color"]
-items = generate_items(n=8)
+# items = generate_items_unambiguous(n=6)
+items = generate_items_unambiguous(n=6)
 
 bag_of_words = {
 	"spoon": ["spoon", "dipper"],
@@ -91,6 +100,22 @@ bag_of_words = {
 	"green": ["green"],
 	"black": ["black", "dark"],
 	"marker": ["marker", "expo"],
+	"ball": ["ball","sphere"],
+	"phone": ["phone"],
+	"white": ["white"],
+	"position": []
+}
+bag_of_words_simple = {
+	"spoon": ["spoon", "dipper"],
+	"cup": ["cup", "mug"],
+	"fork": ["fork"],
+	"red": ["red", "pink", "vermillion"],
+	"blue": ["blue", "turquoise"],
+	"yellow": ["yellow"],
+	"green": ["green"],
+	"black": ["black", "dark"],
+	"marker": ["marker", "expo"],
+	"ball": ["ball"],
 	"position": []
 }
 all_words = union_dictionary(bag_of_words)

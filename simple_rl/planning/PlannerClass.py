@@ -12,6 +12,7 @@ class Planner(object):
         self.actions = mdp.get_actions()
         self.reward_func = mdp.get_reward_func()
         self.transition_func = mdp.get_transition_func()
+        self.transition_prob_func = mdp.get_transition_prob_function()
         self.gamma = mdp.gamma
         self.has_planned = False
 
