@@ -44,6 +44,13 @@ class POMDP(MDP):
         '''
         return self.observation_func
 
+    def get_observations(self):
+        '''
+        Returns:
+            observations (list): strings representing discrete set of observations
+        '''
+        return self.observations
+
     def execute_agent_action(self, action):
         '''
         Args:
@@ -53,39 +60,10 @@ class POMDP(MDP):
             reward (float)
             next_belief (defaultdict)
         '''
-        reward = self.get_simulated_reward(action)
-        observation = self.get_simulated_observation(action)
+        observation = self.observation_func(self.cur_state, action)
         new_belief = self.belief_updater_func(self.curr_belief, action, observation)
-
-        # True underlying state inside the POMDP unobserved by any solver
-        _next_state = self.transition_func(self.cur_state, action)
-        self.cur_state = _next_state
         self.curr_belief = new_belief
 
+        reward, next_state = super(POMDP, self).execute_agent_action(action)
+
         return reward, observation, new_belief
-
-    def get_simulated_reward(self, action):
-        '''
-        Reward given by the simulated environment when the agent takes action from unobserved current state.
-        Args:
-            belief (defaultdict)
-            action (str)
-
-        Returns:
-            reward (float)
-        '''
-        reward = self.reward_func(self.cur_state, action)
-        return reward
-
-    def get_simulated_observation(self, action):
-        '''
-        Observation given by the simulated environment when the agent takes action from unobserved current state.
-        Args:
-            belief (defaultdict)
-            action (str)
-
-        Returns:
-            observation (str)
-        '''
-        observation = self.observation_func(self.cur_state, action)
-        return observation
