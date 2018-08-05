@@ -57,8 +57,12 @@ class POMDP(MDP):
         observation = self.belief_observation_func(self.curr_belief, action)
         new_belief = self.belief_updater_func(self.curr_belief, action, observation)
 
+        # True underlying state inside the POMDP unobserved by any solver
+        _next_state = self.transition_func(self.cur_state, action)
+        self.cur_state = _next_state
         self.curr_belief = new_belief
-        return reward, new_belief
+
+        return reward, observation, new_belief
 
     def belief_reward_func(self, belief, action):
         '''
@@ -77,8 +81,8 @@ class POMDP(MDP):
 
     def belief_observation_func(self, belief, action):
         '''
-        Simulate the POMDP providing the agent an observation by sampling from the
-        domain's observation function
+        The simulated agent provides the agent with an observation based on the true underlying state
+        of the MDP.
         Args:
             belief (defaultdict)
             action (str)
@@ -86,7 +90,5 @@ class POMDP(MDP):
         Returns:
             observation (str)
         '''
-        most_probable_state = max(belief, key=belief.get)
-        return self.observation_func(most_probable_state, action)
-
-
+        observation = self.observation_func(self.cur_state, action)
+        return observation
