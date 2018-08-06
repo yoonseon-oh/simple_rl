@@ -123,20 +123,5 @@ def test_belief_state_class():
 	print("pomdp.curr_belief_state[1]: " + str(pomdp.curr_belief_state[1]))
 	solver.plan_from_belief(pomdp.curr_belief_state)
 def main(open_plot=True):
-	# Setup MDP, Agents.
-	# pomdp = FetchPOMDP()
-	# solver = FetchPOMDPSolver(pomdp, horizon= 2)
-	# solver.muted = False
-
-    # Run experiment and make plot.
-	# results = solver.run(num_episodes=100)
-	# num_positive = len([i for i in results["final_scores"] if i > 0])
-	# print("num_positive: " + str(num_positive))
-	# compare_gesture_no_gesture(1000)
-	# compare_observation_models(())
-	# pomdp = FetchPOMDP()
-	# solver_sans_gesture = FetchPOMDPSolver(pomdp, horizon=2, use_gesture=False)
-	# solver_sans_gesture.test_no_gesture()
 	compare_observation_models((True,True),(False,True),n=100)
-	# test_belief_state_class()
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
