@@ -1,0 +1,1 @@
+Changing FetchPOMDP to use simple_rl states seemed to increase computing time by ~10-30%

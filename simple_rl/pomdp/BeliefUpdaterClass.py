@@ -6,7 +6,7 @@ import pdb
 class BeliefUpdater(object):
     ''' Wrapper class for different methods for belief state updates in POMDPs. '''
 
-    def __init__(self, mdp, transition_func, reward_func, observation_func, updater_type='discrete'):
+    def __init__(self, mdp, transition_func, reward_func, observation_func, updater_type='discrete', observation_prob_func= None):
         '''
         Args:
             mdp (POMDP)
@@ -14,6 +14,7 @@ class BeliefUpdater(object):
             reward_func: R(s, a) --> float
             observation_func: O(s) --> z
             updater_type (str)
+            observation_prob_func: O(o,s,a) --> Prob(o | s,a)
         '''
         self.reward_func = reward_func
         self.updater_type = updater_type
@@ -23,7 +24,8 @@ class BeliefUpdater(object):
 
         self.transition_probs = self.construct_transition_matrix(transition_func)
         self.observation_probs = self.construct_observation_matrix(observation_func)
-
+        #
+        self.observation_probs_func = observation_prob_func
         if updater_type == 'discrete':
             self.updater = self.discrete_filter_updater
         elif updater_type == 'kalman':
@@ -50,7 +52,9 @@ class BeliefUpdater(object):
             if normalization > 0: new_belief[sprime] /= normalization
 
         return new_belief
-
+    def discrete_filter_updater_Fetch(self, belief, action, observation):
+        observation_probs = [self.observation_prob_func(observation, {"desired_item": i, "last_referenced_item": b[0]}) for i in
+                             range(len(b[1]))]
     def kalman_filter_updater(self, belief, action, observation):
         pass
 

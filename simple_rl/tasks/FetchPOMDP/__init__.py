@@ -9,4 +9,4 @@
 # 	with open(json_path) as json_data:
 # 		return json.load(json_data)
 __all__ = ['cstuff']
-from .FetchPOMDPClass import FetchPOMDP, FetchPOMDP
+from .FetchPOMDPClass import FetchPOMDP

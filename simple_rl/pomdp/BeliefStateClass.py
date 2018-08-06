@@ -26,14 +26,36 @@ class BeliefState(State):
         '''
         pass
 
-class FlatFiniteBeliefState(BeliefState):
+class FlatDiscreteBeliefState(BeliefState):
+    '''
+
+    '''
     def __init__(self, data):
+        '''
+        :param data: [known part of state, 1D probability distribution (list) over the unknown part of state]
+        '''
         BeliefState.__init__(self,data)
     def belief(self, state):
-        return self.data[1][state]
+       '''
+       :param state: Index of state you wish to test
+       :return: Probability that state is true
+       '''
+       return self.data[1][state]
     def sample(self):
+        '''
+        :return: A sample for the unknown part of the state.
+        '''
         return cstuff.sample_state(self.data[1])
     @staticmethod
-    def generate(length, type = "uniform"):
+    def generate(length,known_data = [], type = "uniform"):
         if type == "uniform":
-            return [1.0/float(length) for i in range(length)]
+            return [known_data,[1.0/float(length) for i in range(length)]]
+    def get_most_likely(self):
+        pd = self.data[1]
+        most_likely_index = 0
+        highest_probability = 0
+        for i in range(len(pd)):
+            if pd[i] > highest_probability:
+                highest_probability = pd[i]
+                most_likely_index = i
+        return [most_likely_index,highest_probability]

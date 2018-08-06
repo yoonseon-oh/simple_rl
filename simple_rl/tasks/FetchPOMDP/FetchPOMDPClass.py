@@ -1,6 +1,6 @@
 # v 0.5
 from simple_rl.pomdp.POMDPClass import POMDP
-from simple_rl.pomdp.BeliefStateClass import FlatFiniteBeliefState
+from simple_rl.pomdp.BeliefStateClass import FlatDiscreteBeliefState
 from simple_rl.mdp.StateClass import State
 import numpy as np
 # import scipy.stats
@@ -29,7 +29,9 @@ from simple_rl.tasks.FetchPOMDP import cstuff
 
 
 class FetchPOMDP(POMDP):
-	def __init__(self,items = None, desired_item = 0):
+	def __init__(self,items = None, desired_item = 0, use_gesture = True, use_language = True):
+		# print("use_gesture: " + str(use_gesture))
+		# print("use_language: " + str(use_language))
 		if items is None:
 			self.items = cstuff.get_items()
 		else:
@@ -37,7 +39,7 @@ class FetchPOMDP(POMDP):
 		self.num_items = len(self.items)
 		self.init_state = State([desired_item,None])
 		self.curr_state = copy.copy(self.init_state)
-		self.init_belief_state = FlatFiniteBeliefState([self.init_state[1], [1.0 / len(self.items) for i in range(self.num_items)]])
+		self.init_belief_state = FlatDiscreteBeliefState([self.init_state[1], [1.0 / len(self.items) for i in range(self.num_items)]])
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.actions = []
 		for i in range(self.num_items):
@@ -47,8 +49,8 @@ class FetchPOMDP(POMDP):
 		self.actions.append("wait")
 		self.p_g = .1
 		self.p_l = .95
-		self.p_r_match = .99
-		self.alpha = .2
+		# self.p_r_match = .999
+		# self.alpha = .2
 		self.std_theta = .15
 		self.std_theta_look = .3
 		self.gamma = .9
@@ -65,9 +67,25 @@ class FetchPOMDP(POMDP):
 		self.observation_space_type = "continuous"
 		self.state_space_type = "discrete"
 		self.action_space_type = "discrete"
+		self.use_gesture = use_gesture
+		self.use_language = use_language
 		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief_state,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
+		if use_gesture:
+			if use_language:
+				# self.sample_observation = cstuff.sample_observation_detailed
+				self.sample_observation = cstuff.sample_observation
 
-
+			else:
+				self.sample_observation = lambda s: {"language": None, "gesture": cstuff.sample_gesture(s)}
+		elif use_language:
+			# self.sample_observation = lambda s: {"language": cstuff.sample_language_detailed(s), "gesture": None}
+			self.sample_observation = lambda s: {"language": cstuff.sample_language(s), "gesture": None}
+		else:
+			self.sample_observation = lambda s: {"language": None, "gesture": None}
+			self.belief_update = lambda b, o: b
+			print("Using neither language nor gesture in FetchPOMDP.")
+			print("use_gesture: " + str(use_gesture))
+			print("use_language: " + str(use_language))
 
 	def observation_func(self,o,s,a = None):
 		'''
@@ -91,13 +109,6 @@ class FetchPOMDP(POMDP):
 				return self.correct_pick_reward
 			else:
 				return self.wrong_pick_cost
-	def sample_observation_from_state(self,state):
-		'''
-		:param state: state object
-		:return:
-		'''
-		return cstuff.sample_observation(state)
-
 
 	def belief_update(self,belief,observation,action = None):
 		'''
@@ -106,16 +117,15 @@ class FetchPOMDP(POMDP):
 		:param action:
 		:return:
 		'''
-		return cstuff.belief_update(belief)
+		return cstuff.belief_update(belief,observation)
 
 	def transition_func(self,state,action):
 		vals = action.split(" ")
 		if vals[0] in ["look", "point"]:
 			s1 = copy.deepcopy(state)
-			s1["last_referenced_item"] = int(vals[1])
+			s1[1] = int(vals[1])
 			return s1
 		return state
-
 	def execute_action(self, action):
 		vals = action.split(" ")
 		if vals[0] in ("point", "look"):
@@ -128,7 +138,28 @@ class FetchPOMDP(POMDP):
 			else:
 				reward = self.wrong_pick_cost
 		# results =  self.generate(self.cur_state, action)
-		observation = cstuff.sample_observation2(self.curr_state)
+		observation = self.sample_observation(self.curr_state)
+		self.update_curr_belief_state(observation)
+		#TODO: Refactor belief_update to return only belief distribution
+		# self.curr_belief_state = cstuff.belief_update(self.curr_belief_state, observation)[1]
+		# print("Observation: " + str(observation))
+		# print("Updated belief: " + str(self.cur_state))
+		# print("Reward: " + str(reward))
+		# print(" ")
+		return (reward, self.curr_belief_state)
+	def execute_action_robot(self, action):
+		vals = action.split(" ")
+		if vals[0] in ("point", "look"):
+			self.curr_state[1] = vals[1]
+		if vals[0] != "pick":
+			reward = self.get_reward_from_state(self.curr_state, action)
+		else:
+			if int(vals[1]) == self.curr_state[0]:
+				reward = self.correct_pick_reward
+			else:
+				reward = self.wrong_pick_cost
+		# results =  self.generate(self.cur_state, action)
+		observation = get_observation()
 		self.update_curr_belief_state(observation)
 		#TODO: Refactor belief_update to return only belief distribution
 		# self.curr_belief_state = cstuff.belief_update(self.curr_belief_state, observation)[1]
@@ -162,7 +193,7 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			if int(vals[1]) == state["desired_item"]:
+			if int(vals[1]) == state[0]:
 				return self.correct_pick_reward
 			else:
 				return self.wrong_pick_cost
@@ -185,7 +216,7 @@ class FetchPOMDP(POMDP):
 		return [self.curr_state[1], self.curr_belief_state]
 	def update_curr_belief_state(self, observation):
 		self.curr_belief_state[0] = self.curr_state[1]
-		self.curr_belief_state = cstuff.belief_update(self.curr_belief_state,observation)
+		self.curr_belief_state = self.belief_update(self.curr_belief_state,observation)
 		return self.curr_belief_state
 	def get_constants(self):
 		c = {"wait_cost": self.wait_cost, "point_cost": self.point_cost, "wrong_pick_cost": self.wrong_pick_cost,
@@ -193,5 +224,25 @@ class FetchPOMDP(POMDP):
 		     "std_theta": self.std_theta,
 		     "bag_of_words": self.bag_of_words}
 		return c
+	def get_observation(self):
+		pass
 
-print(cstuff.get_items())
+def test_arguments():
+	pomdp = FetchPOMDP(use_gesture=False)
+# def test_language():
+# 	pomdp = FetchPOMDP(use_gesture=False)
+# 	# pomdp.execute_action("point 3")
+# 	pomdp.curr_state[1] = 3
+# 	pomdp.curr_belief_state[0] = 3
+# 	s = pomdp.curr_state
+# 	b = pomdp.curr_belief_state
+# 	print("b: " + str(b))
+# 	o_r = cstuff.sample_response_utterance(s)
+# 	o_l = cstuff.sample_language(s)
+# 	print("response: " + str(o_r))
+# 	print("language: " + str(o_l))
+# 	r_prob =
+# 	b1 = pomdp.belief_update(b,{"language":o_r,"gesture":None})
+# 	print("b1: " + str(b1))
+#
+# test_language()
