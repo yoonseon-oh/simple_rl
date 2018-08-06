@@ -1,11 +1,24 @@
 from simple_rl.mdp.StateClass import State
 
+from collections import defaultdict
+
 class BeliefState(State):
     '''
-     Abstract class defining a belief state, i.e a probability distribution over states
+     Abstract class defining a belief state, i.e a probability distribution over states.
     '''
-    def __init__(self, data=[]):
-        State.__init__(self, data=data)
+    def __init__(self, belief_distribution):
+        '''
+        Args:
+            belief_distribution (defaultdict)
+        '''
+        self.distribution = belief_distribution
+        State.__init__(self, data=belief_distribution.values())
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return str(self.distribution)
 
     def belief(self, state):
         '''
@@ -14,11 +27,13 @@ class BeliefState(State):
         Returns:
             belief[state] (float): probability that agent is in state
         '''
-        pass
+        return self.distribution[state]
 
-    def sample(self):
+    def sample(self, sampling_method='max'):
         '''
         Returns:
             sampled_state (State)
         '''
-        pass
+        if sampling_method == 'max':
+            return max(self.distribution, key=self.distribution.get)
+        raise NotImplementedError('Sampling method {} not implemented yet'.format(sampling_method))
