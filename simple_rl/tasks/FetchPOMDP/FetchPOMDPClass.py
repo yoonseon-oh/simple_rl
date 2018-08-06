@@ -1,5 +1,7 @@
 # v 0.5
 from simple_rl.pomdp.POMDPClass import POMDP
+from simple_rl.pomdp.BeliefStateClass import FlatFiniteBeliefState
+from simple_rl.mdp.StateClass import State
 import numpy as np
 # import scipy.stats
 import json
@@ -33,14 +35,10 @@ class FetchPOMDP(POMDP):
 		else:
 			self.items = items
 		self.num_items = len(self.items)
-		self.init_belief = [1.0/len(self.items) for i in range(self.num_items)]
-		self.curr_belief = copy.copy(self.init_belief)
-		self.init_state = {"desired_item":desired_item, "last_referenced_item":None}
-		# self.curr_state["desired_item"] = desired_item
-		# self.last_referenced_item = None
+		self.init_state = State([desired_item,None])
 		self.curr_state = copy.copy(self.init_state)
-		# self.init_mixed_belief = [self.init_state["last_referenced_item"],self.init_belief]
-		# self.curr_mixed_belief = copy.copy(self.init_mixed_belief)
+		self.init_belief_state = FlatFiniteBeliefState([self.init_state[1], [1.0 / len(self.items) for i in range(self.num_items)]])
+		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.actions = []
 		for i in range(self.num_items):
 			self.actions.append("pick " + str(i))
@@ -67,7 +65,7 @@ class FetchPOMDP(POMDP):
 		self.observation_space_type = "continuous"
 		self.state_space_type = "discrete"
 		self.action_space_type = "discrete"
-		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
+		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief_state,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
 
 
 
@@ -89,7 +87,7 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			if int(vals[1]) == s["desired_item"]:
+			if int(vals[1]) == s[0]:
 				return self.correct_pick_reward
 			else:
 				return self.wrong_pick_cost
@@ -121,23 +119,24 @@ class FetchPOMDP(POMDP):
 	def execute_action(self, action):
 		vals = action.split(" ")
 		if vals[0] in ("point", "look"):
-			self.curr_state["last_referenced_item"] = vals[1]
+			self.curr_state[1] = vals[1]
 		if vals[0] != "pick":
 			reward = self.get_reward_from_state(self.curr_state, action)
 		else:
-			if int(vals[1]) == self.curr_state["desired_item"]:
+			if int(vals[1]) == self.curr_state[0]:
 				reward = self.correct_pick_reward
 			else:
 				reward = self.wrong_pick_cost
 		# results =  self.generate(self.cur_state, action)
-		observation = cstuff.sample_observation(self.curr_state)
+		observation = cstuff.sample_observation2(self.curr_state)
+		self.update_curr_belief_state(observation)
 		#TODO: Refactor belief_update to return only belief distribution
-		self.curr_belief = cstuff.belief_update(self.get_mixed_belief(), observation)[1]
+		# self.curr_belief_state = cstuff.belief_update(self.curr_belief_state, observation)[1]
 		# print("Observation: " + str(observation))
 		# print("Updated belief: " + str(self.cur_state))
 		# print("Reward: " + str(reward))
 		# print(" ")
-		return (reward, self.get_mixed_belief())
+		return (reward, self.curr_belief_state)
 
 	def belief_updater_func(self, belief, action, observation):
 		'''
@@ -148,14 +147,14 @@ class FetchPOMDP(POMDP):
 		'''
 		return cstuff.belief_update(belief,observation)
 	def reset(self):
-		self.curr_belief = self.init_belief
-		self.curr_state["desired_item"] = random.sample([i for i in range(len(self.items))],1)[0]
-		self.curr_state["last_referenced_item"] = None
+		self.curr_belief_state = self.init_belief_state
+		self.curr_state[0] = random.sample([i for i in range(len(self.items))],1)[0]
+		self.curr_state[1] = None
 	def is_terminal(self, s, a):
 		vals = a.split(" ")
 		return vals[0] == "pick"
-	def get_reward_from_state(self,s,a):
-		vals = a.split(" ")
+	def get_reward_from_state(self, state, action):
+		vals = action.split(" ")
 		if vals[0] == "point":
 			return self.point_cost
 		if vals[0] == "look":
@@ -163,12 +162,12 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			if int(vals[1]) == s["desired_item"]:
+			if int(vals[1]) == state["desired_item"]:
 				return self.correct_pick_reward
 			else:
 				return self.wrong_pick_cost
-	def get_reward(self, b, a):
-		vals = a.split(" ")
+	def get_reward(self, belief_state, action):
+		vals = action.split(" ")
 		if vals[0] == "point":
 			return self.point_cost
 		if vals[0] == "look":
@@ -176,19 +175,23 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			correct_prob = b[1][int(vals[1])]
+			correct_prob = belief_state[1][int(vals[1])]
 			reward = correct_prob * self.correct_pick_reward + (1 - correct_prob) * self.wrong_pick_cost
 			return reward
 		print("Action with unknown reward: " + vals[0])
 	def get_true_state(self):
 		return self.curr_state
 	def get_mixed_belief(self):
-		return [self.curr_state["last_referenced_item"],self.curr_belief]
-
+		return [self.curr_state[1], self.curr_belief_state]
+	def update_curr_belief_state(self, observation):
+		self.curr_belief_state[0] = self.curr_state[1]
+		self.curr_belief_state = cstuff.belief_update(self.curr_belief_state,observation)
+		return self.curr_belief_state
 	def get_constants(self):
 		c = {"wait_cost": self.wait_cost, "point_cost": self.point_cost, "wrong_pick_cost": self.wrong_pick_cost,
 		     "correct_pick_reward": self.correct_pick_reward, "items": self.items, "discount": self.gamma,
 		     "std_theta": self.std_theta,
 		     "bag_of_words": self.bag_of_words}
 		return c
+
 print(cstuff.get_items())

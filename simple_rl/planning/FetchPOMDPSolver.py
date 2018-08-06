@@ -7,7 +7,7 @@ import cython
 from simple_rl.tasks.FetchPOMDP import cstuff
 
 class FetchPOMDPSolver(object):
-	def __init__(self,pomdp, horizon = 2, qvalue_method = "state based", use_gesture = True):
+	def __init__(self,pomdp, horizon = 2, qvalue_method = "state based", use_gesture = True, use_language = True):
 		self.pomdp = pomdp
 		self.num_state_samples = pomdp.num_items
 		self.horizon = horizon
@@ -18,10 +18,15 @@ class FetchPOMDPSolver(object):
 			self.get_qvalues = self.get_qvalues_from_belief
 		self.use_gesture = use_gesture
 		if use_gesture:
-			self.sample_observation = cstuff.sample_observation
+			if use_language:
+				self.sample_observation = cstuff.sample_observation
+			else:
+				self.sample_observation = lambda s: {"language": None, "gesture": cstuff.sample_gesture(s)}
 		else:
-			self.sample_observation = lambda s: {"language":cstuff.sample_language(s),"gesture":None}
-
+			if use_language:
+				self.sample_observation = lambda s: {"language": cstuff.sample_language(s), "gesture": None}
+			else:
+				self.sample_observation = lambda s: {"language": None, "gesture": None}
 	def plan_from_belief(self, b):
 		sampled_states = cstuff.sample_states(b[1],self.num_state_samples)
 		list_of_q_lists = [self.get_qvalues(b, {"desired_item":s, "last_referenced_item":b[0]}, self.horizon) for s in sampled_states]
@@ -124,7 +129,7 @@ class FetchPOMDPSolver(object):
 				print(" ")
 				print('Episode {}: '.format(episode))
 			self.pomdp.reset()
-			mixed_belief = self.pomdp.get_mixed_belief()
+			mixed_belief = self.pomdp.get_curr_belief()
 			action = plan(mixed_belief)
 			current_history = {"mixed_belief":mixed_belief, "action": action}
 			history.append(current_history)
@@ -136,7 +141,7 @@ class FetchPOMDPSolver(object):
 				# execute_start_time = time()
 				split_action = action.split(" ")
 				if split_action[0] == "pick":
-					if split_action[1] == str(self.pomdp.get_true_state()["desired_item"]):
+					if split_action[1] == str(self.pomdp.curr_state[0]):
 						num_correct += 1
 					else:
 						num_wrong += 1

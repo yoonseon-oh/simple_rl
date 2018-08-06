@@ -88,8 +88,7 @@ def get_irrelevant_words(item_index, bag):
 
 ATTRIBUTES = ["shape", "color"]
 # items = generate_items_unambiguous(n=6)
-items = generate_items_unambiguous(n=6)
-
+items = generate_items(n=6)
 bag_of_words = {
 	"spoon": ["spoon", "dipper"],
 	"cup": ["cup", "mug"],

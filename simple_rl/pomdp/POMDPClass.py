@@ -25,9 +25,9 @@ class POMDP(MDP):
         '''
         self.observations = observations
         self.observation_func = observation_func
-        self.curr_belief = init_belief
+        self.curr_belief_state = init_belief
 
-        # init_belief_state = BeliefState(data=init_belief.values())
+        # init_belief_state = BeliefState(data=init_belief_state.values())
         sampled_init_state = max(init_belief, key=init_belief.get)
         MDP.__init__(self, actions, transition_func, reward_func, sampled_init_state, gamma, step_cost, transition_prob_func = transition_prob_func)
 
@@ -35,7 +35,7 @@ class POMDP(MDP):
         self.belief_updater_func = self.belief_updater.updater
 
     def get_curr_belief(self):
-        return self.curr_belief
+        return self.curr_belief_state
 
     def get_observation_func(self):
         '''
@@ -57,8 +57,8 @@ class POMDP(MDP):
         # True underlying state inside the POMDP unobserved by any solver
         self.cur_state = self.transition_func(self.cur_state, action)
         observation = self.get_simulated_observation(action)
-        self.curr_belief = self.belief_updater_func(self.curr_belief, action, observation)
-        return reward, observation, self.curr_belief
+        self.curr_belief_state = self.belief_updater_func(self.curr_belief_state, action, observation)
+        return reward, observation, self.curr_belief_state
 
     def get_simulated_reward(self, action):
         '''

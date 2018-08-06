@@ -335,6 +335,15 @@ cpdef sample_observation(s):
 	gesture = sample_gesture(s)
 	obs_sampling_time += time() - start_time
 	return {"language": language, "gesture": gesture}
+cpdef sample_observation2(s):
+	translated_state = {"desired_item":s[0], "last_referenced_item":s[1]}
+	global obs_sampling_time
+	cdef double start_time = time()
+	language = sample_response_utterance(translated_state)
+	language.update(sample_base_utterance(translated_state))
+	gesture = sample_gesture(translated_state)
+	obs_sampling_time += time() - start_time
+	return {"language": language, "gesture": gesture}
 
 cdef list cross(list u, list v):
 	return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
@@ -361,6 +370,9 @@ cpdef sample_states(b, int n = 1):
 		found_state = 0
 		cumulative_probability = 0
 		while found_state == 0 and i in range(len(b)):
+			if type(b[i]) is type(None):
+				print("b[i] is None: i = " + str(i))
+				print("b[1]: " + str(b[1]))
 			cumulative_probability += b[i]
 			#Avoid duplicates
 			if random.random() < cumulative_probability and i not in states:

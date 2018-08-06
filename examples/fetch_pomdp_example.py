@@ -5,7 +5,7 @@ import sys
 from time import time
 import json
 # Other imports.
-from simple_rl.tasks.FetchPOMDP import FetchPOMDP, cstuff
+from simple_rl.tasks.FetchPOMDP import FetchPOMDP, FetchPOMDP, cstuff
 from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
 #TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 #Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
@@ -38,6 +38,7 @@ def compare_gesture_no_gesture(n = 100, horizon = 2):
 	solver_sans_gesture = FetchPOMDPSolver(pomdp,horizon=horizon,use_gesture=False)
 	solver_creation_time = time() -start
 	print("Created solver in " + str(solver_creation_time) + " seconds")
+	solver_sans_gesture.muted = False
 	#solve
 	start = time()
 	sans_gesture_results = solver_sans_gesture.run(num_episodes=n)
@@ -59,10 +60,68 @@ def compare_gesture_no_gesture(n = 100, horizon = 2):
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
-	with open('with_gesture v no_gesture unambiguous' + str(time()) + '.json', 'w') as fp:
+	with open('with_gesture v no_gesture' + str(time()) + '.json', 'w') as fp:
 		json.dump(results, fp)
 
+def compare_observation_models(obs_mod1 =(True,True), obs_mod2 = (True,True), n = 100, horizon = 2):
+	'''
+	:param obs_mod1: (use_gesture, use_language)
+	:param obs_mod2: (use_gesture, use_language)
+	:param n: Number of trials
+	:param horizon: depth of forward search
+	:return: None. prints and writes results in a json file.
+	'''
+	solve1_name = "(" + ""
 
+	pomdp = FetchPOMDP()
+	#create solver
+	start = time()
+	solver1 = FetchPOMDPSolver(pomdp, horizon= horizon, use_gesture=obs_mod1[0], use_language= obs_mod1[1])
+	solver_creation_time = time() - start
+	print("Created solver in " + str(solver_creation_time) + " seconds")
+	solver1.muted = False
+	#solve
+	start = time()
+	solver1_results = solver1.run(num_episodes=n)
+	solver1_time_elapsed = time() - start
+	print(" ")
+
+	#create solver
+	start = time()
+	solver2 = FetchPOMDPSolver(pomdp,horizon=horizon,use_gesture=obs_mod2[0], use_language=obs_mod2[1])
+	solver_creation_time = time() -start
+	print("Created solver in " + str(solver_creation_time) + " seconds")
+	solver2.muted = False
+	#solve
+	start = time()
+	solver2_results = solver2.run(num_episodes=n)
+	solver2_time_elapsed = time() - start
+
+	# print("solver1_state: "+ str(solver1_time_elapsed) + "; "  + str(scores_solver1))
+	# print("no_gesture: " + str(solver2_time_elapsed) + "; " + str(scores_no_gesture))
+	print("solver2_results:")
+	print(str(solver2_results))
+	print("solver1_results:")
+	print(str(solver1_results))
+	results = {"horizon": horizon,
+		"no_gesture_scores": {"average": average(solver2_results["final_scores"]), "num_correct": solver2_results["num_correct"],
+		                   "all": solver2_results["final_scores"]},
+		"solver1_scores": {"average": average(solver1_results["final_scores"]), "num_correct": solver1_results["num_correct"],"all": solver1_results["final_scores"]},
+		"no_gesture_time": solver2_time_elapsed,
+		"solver1_time": solver1_time_elapsed, "average_actions_no_gesture": float(solver2_results["counter_plan_from_state"]) / n,
+		"average_actions_solver1": float(solver1_results["counter_plan_from_state"]) / n}
+	results.update(pomdp.get_constants())
+	# print(get_constants)
+	print(results)
+	with open('solver1 v no_gesture' + str(time()) + '.json', 'w') as fp:
+		json.dump(results, fp)
+
+def test_belief_state_class():
+	pomdp = FetchPOMDP()
+	solver = FetchPOMDPSolver(pomdp, horizon= 2)
+	print("pomdp.curr_belief_state[0]: " + str(pomdp.curr_belief_state[0]))
+	print("pomdp.curr_belief_state[1]: " + str(pomdp.curr_belief_state[1]))
+	solver.plan_from_belief(pomdp.curr_belief_state)
 def main(open_plot=True):
 	# Setup MDP, Agents.
 	# pomdp = FetchPOMDP()
@@ -73,8 +132,11 @@ def main(open_plot=True):
 	# results = solver.run(num_episodes=100)
 	# num_positive = len([i for i in results["final_scores"] if i > 0])
 	# print("num_positive: " + str(num_positive))
-	compare_gesture_no_gesture(1000)
+	# compare_gesture_no_gesture(1000)
+	# compare_observation_models(())
 	# pomdp = FetchPOMDP()
 	# solver_sans_gesture = FetchPOMDPSolver(pomdp, horizon=2, use_gesture=False)
 	# solver_sans_gesture.test_no_gesture()
+	compare_observation_models((True,True),(False,True),n=100)
+	# test_belief_state_class()
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
