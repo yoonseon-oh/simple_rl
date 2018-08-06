@@ -249,7 +249,11 @@ class FetchPOMDPSolver(object):
 				current_history["action"] = "Fin"
 	# def receive_observation(self, o):
 	# 	self.pomp.curr_belief_state = self.belief_update_robot(self.pomdp.curr_belief_state,o)
-
+	def act(self, observation):
+		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state,observation)
+		next_action = self.plan_from_belief(self.pomdp.curr_belief_state)
+		self.pomdp.execute_action_robot(next_action)
+		return next_action
 
 	def plan_from_belief_and_observation(self,b,o):
 		b2 = self.belief_update(b,o)

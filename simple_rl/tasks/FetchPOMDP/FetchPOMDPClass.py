@@ -150,7 +150,8 @@ class FetchPOMDP(POMDP):
 	def execute_action_robot(self, action):
 		vals = action.split(" ")
 		if vals[0] in ("point", "look"):
-			self.curr_state[1] = vals[1]
+			self.curr_state[1] = int(vals[1])
+			self.curr_belief_state[0] = int(vals[1])
 		if vals[0] != "pick":
 			reward = self.get_reward_from_state(self.curr_state, action)
 		else:
@@ -159,8 +160,8 @@ class FetchPOMDP(POMDP):
 			else:
 				reward = self.wrong_pick_cost
 		# results =  self.generate(self.cur_state, action)
-		observation = get_observation()
-		self.update_curr_belief_state(observation)
+		# observation = get_observation()
+		# self.update_curr_belief_state(observation)
 		#TODO: Refactor belief_update to return only belief distribution
 		# self.curr_belief_state = cstuff.belief_update(self.curr_belief_state, observation)[1]
 		# print("Observation: " + str(observation))

@@ -12,7 +12,7 @@ from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
 # TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 # Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
 # The old version was much better. Why?
-output_directory = "C:\\Users\\Brolly\\Documents\\simple_rl\\simple_rl\\tasks\\FetchPOMDP\\FetchPOMDP trials\\"
+output_directory = "C:\\Users\\Brolly\\Documents\\simple_rl-FetchPOMDP\\simple_rl\\tasks\\FetchPOMDP\\FetchPOMDP Trials"
 
 
 def get_full_path(file_name="Test results", ext=".json"):
