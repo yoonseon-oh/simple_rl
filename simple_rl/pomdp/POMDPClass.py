@@ -25,6 +25,7 @@ class POMDP(MDP):
         '''
         self.observations = observations
         self.observation_func = observation_func
+        self.init_belief = init_belief
         self.curr_belief = init_belief
 
         # init_belief_state = BeliefState(data=init_belief.values())
