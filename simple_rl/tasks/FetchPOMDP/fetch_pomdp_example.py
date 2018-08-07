@@ -91,32 +91,32 @@ def test(obs_mod1=(True, True), n=100, horizon=2):
 	'''
 	solve1_name = "(" + ""
 
-	pomdp = FetchPOMDP()
+	pomdp = FetchPOMDP(use_look= True)
+	pomdp.muted = False
 	# create solver
 	start = time()
-	solver1 = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1])
+	solver = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1],qvalue_method="belief based")
 	solver_creation_time = time() - start
 	print("Created solver in " + str(solver_creation_time) + " seconds")
-	solver1.muted = False
+	solver.muted = False
 	# solve
 	start = time()
-	solver1_results = solver1.run(num_episodes=n)
-	solver1_time_elapsed = time() - start
+	solver_results = solver.run(num_episodes=n)
+	solver_time_elapsed = time() - start
 	print(" ")
 
 
 	results = {"horizon": horizon,
-	           "solver1": {"use_gesture":obs_mod1[0], "use_language":obs_mod1[1],
-	                       "time": solver1_time_elapsed,
-	                       "average_actions": float(solver1_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver1_results["final_scores"]),
-	                       "num_correct": solver1_results["num_correct"], "all": solver1_results["final_scores"]}}
+	           "solver": {"time": solver_time_elapsed,
+	                       "average_actions": float(solver_results["counter_plan_from_state"]) / n,
+	                       "average": average(solver_results["final_scores"]),
+	                       "solver_results":solver_results}}
 	print("Results:" + "\n" +str(results))
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
 	with open(get_full_path("compare observation models "), 'w') as fp:
-		json.dump(results, fp)
+		json.dump(results, fp, indent=4)
 
 def compare_observation_models(obs_mod1=(True, True), obs_mod2=(True, True), n=100, horizon=2):
 	'''
@@ -237,8 +237,8 @@ def main(open_plot=True):
 	# test_gestureless_pomdp(10)
 	# test_arguments()
 	# test_gestureless_pomdp(10, horizon=3)
-	test_heuristic_planner(n =100)
+	# test_heuristic_planner(n =1000)
 
-	# test((True,True), n=10)
+	test((True,True), n=10)
 
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
