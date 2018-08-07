@@ -30,7 +30,7 @@ class BeliefMDP(MDP):
         Returns:
             new_belief (defaultdict)
         '''
-        observation = self._get_observation_from_environment(belief_state, action)
+        observation = self._get_observation_from_environment(action)
         next_belief_distribution = self.belief_updater_func(belief_state.distribution, action, observation)
         return BeliefState(next_belief_distribution)
 
