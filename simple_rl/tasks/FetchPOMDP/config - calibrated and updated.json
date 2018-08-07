@@ -1,98 +1,61 @@
 {
   "items": [
     {
-      "shape": "fork",
+      "shape": "cylinder",
       "color": "blue",
       "location": [
-        15,
-        28,
-        17
-      ]
-    },
-    {
-      "shape": "fork",
-      "color": "purple",
-      "location": [
-        38,
-        32,
-        67
-      ]
-    },
-    {
-      "shape": "cylinder",
-      "color": "red",
-      "location": [
-        50,
-        5,
-        49
+        0.5085,
+        -0.66,
+        -0.116
       ]
     },
     {
       "shape": "ball",
       "color": "red",
       "location": [
-        1,
-        54,
-        3
-      ]
-    },
-    {
-      "shape": "fork",
-      "color": "yellow",
-      "location": [
-        48,
-        76,
-        60
-      ]
-    },
-    {
-      "shape": "marker",
-      "color": "green",
-      "location": [
-        60,
-        69,
-        28
-      ]
-    },
-    {
-      "shape": "cylinder",
-      "color": "red",
-      "location": [
-        24,
-        11,
-        7
-      ]
-    },
-    {
-      "shape": "cup",
-      "color": "white",
-      "location": [
-        77,
-        16,
-        89
+        0.48,
+        -0.398,
+        -0.118
       ]
     },
     {
       "shape": "marker",
       "color": "purple",
       "location": [
-        49,
-        42,
-        4
+        0.469,
+        -0.152,
+        -0.118
       ]
     },
     {
-      "shape": "cylinder",
+      "shape": "ball",
+      "color": "blue",
+      "location": [
+        0.43,
+        0.189,
+        -0.12
+      ]
+    },
+    {
+      "shape": "block",
       "color": "yellow",
       "location": [
-        49,
-        98,
-        20
+        0.405,
+        0.423,
+        -0.118
+      ]
+    },
+    {
+      "shape": "marker",
+      "color": "green",
+      "location": [
+        0.36,
+        0.71,
+        -0.12
       ]
     }
   ],
-  "desired_item": 0,
-  "num_items": 10,
+  "num_items": 6,
   "bag_of_words": {
     "spoon": [
       "spoon",

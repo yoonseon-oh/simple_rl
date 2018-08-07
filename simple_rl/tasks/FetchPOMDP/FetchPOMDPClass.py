@@ -29,7 +29,7 @@ from simple_rl.tasks.FetchPOMDP import cstuff
 
 
 class FetchPOMDP(POMDP):
-	def __init__(self,items = None, desired_item = 0, use_gesture = True, use_language = True):
+	def __init__(self,items = None, desired_item = 0, use_gesture = True, use_language = True, use_look = False):
 		# print("use_gesture: " + str(use_gesture))
 		# print("use_language: " + str(use_language))
 		if items is None:
@@ -45,6 +45,8 @@ class FetchPOMDP(POMDP):
 		for i in range(self.num_items):
 			self.actions.append("pick " + str(i))
 			self.actions.append("point " + str(i))
+			if use_look:
+				self.actions.append("look " + str(i))
 		# self.actions.append("look " + str(i))
 		self.actions.append("wait")
 
@@ -70,6 +72,7 @@ class FetchPOMDP(POMDP):
 		self.action_space_type = "discrete"
 		self.use_gesture = use_gesture
 		self.use_language = use_language
+		self.use_look = use_look
 		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief_state,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
 		if use_gesture:
 			if use_language:
@@ -228,12 +231,14 @@ class FetchPOMDP(POMDP):
 		return self.curr_belief_state
 	def get_constants(self):
 		c = {"wait_cost": self.wait_cost, "point_cost": self.point_cost, "wrong_pick_cost": self.wrong_pick_cost,
-		     "correct_pick_reward": self.correct_pick_reward, "items": self.items, "gamma": self.gamma,
+		     "correct_pick_reward": self.correct_pick_reward,"look_cost": self.look_cost, "items": self.items, "gamma": self.gamma,
 		     "std_theta": self.std_theta,
 		     "bag_of_words": self.bag_of_words}
 		return c
 	def get_observation(self):
 		pass
+	def get_potential_actions(self,state):
+		return self.actions
 
 def test_arguments():
 	pomdp = FetchPOMDP(use_gesture=False)

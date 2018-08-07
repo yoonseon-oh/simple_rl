@@ -41,8 +41,8 @@ def sample(a):
 	return a[random.randrange(len(a))]
 
 
-default_shapes = ["marker", "cup", "spoon", "fork", "ball", "phone"]
-default_colors = ["red", "green", "blue", "black", "yellow", "white"]
+default_shapes = ["marker", "cup", "spoon", "fork", "ball", "cylinder"]
+default_colors = ["red", "green", "blue", "yellow", "white","purple"]
 
 
 def generate_items(shapes=default_shapes, colors=default_colors, n=6):
@@ -211,7 +211,7 @@ calibrated_bag_of_words = {
     ],
     "position": []
   }
-items = generate_items(n=6)
+items = generate_items(n=10)
 # bag_of_words = {
 # 	"spoon": ["spoon", "dipper"],
 # 	"cup": ["cup", "mug"],
@@ -228,24 +228,11 @@ items = generate_items(n=6)
 # 	"position": []
 # }
 bag_of_words = calibrated_bag_of_words
+items = calibrated_items
 all_words = union_dictionary(bag_of_words)
-relevant_words = [get_relevant_words(i, bag_of_words, calibrated_items) for i in range(len(items))]
-irrelevant_words = [get_irrelevant_words(i, bag_of_words, calibrated_items) for i in range(len(items))]
-# config = {"items": items,
-#           "bag_of_words": bag_of_words,
-#           "p_g": .1,
-#           "p_l": .95,
-#           "p_r_match": .99,
-#           "alpha": .2,
-#           "std_theta": .15,
-#           "std_theta_look": .3,
-#           "point_cost": -6,
-#           "look_cost": -3,
-#           "wait_cost": -1,
-#           "wrong_pick_cost": -20,
-#           "correct_pick_reward": 10,
-#           "discount": .9}
-config = {"items": calibrated_items,
+relevant_words = [get_relevant_words(i, bag_of_words, items) for i in range(len(items))]
+irrelevant_words = [get_irrelevant_words(i, bag_of_words, items) for i in range(len(items))]
+config = {"items":  items,
           "desired_item": 0,
           "num_items": len(items),
           "bag_of_words": bag_of_words,
