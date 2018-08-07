@@ -43,7 +43,7 @@ class FetchPOMDPSolver(object):
 
 	def plan_from_belief(self, b):
 		sampled_states = cstuff.sample_states(b[1], self.num_state_samples)
-		list_of_q_lists = [self.get_qvalues(b, [s, b[0]], self.horizon) for s in sampled_states]
+		list_of_q_lists = [self.get_qvalues(b, [s, b[0][0],b[0][1]], self.horizon) for s in sampled_states]
 		weights = cstuff.unit_vectorn([b[1][i] for i in sampled_states])
 		average_q_values = []
 		max_q = -10000
@@ -165,6 +165,8 @@ class FetchPOMDPSolver(object):
 				print('Episode {}: '.format(episode))
 			self.pomdp.reset()
 			curr_belief_state = self.pomdp.get_curr_belief()
+			if curr_belief_state[0][1] in ["point","look"]:
+				raise ValueError("Belief is messed up: " + str(b[0]))
 			action = plan(curr_belief_state)
 			counter_plan_from_state +=1
 			history = []

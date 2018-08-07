@@ -8,6 +8,7 @@ import numpy as np
 import os
 import sys
 from simple_rl.tasks.FetchPOMDP import file_reader as fr
+
 # import file_reader as fr
 # import simple_rl.tasks.FetchPOMDP.file_reader as fr
 
@@ -55,6 +56,7 @@ cdef double point_cost = config["point_cost"]
 cdef double p_g = config["p_g"]
 cdef double p_l = config["p_l"]  # split into base and response probabilities
 cdef double p_r_match = config["p_r_match"]
+cdef double p_r_match_look = config["p_r_match_look"]
 cdef double alpha = config["alpha"]
 cdef double std_theta = config["std_theta"]
 cdef double gamma = config["gamma"]
@@ -102,7 +104,7 @@ cpdef double sum(list a):
 	for i in range(len(a)):
 		total += a[i]
 	return total
-cpdef list subtract(list a,list b):
+cpdef list subtract(list a, list b):
 	return [a[i] - b[i] for i in range(len(a))]
 
 cpdef double dot(list a, list b):
@@ -134,11 +136,11 @@ cpdef unit_vector(list a):
 	return [a[0] / den, a[1] / den, a[2] / den]
 
 cpdef unit_vectorn(list a):
-		cdef double den = 0
-		cdef int i
-		for i in range(len(a)):
-			den += a[i]
-		return [a[i]/den for i in range(len(a))]
+	cdef double den = 0
+	cdef int i
+	for i in range(len(a)):
+		den += a[i]
+	return [a[i] / den for i in range(len(a))]
 
 cpdef double angle_between(list v1, list v2):
 	v1_u = unit_vector(v1)
@@ -166,16 +168,17 @@ cpdef belief_update(b, o):
 	# if (o["language"] is None or o["language"] == set()) and o["gesture"] is None:
 	# 	belief_update_total_time += time() - start
 	# 	return b
-	observation_probs = [observation_func(o, [i, b[0]]) for i in
+	observation_probs = [observation_func(o, [i, b[0][0], b[0][1]]) for i in
 	                     range(len(b[1]))]
 	denominator = dot(b[1], observation_probs)
 	if denominator == 0:
-		print("b[1] dot observation_probs = 0")
+		print("b[2] dot observation_probs = 0")
 		print("b = " + str(b))
 		print("observation_probs = " + str(observation_probs))
 		print("o = " + str(o))
 		return b
-	ret = [b[0], [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
+	ret = [[b[0][0], b[0][1]],
+	       [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
 	belief_update_total_time += time() - start
 	return ret
 cpdef belief_update_robot(b, o):
@@ -190,14 +193,14 @@ cpdef belief_update_robot(b, o):
 	# if (o["language"] is None or o["language"] == set()) and o["gesture"] is None:
 	# 	belief_update_total_time += time() - start
 	# 	return b
-	language_probs = [language_func(o["language"], [i, b[0]]) for i in
-	                     range(len(b[1]))]
-	gesture_probs = [gesture_func_robot(o["gesture"], [i, b[0]]) for i in
-	                     range(len(b[1]))]
+	language_probs = [language_func(o["language"], [i, [b[0], b[1]]]) for i in
+	                  range(len(b[1]))]
+	gesture_probs = [gesture_func_robot(o["gesture"], [i, b[0], b[1]]) for i in
+	                 range(len(b[1]))]
 	max_gesture_prob = maxish(gesture_probs)
 	if max_gesture_prob < .10:
-		gesture_probs = [gesture_func_robot(None, [i, b[0]]) for i in
-	                     range(len(b[1]))]
+		gesture_probs = [gesture_func_robot(None, [i, [b[0], b[1]]]) for i in
+		                 range(len(b[1]))]
 	observation_probs = [language_probs[i] * gesture_probs[i] for i in
 	                     range(len(b[1]))]
 	denominator = dot(b[1], observation_probs)
@@ -207,7 +210,8 @@ cpdef belief_update_robot(b, o):
 		print("observation_probs = " + str(observation_probs))
 		print("o = " + str(o))
 		return b
-	ret = [b[0], [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
+	ret = [[b[0][1], b[0][1]],
+	       [b[2][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
 	belief_update_total_time += time() - start
 	return ret
 
@@ -245,10 +249,10 @@ cpdef double gesture_func_robot(o, s):
 	else:
 		# target = items[s[0]]["location"]
 		# ideal_vector = [target[0] - human_pointing_source[0],target[1] - human_pointing_source[1],target[2] - human_pointing_source[2]]
-		head = [o[0],o[1],o[2]]
-		end_effector = [o[3],o[4],o[5]]
-		given_vector = subtract(end_effector,head)
-		ideal_vector = subtract(items[s[0]]["location"],head)
+		head = [o[0], o[1], o[2]]
+		end_effector = [o[3], o[4], o[5]]
+		given_vector = subtract(end_effector, head)
+		ideal_vector = subtract(items[s[0]]["location"], head)
 		prob = vec_prob(ideal_vector, given_vector)
 	gesture_func_total_time += time() - start_time
 	return prob
@@ -274,11 +278,14 @@ cpdef double response_probability(l, s):
 		return 1 - p_l
 	if s[1] is None:
 		return .5 ** (len(positive_responses) + len(negative_responses))
+	match_prob = p_r_match
+	if s[2] == "look":
+		match_prob = p_r_match_look
 	if s[0] == s[1]:
-		return p_r_match ** (num_positive_included + num_negative_omitted) \
-		       * (1 - p_r_match) ** (num_positive_omitted + num_negative_omitted)
-	return (1 - p_r_match) ** (num_positive_included + num_negative_omitted) \
-	       * p_r_match ** (num_positive_omitted + num_negative_omitted)
+		return match_prob ** (num_positive_included + num_negative_omitted) \
+		       * (1 - match_prob) ** (num_positive_omitted + num_negative_omitted)
+	return (1 - match_prob) ** (num_positive_included + num_negative_omitted) \
+	       * match_prob ** (num_positive_omitted + num_negative_omitted)
 
 cpdef double base_probability(l, vocab, words):
 	'''
@@ -315,7 +322,7 @@ cdef sample_gesture(s, allow_none=True):
 	cdef double w1 = math.cos(angle_off)
 	cdef double w2 = math.sin(angle_off)
 	cdef list g = [w1 * ideal_vector[0] + w2 * orthogonal_vector[0], w1 * ideal_vector[1] + w2 * orthogonal_vector[1],
-	     w1 * ideal_vector[2] + w2 * orthogonal_vector[2]]
+	               w1 * ideal_vector[2] + w2 * orthogonal_vector[2]]
 	empirical_angle_off = angle_between(ideal_vector, g)
 	if False and abs(angle_off - empirical_angle_off) > .01:
 		print("angle_off - empirical_angle_off = " + str(angle_off - empirical_angle_off))
@@ -343,14 +350,16 @@ cpdef sample_response_utterance(s):
 	"""
 	if s[1] is None or random.random() > p_l:
 		return set()  # This seems more reasonable than randomly picking yes/no
+	match_prob = p_r_match
+	if s[2] == "look":
+		match_prob = p_r_match_look
 	if s[1] == s[0]:
-		if random.random() < p_r_match:
+		if random.random() < match_prob:
 			return set(["yes"])
 		return set(["no"])
-	if random.random() < p_r_match:
+	if random.random() < match_prob:
 		return set(["no"])
 	return set(["yes"])
-
 
 cdef sample_base_utterance(s):
 	"""
@@ -405,12 +414,11 @@ cdef sample_base_utterance_detailed(s):
 
 	if random.random() < num_relevant_words * (1 - alpha) / (num_relevant_words + alpha * num_all_words):
 		# r = random.sample(relevant_words_local, 1)
-		r = [random.sample(bag_of_words[items[s[0]][attr]],1)[0] for attr in ATTRIBUTES]
+		r = [random.sample(bag_of_words[items[s[0]][attr]], 1)[0] for attr in ATTRIBUTES]
 
 	else:
 		r = random.sample(other_words_local, 1)
 	return set(r)
-
 
 cpdef sample_observation(s):
 	global obs_sampling_time
@@ -429,20 +437,19 @@ cpdef sample_observation_detailed(s):
 	obs_sampling_time += time() - start_time
 	return {"language": language, "gesture": gesture}
 
-
 cdef list cross(list u, list v):
 	return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
 
 def get_times():
-	return {"estimate_qs_counter":estimate_qs_counter,
-	"estimate_qs_total_time":estimate_qs_total_time,
-	"v_total_time":v_total_time,
-	"generate_total_time":generate_total_time,
-	"belief_update_total_time":belief_update_total_time,
-	"observation_func_total_time":observation_func_total_time,
-	"gesture_func_total_time":gesture_func_total_time,
-	"sample_gesture_total_time":sample_gesture_total_time,
-	"obs_sampling_time": obs_sampling_time}
+	return {"estimate_qs_counter": estimate_qs_counter,
+	        "estimate_qs_total_time": estimate_qs_total_time,
+	        "v_total_time": v_total_time,
+	        "generate_total_time": generate_total_time,
+	        "belief_update_total_time": belief_update_total_time,
+	        "observation_func_total_time": observation_func_total_time,
+	        "gesture_func_total_time": gesture_func_total_time,
+	        "sample_gesture_total_time": sample_gesture_total_time,
+	        "obs_sampling_time": obs_sampling_time}
 #
 cpdef sample_states(b, int n = 1):
 	cdef states = []
@@ -465,8 +472,8 @@ cpdef sample_states(b, int n = 1):
 				found_state = 1
 			#If we have not selected a state becusae of floating point error, return a uniformly random state
 			i += 1
-		if found_state ==1:
-			states.append(random.sample([i for i in range(len(b))],1)[0])
+		if found_state == 1:
+			states.append(random.sample([i for i in range(len(b))], 1)[0])
 	return states
 
 cpdef sample_state(list b):
@@ -477,18 +484,18 @@ cpdef sample_state(list b):
 		if random.random() < cumulative_probability:
 			return i
 	# In case the distribution added to slightly below 1 and we had bad luck
-	return random.sample([i for i in range(len(b))],1)[0]
+	return random.sample([i for i in range(len(b))], 1)[0]
 
-cpdef states_equal(s1,s2):
-	if s1[0] == s2[0] and s1[1] == s2[1]:
+cpdef states_equal(s1, s2):
+	if s1[0] == s2[0] and s1[1] == s2[1] and s1[2] == s2[2]:
 		return True
 	return False
 
-cpdef kl_divergence(list a,list b):
+cpdef kl_divergence(list a, list b):
 	cdef int i
 	cdef double div = 0
 	for i in range(len(a)):
-		div += a[i] * math.log(a[i]/b[i])
+		div += a[i] * math.log(a[i] / b[i])
 	return div
 
 cpdef maxish(a):
@@ -496,22 +503,21 @@ cpdef maxish(a):
 		return a
 	return max(a)
 
-
 cpdef dict get_qvalues2(self, list b, dict true_state, int horizon):
 	#self may not work. Test
 	cdef list actions = self.pomdp.actions
-	cdef list rewards = [self.pomdp.get_reward_from_state(true_state,a) for a in actions]
+	cdef list rewards = [self.pomdp.get_reward_from_state(true_state, a) for a in actions]
 	cdef int i
 	cdef int num_actions = len(actions)
 	if horizon == 0:
 		return rewards
 	actions = self.pomdp.actions
-	next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
+	next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
 	cdef int num_next_states = len(next_states)
 	#Generalize for general BSS
 	terminal_states = [i for i in range(num_actions) if actions[i].split(" ")[0] == "pick"]
 	observations = [sample_observation(next_states[i]) for i in range(num_next_states)]
-	next_beliefs = [belief_update(b,o) for o in observations]
+	next_beliefs = [belief_update(b, o) for o in observations]
 	# next_qvalues = [get_qvalues2(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(num_next_states)]
 	next_qvalues = []
 	for i in range(num_next_states):

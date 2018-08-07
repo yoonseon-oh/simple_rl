@@ -37,9 +37,9 @@ class FetchPOMDP(POMDP):
 		else:
 			self.items = items
 		self.num_items = len(self.items)
-		self.init_state = State([desired_item,None])
+		self.init_state = State([desired_item,None,None])
 		self.curr_state = copy.copy(self.init_state)
-		self.init_belief_state = FlatDiscreteBeliefState([self.init_state[1], [1.0 / len(self.items) for i in range(self.num_items)]])
+		self.init_belief_state = FlatDiscreteBeliefState([[self.init_state[1],self.init_state[2]], [1.0 / len(self.items) for i in range(self.num_items)]])
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.actions = []
 		for i in range(self.num_items):
@@ -54,7 +54,8 @@ class FetchPOMDP(POMDP):
 		self.bag_of_words = config["bag_of_words"]
 		self.p_g = config["p_g"]
 		self.p_l = config["p_l"]
-		# self.p_r_match = .999
+		self.p_r_match = config["p_r_match"]
+		self.p_r_match_look = config["p_r_match_look"]
 		# self.alpha = .2
 		self.std_theta = config["std_theta"]
 		self.std_theta_look = config["std_theta_look"]
@@ -136,6 +137,8 @@ class FetchPOMDP(POMDP):
 		vals = action.split(" ")
 		if vals[0] in ("point", "look"):
 			self.curr_state[1] = vals[1]
+			self.curr_state[2] = vals[0]
+
 		if vals[0] != "pick":
 			reward = self.get_reward_from_state(self.curr_state, action)
 		else:
@@ -159,7 +162,9 @@ class FetchPOMDP(POMDP):
 		vals = action.split(" ")
 		if vals[0] in ("point", "look"):
 			self.curr_state[1] = int(vals[1])
-			self.curr_belief_state[0] = int(vals[1])
+			self.curr_state[2] = vals[0]
+			self.curr_belief_state[0][0] = int(vals[1])
+			self.curr_belief_state[0][1] = vals[0]
 		if vals[0] != "pick":
 			reward = self.get_reward_from_state(self.curr_state, action)
 		else:
@@ -185,11 +190,12 @@ class FetchPOMDP(POMDP):
 		:param observation: {"language": set of words, "gesture": [dx,dy,dz]
 		:return: [last_referenced (index), [P'(desired_item == i) i in items]]
 		'''
-		return cstuff.belief_update(belief,observation)
+		return self.belief_update(belief,observation)
 	def reset(self):
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.curr_state[0] = random.sample([i for i in range(len(self.items))],1)[0]
 		self.curr_state[1] = None
+		self.curr_state[2] = None
 	def is_terminal(self, s, a):
 		vals = a.split(" ")
 		return vals[0] == "pick"
@@ -224,7 +230,8 @@ class FetchPOMDP(POMDP):
 	def update_curr_belief_state(self, observation):
 		if type(self.curr_belief_state) is list:
 			raise TypeError("curr_belief_state has type list")
-		self.curr_belief_state[0] = self.curr_state[1]
+		self.curr_belief_state[0][0] = self.curr_state[1]
+		self.curr_belief_state[0][1] = self.curr_state[2]
 		self.curr_belief_state = self.belief_update(self.curr_belief_state,observation)
 		if type(self.curr_belief_state) is list:
 			raise TypeError("curr_belief_state has type list")
