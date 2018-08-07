@@ -193,13 +193,13 @@ cpdef belief_update_robot(b, o):
 	# if (o["language"] is None or o["language"] == set()) and o["gesture"] is None:
 	# 	belief_update_total_time += time() - start
 	# 	return b
-	language_probs = [language_func(o["language"], [i, [b[0], b[1]]]) for i in
+	language_probs = [language_func(o["language"], [i, b[0], b[1]]) for i in
 	                  range(len(b[1]))]
 	gesture_probs = [gesture_func_robot(o["gesture"], [i, b[0], b[1]]) for i in
 	                 range(len(b[1]))]
 	max_gesture_prob = maxish(gesture_probs)
 	if max_gesture_prob < .10:
-		gesture_probs = [gesture_func_robot(None, [i, [b[0], b[1]]]) for i in
+		gesture_probs = [gesture_func_robot(None, [i, b[0], b[1]]) for i in
 		                 range(len(b[1]))]
 	observation_probs = [language_probs[i] * gesture_probs[i] for i in
 	                     range(len(b[1]))]
@@ -211,7 +211,7 @@ cpdef belief_update_robot(b, o):
 		print("o = " + str(o))
 		return b
 	ret = [[b[0][1], b[0][1]],
-	       [b[2][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
+	       [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
 	belief_update_total_time += time() - start
 	return ret
 

@@ -193,19 +193,6 @@ def test_gestureless_pomdp(n = 10, horizon  = 2):
 		json.dump(results, fp)
 
 
-def test_belief_state_class():
-	pomdp = FetchPOMDP()
-	solver = FetchPOMDPSolver(pomdp, horizon=2)
-	print("pomdp.curr_belief_state[0]: " + str(pomdp.curr_belief_state[0]))
-	print("pomdp.curr_belief_state[1]: " + str(pomdp.curr_belief_state[1]))
-	solver.plan_from_belief(pomdp.curr_belief_state)
-
-def test_arguments():
-	pomdp = FetchPOMDP(use_gesture=False)
-	for i in range(100):
-		o = pomdp.sample_observation(pomdp.curr_state)
-		if type(o['gesture']) is not type(None):
-			print(o)
 def test_heuristic_planner(n = 100, horizon = 2, obs_mod = (True,True)):
 	pomdp = FetchPOMDP(use_gesture=obs_mod[0],use_language=obs_mod[1])
 	pomdp.point_cost = pomdp.wait_cost
@@ -232,6 +219,20 @@ def format_results(results,time_elapsed, horizon,n):
 	                       "average_actions": float(results["counter_plan_from_state"]) / n,
 	                       "average": average(results["final_scores"]),
 	                       "solver_results":results}}
+
+
+def custom_test(pomdp1_args,pomdp2_args,solver1_args,solver2_args, n = 10):
+	pomdp1 = FetchPOMDP(**pomdp1_args)
+	solver1 = FetchPOMDPSolver(pomdp1, **solver1_args)
+	pomdp2 = FetchPOMDP(**pomdp2_args)
+	solver2 = FetchPOMDPSolver(pomdp2,**solver2_args)
+	results1 = solver1.run(num_episodes = n)
+	results2 = solver2.run(num_episodes = n)
+	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config})
+	results2.update({"args":{"pomdp":pomdp2_args,"solver":solver2_args},"config":pomdp2.config})
+	results = {"1":results1,"2":results2}
+	with open(get_full_path("custom test "), 'w') as fp:
+		json.dump(results, fp, indent=4)
 def main(open_plot=True):
 	# compare_observation_models((True, True), (False, False), n=10)
 	# test_gestureless_pomdp(10)
@@ -239,6 +240,6 @@ def main(open_plot=True):
 	# test_gestureless_pomdp(10, horizon=3)
 	# test_heuristic_planner(n =1000)
 
-	test((True,True), n=10)
-
+	# test((True,True), n=10)
+	custom_test({"use_look":True},{"use_look":False},{"horizon":2,"qvalue_method":"belief based","muted":False},{"horizon":2,"qvalue_method":"state based","muted":False},n=100)
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")

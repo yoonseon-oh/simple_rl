@@ -10,17 +10,15 @@ import random
 
 class FetchPOMDPSolver(object):
 	def __init__(self, pomdp, horizon=2, qvalue_method="state based", use_gesture=True, use_language=True,
-	             planner="q estimation", muted = False):
+	             planner="q estimation"):
 		self.pomdp = pomdp
 		self.num_state_samples = pomdp.num_items
 		self.horizon = horizon
-		self.muted = muted
+		self.muted = True
 		if qvalue_method == "state based":
-			# self.get_qvalues = self.get_qvalues_from_state
-			self.get_reward_sim = lambda b,s,a : self.pomdp.reward_func(s,a)
+			self.get_qvalues = self.get_qvalues_from_state
 		elif qvalue_method == "belief based":
-			# self.get_qvalues = self.get_qvalues_from_belief
-			self.get_reward_sim = lambda b,s,a : self.pomdp.get_expected_reward(b,a)
+			self.get_qvalues = self.get_qvalues_from_belief
 		self.use_gesture = use_gesture
 		self.belief_update = cstuff.belief_update
 		self.belief_update_robot = cstuff.belief_update_robot
@@ -88,9 +86,9 @@ class FetchPOMDPSolver(object):
 		else:
 			return "wait"
 
-	def get_qvalues(self, b, true_state, horizon):
+	def get_qvalues_from_belief(self, b, true_state, horizon):
 		actions = self.pomdp.actions
-		rewards = [self.get_reward_sim(b,true_state, a) for a in actions]
+		rewards = [self.pomdp.get_expected_reward(b, a) for a in actions]
 		if horizon == 0:
 			return rewards
 		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
@@ -98,20 +96,28 @@ class FetchPOMDPSolver(object):
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
 		next_beliefs = [self.belief_update(b, o) for o in observations]
-		next_qvalues = [self.get_qvalues(next_beliefs[i], next_states[i],
+		next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i],
 		                                             horizon - 1) if i not in terminal_states else 0.0 for i in
 		                range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
+	def get_qvalues_from_state(self, b, true_state, horizon):
+		actions = self.pomdp.actions
+		rewards = [self.pomdp.get_reward_from_state(true_state, a) for a in actions]
+		if horizon == 0:
+			return rewards
+		actions = self.pomdp.actions
+		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
+		# Generalize for general BSS
+		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
+		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
+		next_beliefs = [self.belief_update(b, o) for o in observations]
+		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i],
+		                                            horizon - 1) if i not in terminal_states else 0.0 for i in
+		                range(len(next_states))]
+		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
+
 	def get_qvalues2Dict(self, b, true_state, horizon):
-		'''
-		Unfinished. Meant to treat forward search tree as nested dictionaries instead of lists, which would allow
-		action set restriction.
-		:param b:
-		:param true_state:
-		:param horizon:
-		:return:
-		'''
 		actions = self.pomdp.actions
 		rewards = {a: self.pomdp.get_reward_from_state(true_state, a) for a in self.pomdp.actions}
 		if horizon == 0:
@@ -158,10 +164,9 @@ class FetchPOMDPSolver(object):
 				print(" ")
 				print('Episode {}: '.format(episode))
 			self.pomdp.reset()
-			curr_belief_state = copy.deepcopy(self.pomdp.get_curr_belief())
-			# old_belief = copy.deepcopy(curr_belief_state)
+			curr_belief_state = self.pomdp.get_curr_belief()
 			if curr_belief_state[0][1] in ["point","look"]:
-				raise ValueError("Belief is messed up: " + str(curr_belief_state[0]))
+				raise ValueError("Belief is messed up: " + str(b[0]))
 			action = plan(curr_belief_state)
 			counter_plan_from_state +=1
 			history = []
