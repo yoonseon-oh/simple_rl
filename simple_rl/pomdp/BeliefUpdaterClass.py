@@ -23,7 +23,7 @@ class BeliefUpdater(object):
         self.vi = ValueIteration(mdp, sample_rate=500)
 
         self.transition_probs = self.construct_transition_matrix(transition_func)
-        self.observation_probs = self.construct_observation_matrix(observation_func)
+        self.observation_probs = self.construct_observation_matrix(observation_func, transition_func)
 
         if updater_type == 'discrete':
             self.updater = self.discrete_filter_updater
@@ -40,7 +40,7 @@ class BeliefUpdater(object):
             return sum(bel.values())
 
         def _update_belief_for_state(b, sp, T, O, a, z):
-            return O[sp][a][z] * sum([T[s][a][sp] * b[s] for s in b])
+            return O[sp][z] * sum([T[s][a][sp] * b[s] for s in b])
 
         new_belief = defaultdict()
         for sprime in belief:
@@ -72,20 +72,30 @@ class BeliefUpdater(object):
         self.vi._compute_matrix_from_trans_func()
         return self.vi.trans_dict
 
-    def construct_observation_matrix(self, observation_func):
+    def construct_observation_matrix(self, observation_func, transition_func):
         '''
         Create an MLE of the observation probabilities by sampling from the observation_func
         multiple times.
         Args:
             observation_func: O(s) -> z
+            transition_func: T(s, a) -> s'
 
         Returns:
-            observation_probabilities (defaultdict): O(s, a, z) --> float
+            observation_probabilities (defaultdict): O(s, z) --> float
         '''
-        obs_dict = defaultdict(lambda:defaultdict(lambda:defaultdict(float)))
+        def normalize_probabilities(odict):
+            norm_factor = sum(odict.values())
+            for obs in odict:
+                odict[obs] /= norm_factor
+            return odict
+
+        obs_dict = defaultdict(lambda:defaultdict(float))
         for state in self.vi.get_states():
             for action in self.vi.mdp.actions:
                 for sample in range(self.vi.sample_rate):
                     observation = observation_func(state, action)
-                    obs_dict[state][action][observation] += 1. / self.vi.sample_rate
+                    next_state = transition_func(state, action)
+                    obs_dict[next_state][observation] += 1. / self.vi.sample_rate
+        for state in self.vi.get_states():
+            obs_dict[state] = normalize_probabilities(obs_dict[state])
         return obs_dict
