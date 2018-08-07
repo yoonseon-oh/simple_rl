@@ -60,8 +60,7 @@ class BeliefMDP(MDP):
         Returns:
             observation (str): most probable observation given (b, a)
         '''
-        most_probable_state = belief_state.sample(sampling_method='max')
-        return self.state_observation_func(most_probable_state, action)
+        return self.state_observation_func(self.pomdp.cur_state, action)
     
     def execute_agent_action(self, action):
         reward, next_state = super(BeliefMDP, self).execute_agent_action(action)
