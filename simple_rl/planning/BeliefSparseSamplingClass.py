@@ -124,10 +124,7 @@ class BeliefSparseSampling(object):
             if horizon in self.nodes_by_horizon[state]:
                 return self.nodes_by_horizon[state][horizon]
 
-        print 'Estimating value for state {}'.format(state)
-
         if self.gen_model.is_in_goal_state():
-            print '\nReached a goal state..\n'
             self.nodes_by_horizon[state][horizon] = self.gen_model.reward_func(state, random.choice(self.gen_model.actions))
         else:
             self.nodes_by_horizon[state][horizon] = np.max(self._estimate_qs(state, horizon))
@@ -145,30 +142,32 @@ class BeliefSparseSampling(object):
         if state in self.root_level_qvals:
             qvalues = self.root_level_qvals[state]
         else:
-            init_horizon = self.horizon # TODO: restore
+            init_horizon = self.horizon
             qvalues = self._estimate_qs(state, init_horizon)
         action_idx = np.argmax(qvalues)
         self.root_level_qvals[state] = qvalues
         return self.gen_model.actions[action_idx]
 
-    def run(self, num_episodes=5):
-        final_scores = []
+    def run(self, num_episodes=5, verbose=True):
+        final_scores, policies = [], []
         for episode in range(num_episodes):
             discounted_sum_rewards = 0.0
             num_iter = 0
             self.gen_model.reset()
             state = self.gen_model.init_state
-            print 'Episode {}: '.format(episode)
+            policy = defaultdict()
+            if verbose: print 'Episode {}: '.format(episode)
             while not self.gen_model.is_in_goal_state():
-                pdb.set_trace()
                 action = self.plan_from_state(state)
                 reward, next_state = self.gen_model.execute_agent_action(action)
+                policy[state] = action
                 discounted_sum_rewards += ((self.gamma ** num_iter) * reward)
-                print '({}, {}, {}) -> {} | {}'.format(state, action, next_state, reward, discounted_sum_rewards)
+                if verbose: print '({}, {}, {}) -> {} | {}'.format(state, action, next_state, reward, discounted_sum_rewards)
                 state = copy.deepcopy(next_state)
                 num_iter += 1
             final_scores.append(discounted_sum_rewards)
-        return final_scores
+            policies.append(policy)
+        return final_scores, policies
 
 def plan_with_vi(gamma=0.99):
     '''
@@ -195,4 +194,4 @@ if __name__ == '__main__':
     pomdp = Maze1DPOMDP()
     model = BeliefMDP(pomdp)
     bss = BeliefSparseSampling(gen_model=model, gamma=discount_factor, tol=1.0, max_reward=1.0, state=model.init_state)
-    scores = bss.run(num_episodes=3)
+    scores, policies = bss.run(num_episodes=3, verbose=True)
