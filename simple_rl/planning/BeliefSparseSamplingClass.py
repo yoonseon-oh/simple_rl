@@ -3,11 +3,8 @@ import numpy as np
 import copy
 from collections import defaultdict
 import random
-import pdb
 
-from simple_rl.tasks.grid_world.GridWorldMDPClass import GridWorldMDP
-from simple_rl.planning.ValueIterationClass import ValueIteration
-from simple_rl.pomdp.BeliefMDPClass import BeliefMDP, BeliefState
+from simple_rl.pomdp.BeliefMDPClass import BeliefMDP
 
 
 class BeliefSparseSampling(object):
@@ -36,7 +33,7 @@ class BeliefSparseSampling(object):
         self.horizon = self._horizon
         self.width = self._width
 
-        print 'Horizon = {} \t Width = {}'.format(self.horizon, self.width)
+        print 'BSS Horizon = {} \t Width = {}'.format(self.horizon, self.width)
 
         self.name = name
         self.root_level_qvals = defaultdict()
@@ -54,10 +51,9 @@ class BeliefSparseSampling(object):
     @property
     def _width(self):
         '''
-
+        The number of times we ask the generative model to give us a next_state sample for each state, action pair.
         Returns:
-             _width (int): The number of times we ask the generative model to give us a next_state sample for each
-             state, action pair
+             _width (int)
         '''
         part1 = (self._vmax ** 2) / (self._lam ** 2)
         part2 = 2 * self._horizon * log(self._horizon * (self._vmax ** 2) / (self._lam ** 2))
@@ -74,13 +70,11 @@ class BeliefSparseSampling(object):
 
     def _get_width_at_height(self, height):
         '''
-
+        The branching factor of the tree is decayed according to this formula as suggested by the BSS paper.
         Args:
             height (int): the current depth in the MDP recursive tree measured from top
         Returns:
             width (int): the decayed branching factor for a state, action pair
-
-        The branching factor of the tree is decayed according to this formula as suggested by the BSS paper
         '''
         c = int(self.width * (self.gamma ** (2 * height)))
         return c if c > 1 else 1
@@ -168,30 +162,3 @@ class BeliefSparseSampling(object):
             final_scores.append(discounted_sum_rewards)
             policies.append(policy)
         return final_scores, policies
-
-def plan_with_vi(gamma=0.99):
-    '''
-    Args:
-        gamma (float): discount factor
-
-    Running value iteration on the problem to test the correctness of the policy returned by BSS
-    '''
-    mdp = GridWorldMDP(gamma=gamma, goal_locs=[(4, 3)], slip_prob=0.0)
-    value_iter = ValueIteration(mdp, sample_rate=5)
-    value_iter.run_vi()
-
-    action_seq, state_seq = value_iter.plan(mdp.get_init_state())
-
-    print "[ValueIteration] Plan for {}".format(mdp)
-    for i in range(len(action_seq)):
-        print 'pi({}) --> {}'.format(state_seq[i], action_seq[i])
-
-
-if __name__ == '__main__':
-    from simple_rl.tasks.maze_1d.Maze1DPOMDPClass import Maze1DPOMDP
-    discount_factor = 0.6
-    plan_with_vi(gamma=discount_factor)
-    pomdp = Maze1DPOMDP()
-    model = BeliefMDP(pomdp)
-    bss = BeliefSparseSampling(gen_model=model, gamma=discount_factor, tol=1.0, max_reward=1.0, state=model.init_state)
-    scores, policies = bss.run(num_episodes=3, verbose=True)
