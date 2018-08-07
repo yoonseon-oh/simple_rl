@@ -14,8 +14,10 @@ class BeliefMDP(MDP):
         self.state_observation_func = pomdp.observation_func
         self.belief_updater_func = pomdp.belief_updater_func
 
+        self.pomdp = pomdp
+
         MDP.__init__(self, pomdp.actions, self._belief_transition_function, self._belief_reward_function,
-                     pomdp.init_belief, pomdp.gamma, pomdp.step_cost)
+                     BeliefState(pomdp.init_belief), pomdp.gamma, pomdp.step_cost)
 
     def _belief_transition_function(self, belief_state, action):
         '''
@@ -28,9 +30,9 @@ class BeliefMDP(MDP):
         Returns:
             new_belief (defaultdict)
         '''
-        belief = belief_state.distribution if type(belief_state) is BeliefState else belief_state
-        observation = self._belief_observation_function(belief, action)
-        return self.belief_updater_func(belief, action, observation)
+        observation = self._belief_observation_function(belief_state, action)
+        next_belief_distribution = self.belief_updater_func(belief_state.distribution, action, observation)
+        return BeliefState(next_belief_distribution)
 
     def _belief_reward_function(self, belief_state, action):
         '''
@@ -43,7 +45,7 @@ class BeliefMDP(MDP):
         Returns:
             reward (float)
         '''
-        belief = belief_state.distribution if type(belief_state) is BeliefState else belief_state
+        belief = belief_state.distribution
         reward = 0.
         for state in belief:
             reward += belief[state] * self.state_reward_func(state, action)
@@ -58,11 +60,21 @@ class BeliefMDP(MDP):
         Returns:
             observation (str): most probable observation given (b, a)
         '''
-        belief = belief_state.distribution if type(belief_state) is BeliefState else belief_state
-        most_probable_state = max(belief, key=belief.get)
+        most_probable_state = belief_state.sample(sampling_method='max')
         return self.state_observation_func(most_probable_state, action)
+    
+    def execute_agent_action(self, action):
+        reward, next_state = super(BeliefMDP, self).execute_agent_action(action)
+        self.pomdp.execute_agent_action(action)
+
+        return reward, next_state
+
+    def is_in_goal_state(self):
+        return self.pomdp.is_in_goal_state()
 
 if __name__ == '__main__':
     from simple_rl.tasks.maze_1d.Maze1DPOMDPClass import Maze1DPOMDP
     maze_pomdp = Maze1DPOMDP()
     maze_belief_mdp = BeliefMDP(maze_pomdp)
+    maze_belief_mdp.execute_agent_action('east')
+    maze_belief_mdp.execute_agent_action('east')

@@ -2,6 +2,7 @@
 
 # Python imports.
 import copy
+import pdb
 
 class MDP(object):
     ''' Abstract class for a Markov Decision Process. '''
@@ -45,6 +46,9 @@ class MDP(object):
 
     def set_step_cost(self, new_step_cost):
         self.step_cost = new_step_cost
+
+    def is_in_goal_state(self):
+        pass
 
     def execute_agent_action(self, action):
         '''

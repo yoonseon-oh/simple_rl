@@ -18,7 +18,7 @@ class BeliefState(State):
         return self.__str__()
 
     def __str__(self):
-        return str(self.distribution)
+        return 'BeliefState::' + str(self.distribution)
 
     def belief(self, state):
         '''
