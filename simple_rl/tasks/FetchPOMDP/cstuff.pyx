@@ -12,7 +12,16 @@ from simple_rl.tasks.FetchPOMDP import file_reader as fr
 # import simple_rl.tasks.FetchPOMDP.file_reader as fr
 
 # from simple_rl.tasks.FetchPOMDP.config_reader import load_json
-#Run "python setup.py build_ext --inplace" to compile
+# '''
+# Run "python setup.py build_ext --inplace" to compile. Not currently needed since it is being imported with:
+# import pyximport;
+# pyximport.install()
+# from simple_rl.tasks.FetchPOMDP import cstuff
+#
+# However, there is another method of import that would require manual compiling.
+#
+# If you get a build or link error, try deleting the ".pyxbld" folder. On Windows, this is located in "C:\Users\[user]".
+# '''
 
 cdef obs_sampling_time = 0
 cdef estimate_qs_counter = 0
@@ -24,13 +33,7 @@ cdef observation_func_total_time = 0
 cdef gesture_func_total_time = 0
 cdef sample_gesture_total_time = 0
 # print(os.getcwd()+"\config.json")
-cdef double p_g = .1
-cdef double p_l = .99  # split into base and response probabilities
-cdef double p_r_match = .99
-cdef double alpha = .01
-cdef double std_theta = .15
-cdef double discount = .9
-cdef error = 1
+
 # cdef load_json(file_name):
 # 	# return {"items":["cup"]}
 # 	with open(file_name) as json_data:
@@ -47,22 +50,19 @@ cdef bag_of_words = config["bag_of_words"]
 cpdef items = config["items"]
 cdef ATTRIBUTES = config["attributes"]
 cdef num_items = len(items)
-cdef double std_theta_look = .3
-cdef double point_cost = -1
-# cdef double look_cost = -1 * (1.0/3.0)
-# cdef double wait_cost = -1*(1.0/6.0)
-# cdef double wrong_pick_cost = -20/num_items
-# cdef double correct_pick_reward = 10/num_items
-# cdef double info_value = 1
+cdef double std_theta_look = config["std_theta_look"]
+cdef double point_cost = config["point_cost"]
+cdef double p_g = config["p_g"]
+cdef double p_l = config["p_l"]  # split into base and response probabilities
+cdef double p_r_match = config["p_r_match"]
+cdef double alpha = config["alpha"]
+cdef double std_theta = config["std_theta"]
+cdef double gamma = config["gamma"]
+cdef error = 1
 import os
 
-cdef desired_item = 2
-cdef last_referenced_item = None
-cdef human_pointing_source = [0, 0, 0]
-# Include point or pick in last referenced item
-cdef state =[desired_item,last_referenced_item]
-cdef positive_responses = {"yes", "yeah", "sure", "yup"}
-cdef negative_responses = {"no", "nope", "other", "not"}
+cdef positive_responses = set(config["positive_responses"])
+cdef negative_responses = set(config["negative_responses"])
 
 # Globals defined for speed
 cdef std_theta_1 = 2 * (std_theta ** 2)
@@ -92,7 +92,6 @@ cpdef get_irrelevant_words(item_index, bag):
 		words.update(bag[key])
 	return words
 
-# cdef bag_of_words = load_json('bag of words.json')
 cdef all_words = union_dictionary(bag_of_words)
 cdef relevant_words = [get_relevant_words(i, bag_of_words) for i in range(len(items))]
 cdef irrelevant_words = [get_irrelevant_words(i, bag_of_words) for i in range(len(items))]

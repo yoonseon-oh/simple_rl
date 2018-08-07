@@ -112,16 +112,28 @@
     "shape",
     "color"
   ],
+  "positive_responses": [
+    "yes",
+    "yeah",
+    "sure",
+    "yup"
+  ],
+  "negative_responses": [
+    "no",
+    "nope",
+    "other",
+    "not"
+  ],
   "p_g": 0.1,
   "p_l": 0.95,
   "p_r_match": 0.99,
-  "alpha": 0.2,
+  "alpha": 0.1,
   "std_theta": 0.15,
   "std_theta_look": 0.3,
   "point_cost": -6,
-  "look_cost": -3,
-  "wait_cost": -1,
+  "look_cost": -0.333,
+  "wait_cost": -0.167,
   "wrong_pick_cost": -20,
   "correct_pick_reward": 10,
-  "discount": 0.9
+  "gamma": 0.9
 }

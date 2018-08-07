@@ -7,8 +7,10 @@ import cython
 from simple_rl.tasks.FetchPOMDP import cstuff
 import random
 
+
 class FetchPOMDPSolver(object):
-	def __init__(self,pomdp, horizon = 2, qvalue_method = "state based", use_gesture = True, use_language = True, planner ="q estimation"):
+	def __init__(self, pomdp, horizon=2, qvalue_method="state based", use_gesture=True, use_language=True,
+	             planner="q estimation"):
 		self.pomdp = pomdp
 		self.num_state_samples = pomdp.num_items
 		self.horizon = horizon
@@ -38,9 +40,10 @@ class FetchPOMDPSolver(object):
 			self.plan = self.plan_from_belief
 		elif planner == "heuristic":
 			self.plan = self.plan_from_belief_heuristically
+
 	def plan_from_belief(self, b):
-		sampled_states = cstuff.sample_states(b[1],self.num_state_samples)
-		list_of_q_lists = [self.get_qvalues(b, [s,b[0]], self.horizon) for s in sampled_states]
+		sampled_states = cstuff.sample_states(b[1], self.num_state_samples)
+		list_of_q_lists = [self.get_qvalues(b, [s, b[0]], self.horizon) for s in sampled_states]
 		weights = cstuff.unit_vectorn([b[1][i] for i in sampled_states])
 		average_q_values = []
 		max_q = -10000
@@ -48,14 +51,14 @@ class FetchPOMDPSolver(object):
 		for i in range(len(self.pomdp.actions)):
 			q = 0
 			for j in range(len(sampled_states)):
-				q += weights[j]*list_of_q_lists[j][i]
+				q += weights[j] * list_of_q_lists[j][i]
 			average_q_values.append(q)
 			if q == max_q:
 				best_action_ids.append(i)
 			elif q > max_q:
 				best_action_ids = [i]
 				max_q = q
-		next_action_id = random.sample(best_action_ids,1)[0]
+		next_action_id = random.sample(best_action_ids, 1)[0]
 		next_action = self.pomdp.actions[next_action_id]
 
 		if not self.muted:
@@ -64,62 +67,69 @@ class FetchPOMDPSolver(object):
 				qvs += self.pomdp.actions[i] + ": " + str(round(average_q_values[i], 4)) + ", "
 			print("Current b: " + str(b))
 			print("q values: " + qvs)
-			print("Plan to take action (" + str(next_action) + ") with q value = " + str(round(average_q_values[next_action_id], 4)))
+			print("Plan to take action (" + str(next_action) + ") with q value = " + str(
+				round(average_q_values[next_action_id], 4)))
 			split_action = next_action.split(" ")
 			if split_action[0] == "pick":
 				print(str(b[1][int(next_action.split(" ")[1])]) + " sure")
 		return next_action
+
 	def plan_from_belief_heuristically(self, b):
 		most_likely_item = get_most_likely(b)
 		pick_action = "pick " + str(most_likely_item[0])
 		point_action = "point " + str(most_likely_item[0])
-		pick_reward = self.pomdp.get_reward(b,pick_action)
+		pick_reward = self.pomdp.get_expected_reward(b, pick_action)
 		if pick_reward > self.pomdp.gamma * self.pomdp.correct_pick_reward:
 			return pick_action
-		elif most_likely_item[1] >= 2.0/len(b[1]):
+		elif most_likely_item[1] >= 1.5 / len(b[1]):
 			return point_action
 		else:
 			return "wait"
 
-
 	def get_qvalues_from_belief(self, b, true_state, horizon):
 		actions = self.pomdp.actions
-		rewards = [self.pomdp.get_reward(b,a) for a in actions]
+		rewards = [self.pomdp.get_expected_reward(b, a) for a in actions]
 		if horizon == 0:
 			return rewards
-		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
-		#Generalize for general BSS
+		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
+		# Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
-		next_beliefs = [self.belief_update(b,o) for o in observations]
-		next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
+		next_beliefs = [self.belief_update(b, o) for o in observations]
+		next_qvalues = [self.get_qvalues_from_belief(next_beliefs[i], next_states[i],
+		                                             horizon - 1) if i not in terminal_states else 0.0 for i in
+		                range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
 	def get_qvalues_from_state(self, b, true_state, horizon):
 		actions = self.pomdp.actions
-		rewards = [self.pomdp.get_reward_from_state(true_state,a) for a in actions]
+		rewards = [self.pomdp.get_reward_from_state(true_state, a) for a in actions]
 		if horizon == 0:
 			return rewards
 		actions = self.pomdp.actions
-		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
-		#Generalize for general BSS
+		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
+		# Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
-		next_beliefs = [self.belief_update(b,o) for o in observations]
-		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
+		next_beliefs = [self.belief_update(b, o) for o in observations]
+		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i],
+		                                            horizon - 1) if i not in terminal_states else 0.0 for i in
+		                range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
 	def get_qvalues2Dict(self, b, true_state, horizon):
 		actions = self.pomdp.actions
-		rewards = {a:self.pomdp.get_reward_from_state(true_state,a) for a in self.pomdp.actions}
+		rewards = {a: self.pomdp.get_reward_from_state(true_state, a) for a in self.pomdp.actions}
 		if horizon == 0:
 			return rewards
-		next_states = [self.pomdp.transition_func(true_state,a) for a in actions]
-		#Generalize for general BSS
+		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
+		# Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
-		next_beliefs = [self.belief_update(b,o) for o in observations]
-		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i], horizon - 1) if i not in terminal_states else 0.0 for i in range(len(next_states))]
+		next_beliefs = [self.belief_update(b, o) for o in observations]
+		next_qvalues = [self.get_qvalues_from_state(next_beliefs[i], next_states[i],
+		                                            horizon - 1) if i not in terminal_states else 0.0 for i in
+		                range(len(next_states))]
 		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
 	# def get_qvalues_kl(self, b, true_state, horizon):
@@ -138,15 +148,15 @@ class FetchPOMDPSolver(object):
 	# 	return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 
 	def run(self, num_episodes=5):
-		#Differes from run by getting reward from mdp state in simulation
-		#TODO: Save entire history (not simulation)
+		# Differes from run by getting reward from mdp state in simulation
+		# TODO: Save entire history (not simulation)
 		num_correct = 0
 		num_wrong = 0
 		plan = self.plan
 		start_time = time()
 		final_scores = []
 		counter_plan_from_state = 1
-		history = []
+		histories = []
 		for episode in range(num_episodes):
 			discounted_sum_rewards = 0.0
 			num_iter = 0
@@ -154,44 +164,51 @@ class FetchPOMDPSolver(object):
 				print(" ")
 				print('Episode {}: '.format(episode))
 			self.pomdp.reset()
-			mixed_belief = self.pomdp.get_curr_belief()
-			action = plan(mixed_belief)
-			# current_history = {"mixed_belief":mixed_belief, "action": action}
-			# history.append(current_history)
+			curr_belief_state = self.pomdp.get_curr_belief()
+			action = plan(curr_belief_state)
+			counter_plan_from_state +=1
+			history = []
 			running = True
 			while running:
-				if self.pomdp.is_terminal(mixed_belief, action):
+				if self.pomdp.is_terminal(curr_belief_state, action):
 					running = False
-				# print("Terminal action: " + str(action))
-				# execute_start_time = time()
 				split_action = action.split(" ")
 				if split_action[0] == "pick":
 					if split_action[1] == str(self.pomdp.curr_state[0]):
 						num_correct += 1
 					else:
 						num_wrong += 1
+				#True state used for record keeping and is NOT used during planning
+				true_state = self.pomdp.get_curr_state()
 				ret = self.pomdp.execute_action(action)
-				# print("Execute time = "+ str(time() - execute_start_time))
+				# Consider moving belief management to solver
 				reward = ret[0]
-				next_mixed_belief = ret[1]
-				# print_times()
+				next_belief_state = ret[1]
+				observation = ret[2]
+				if type(curr_belief_state) is list:
+					raise TypeError(
+						"curr_belief_state has type list on iteration " + str(num_iter) + " of episode " + str(
+							episode) + ": " + str(curr_belief_state))
+
+				history.append({"belief": curr_belief_state.data, "action": action,
+				                "observation": make_observation_serializable(observation),
+				                "reward": reward,"true state":true_state.data})
 				discounted_sum_rewards += ((self.pomdp.gamma ** num_iter) * reward)
 				if not self.muted:
-					print('({}, {}, {}) -> {} | {}'.format(mixed_belief, action, next_mixed_belief, reward, discounted_sum_rewards))
+					print('({}, {}, {}) -> {} | {}'.format(curr_belief_state, action, next_belief_state, reward,
+					                                       discounted_sum_rewards))
 					print("")
-				# print_times()
-				mixed_belief = copy.deepcopy(next_mixed_belief)
-				# current_history = {"mixed_belief": next_mixed_belief}
+				curr_belief_state = copy.deepcopy(next_belief_state)
+				if type(curr_belief_state) is list:
+					raise TypeError(
+						"curr_belief_state has type list on iteration " + str(num_iter) + " of episode " + str(
+							episode) + ": " + str(curr_belief_state))
 				if running:
-					action = plan(mixed_belief)
+					action = plan(curr_belief_state)
 					counter_plan_from_state += 1
-					# current_history["action"] = action
-				else:
-					# current_history["action"] = "Fin"
-					pass
-				# print_times()
+				# current_history["action"] = action
 				num_iter += 1
-				# history.append(current_history)
+			histories.append(history)
 			final_scores.append(discounted_sum_rewards)
 			if not self.muted:
 				print("Number of steps in this episode = " + str(num_iter))
@@ -212,7 +229,10 @@ class FetchPOMDPSolver(object):
 			print("belief update time: " + str(ctimes["belief_update_total_time"]))
 			print("observation_func_total_time: " + str(ctimes["observation_func_total_time"]))
 			print("gesture_func_total_time: " + str(ctimes["gesture_func_total_time"]))
-		return {"final_scores":final_scores,"counter_plan_from_state":counter_plan_from_state, "history":history,"num_correct":num_correct,"num_wrong":num_wrong}
+		return {"final_scores": final_scores, "counter_plan_from_state": counter_plan_from_state,
+		        "num_correct": num_correct, "num_wrong": num_wrong, "histories": histories}
+
+
 	def run_robot(self):
 		plan = self.plan_from_belief_and_observation
 		discounted_sum_rewards = 0.0
@@ -222,7 +242,7 @@ class FetchPOMDPSolver(object):
 		self.pomdp.reset()
 		mixed_belief = self.pomdp.get_curr_belief()
 		o = self.pomdp.get_observation()
-		action = plan(mixed_belief,o)
+		action = plan(mixed_belief, o)
 		running = True
 		while running:
 			if self.pomdp.is_terminal(mixed_belief, action):
@@ -247,26 +267,29 @@ class FetchPOMDPSolver(object):
 				current_history["action"] = action
 			else:
 				current_history["action"] = "Fin"
+
 	# def receive_observation(self, o):
 	# 	self.pomp.curr_belief_state = self.belief_update_robot(self.pomdp.curr_belief_state,o)
 	def act(self, raw_observation):
 		gesture = raw_observation[0]
 		if gesture is not None:
-			gesture = [gesture[0],gesture[1],gesture[2],gesture[3],gesture[4],gesture[5]]
+			gesture = [gesture[0], gesture[1], gesture[2], gesture[3], gesture[4], gesture[5]]
 		language = raw_observation[1]
 		if language is not None:
 			language = set(raw_observation[1].split(" "))
 		else:
 			language = set()
-		observation = {"language":language, "gesture":gesture}
-		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state,observation)
+		observation = {"language": language, "gesture": gesture}
+		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state, observation)
 		next_action = self.plan_from_belief(self.pomdp.curr_belief_state)
 		self.pomdp.execute_action_robot(next_action)
 		return next_action
 
-	def plan_from_belief_and_observation(self,b,o):
-		b2 = self.belief_update(b,o)
+	def plan_from_belief_and_observation(self, b, o):
+		b2 = self.belief_update(b, o)
 		return self.plan_from_belief(b2)
+
+
 # def test_blind():
 # 	from simple_rl.tasks.FetchPOMDP import FetchPOMDP
 # 	pomdp = FetchPOMDP(use_language=False,use_gesture=False)
@@ -287,4 +310,8 @@ def get_most_likely(b):
 			highest_probability = pd[i]
 			most_likely_index = i
 	return [most_likely_index, highest_probability]
+
+
 # def test_plan_from_observation
+def make_observation_serializable(o):
+	o2 = {"language": list(o["language"]), "gesture": o["gesture"]}

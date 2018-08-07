@@ -1,0 +1,7 @@
+[
+  "fetch_pomdp_example.py::test",
+  "fetch_pomdp_example.py::test_gestureless_pomdp",
+  "fetch_pomdp_example.py::test_belief_state_class",
+  "fetch_pomdp_example.py::test_arguments",
+  "fetch_pomdp_example.py::test_heuristic_planner"
+]

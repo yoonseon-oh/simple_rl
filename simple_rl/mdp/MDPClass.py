@@ -12,7 +12,7 @@ class MDP(object):
         self.reward_func = reward_func
         self.gamma = gamma
         self.init_state = copy.deepcopy(init_state)
-        self.cur_state = init_state
+        self.curr_state = init_state
         self.step_cost = step_cost
         self.transition_prob_func = transition_prob_func
 
@@ -24,7 +24,7 @@ class MDP(object):
         return self.init_state
 
     def get_curr_state(self):
-        return self.cur_state
+        return self.curr_state
 
     def get_actions(self):
         return self.actions
@@ -61,14 +61,14 @@ class MDP(object):
             Core method of all of simple_rl. Facilitates interaction
             between the MDP and an agent.
         '''
-        reward = self.reward_func(self.cur_state, action)
-        next_state = self.transition_func(self.cur_state, action)
-        self.cur_state = next_state
+        reward = self.reward_func(self.curr_state, action)
+        next_state = self.transition_func(self.curr_state, action)
+        self.curr_state = next_state
 
         return reward, next_state
 
     def reset(self):
-        self.cur_state = copy.deepcopy(self.init_state)
+        self.curr_state = copy.deepcopy(self.init_state)
 
 
     def end_of_instance(self):
