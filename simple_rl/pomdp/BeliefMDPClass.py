@@ -30,7 +30,7 @@ class BeliefMDP(MDP):
         Returns:
             new_belief (defaultdict)
         '''
-        observation = self._belief_observation_function(belief_state, action)
+        observation = self._get_observation_from_environment(belief_state, action)
         next_belief_distribution = self.belief_updater_func(belief_state.distribution, action, observation)
         return BeliefState(next_belief_distribution)
 
@@ -51,14 +51,13 @@ class BeliefMDP(MDP):
             reward += belief[state] * self.state_reward_func(state, action)
         return reward
 
-    def _belief_observation_function(self, belief_state, action):
+    def _get_observation_from_environment(self, action):
         '''
         Args:
-            belief_state (BeliefState)
             action (str)
 
         Returns:
-            observation (str): most probable observation given (b, a)
+            observation (str): retrieve observation from underlying unobserved state in the POMDP
         '''
         return self.state_observation_func(self.pomdp.cur_state, action)
     
