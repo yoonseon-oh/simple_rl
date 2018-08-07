@@ -33,8 +33,8 @@ class BeliefSparseSampling(object):
         self.max_reward = max_reward
         self.gen_model = gen_model
         self.current_state = state
-        self.horizon = 5 # self._horizon
-        self.width = 10 # self._width
+        self.horizon = self._horizon
+        self.width = self._width
 
         print 'Horizon = {} \t Width = {}'.format(self.horizon, self.width)
 
@@ -82,8 +82,8 @@ class BeliefSparseSampling(object):
 
         The branching factor of the tree is decayed according to this formula as suggested by the BSS paper
         '''
-        # c = int(self.width * (self.gamma ** (2 * height)))
-        return self.width # c if c > 1 else 1
+        c = int(self.width * (self.gamma ** (2 * height)))
+        return c if c > 1 else 1
 
     def _estimate_qs(self, state, horizon):
         qvalues = np.zeros(len(self.gen_model.actions))
