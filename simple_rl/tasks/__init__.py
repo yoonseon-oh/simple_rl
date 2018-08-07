@@ -21,6 +21,8 @@ from simple_rl.tasks.prisoners.PrisonersDilemmaMDPClass import PrisonersDilemmaM
 from simple_rl.tasks.rock_paper_scissors.RockPaperScissorsMDPClass import RockPaperScissorsMDP
 from simple_rl.tasks.grid_game.GridGameMDPClass import GridGameMDP
 from simple_rl.tasks.navigation.NavigationMDP import NavigationMDP
+from simple_rl.tasks.FetchPOMDP.FetchPOMDPClass import FetchPOMDP
+from simple_rl.tasks.FetchPOMDP.RoboFetchClass import RoboFetch
 try:
 	from simple_rl.tasks.gym.GymMDPClass import GymMDP
 except ImportError:

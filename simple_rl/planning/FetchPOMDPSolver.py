@@ -249,7 +249,16 @@ class FetchPOMDPSolver(object):
 				current_history["action"] = "Fin"
 	# def receive_observation(self, o):
 	# 	self.pomp.curr_belief_state = self.belief_update_robot(self.pomdp.curr_belief_state,o)
-	def act(self, observation):
+	def act(self, raw_observation):
+		gesture = raw_observation[0]
+		if gesture is not None:
+			gesture = [gesture[0],gesture[1],gesture[2],gesture[3],gesture[4],gesture[5]]
+		language = raw_observation[1]
+		if language is not None:
+			language = set(raw_observation[1].split(" "))
+		else:
+			language = set()
+		observation = {"language":language, "gesture":gesture}
 		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state,observation)
 		next_action = self.plan_from_belief(self.pomdp.curr_belief_state)
 		self.pomdp.execute_action_robot(next_action)

@@ -10,3 +10,4 @@
 # 		return json.load(json_data)
 __all__ = ['cstuff']
 from .FetchPOMDPClass import FetchPOMDP
+from .RoboFetchClass import RoboFetch

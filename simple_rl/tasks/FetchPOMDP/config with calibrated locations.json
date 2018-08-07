@@ -1,0 +1,7 @@
+{"items": [
+	{"shape": "marker", "color": "green", "location": [0.5085, -0.66, -0.116]}, 
+	{"shape": "fork", "color": "yellow", "location": [0.48, -0.398, -0.118]}, 
+	{"shape": "phone", "color": "red", "location": [0.469, -0.152, -0.118]}, 
+	{"shape": "ball", "color": "blue", "location": [0.43, 0.189, -0.12]}, 
+	{"shape": "ball", "color": "blue", "location": [0.405, 0.423, -0.118]}, 
+	{"shape": "fork", "color": "blue", "location": [0.36, 0.71, -0.12]}], "num_items": 6, "bag_of_words": {"spoon": ["spoon", "dipper"], "cup": ["cup", "mug"], "fork": ["fork"], "red": ["red", "pink", "vermillion"], "blue": ["blue", "turquoise"], "yellow": ["yellow"], "green": ["green"], "black": ["black", "dark"], "marker": ["marker", "expo"], "ball": ["ball", "sphere"], "phone": ["phone"], "white": ["white"], "position": []}, "attributes": ["shape", "color"], "p_g": 0.1, "p_l": 0.95, "p_r_match": 0.99, "alpha": 0.2, "std_theta": 0.15, "std_theta_look": 0.3, "point_cost": -6, "look_cost": -3, "wait_cost": -1, "wrong_pick_cost": -20, "correct_pick_reward": 10, "discount": 0.9}olver = FetchPOMDPSolver(pomdp)

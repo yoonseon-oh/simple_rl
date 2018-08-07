@@ -7,8 +7,10 @@ import numpy as np
 # from libcpp.vector cimport vector
 import os
 import sys
-# from simple_rl.tasks.FetchPOMDP import file_reader as fr
-import file_reader as fr
+from simple_rl.tasks.FetchPOMDP import file_reader as fr
+# import file_reader as fr
+# import simple_rl.tasks.FetchPOMDP.file_reader as fr
+
 # from simple_rl.tasks.FetchPOMDP.config_reader import load_json
 #Run "python setup.py build_ext --inplace" to compile
 
@@ -101,8 +103,9 @@ cpdef double sum(list a):
 	for i in range(len(a)):
 		total += a[i]
 	return total
-cpdef double subtract(a,b):
+cpdef list subtract(list a,list b):
 	return [a[i] - b[i] for i in range(len(a))]
+
 cpdef double dot(list a, list b):
 	cdef double sum = 0
 	for i in range(len(a)):
@@ -188,7 +191,15 @@ cpdef belief_update_robot(b, o):
 	# if (o["language"] is None or o["language"] == set()) and o["gesture"] is None:
 	# 	belief_update_total_time += time() - start
 	# 	return b
-	observation_probs = [observation_func_robot(o, [i, b[0]]) for i in
+	language_probs = [language_func(o["language"], [i, b[0]]) for i in
+	                     range(len(b[1]))]
+	gesture_probs = [gesture_func_robot(o["gesture"], [i, b[0]]) for i in
+	                     range(len(b[1]))]
+	max_gesture_prob = maxish(gesture_probs)
+	if max_gesture_prob < .10:
+		gesture_probs = [gesture_func_robot(None, [i, b[0]]) for i in
+	                     range(len(b[1]))]
+	observation_probs = [language_probs[i] * gesture_probs[i] for i in
 	                     range(len(b[1]))]
 	denominator = dot(b[1], observation_probs)
 	if denominator == 0:
