@@ -2,7 +2,6 @@
 
 # Python imports.
 import copy
-import pdb
 
 class MDP(object):
     ''' Abstract class for a Markov Decision Process. '''

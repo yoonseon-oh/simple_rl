@@ -1,8 +1,5 @@
 from collections import defaultdict
 from simple_rl.planning.ValueIterationClass import ValueIteration
-from simple_rl.pomdp.BeliefStateClass import BeliefState
-
-import pdb
 
 class BeliefUpdater(object):
     ''' Wrapper class for different methods for belief state updates in POMDPs. '''
@@ -13,7 +10,7 @@ class BeliefUpdater(object):
             mdp (POMDP)
             transition_func: T(s, a) --> s'
             reward_func: R(s, a) --> float
-            observation_func: O(s) --> z
+            observation_func: O(s, a) --> z
             updater_type (str)
         '''
         self.reward_func = reward_func
@@ -34,8 +31,7 @@ class BeliefUpdater(object):
         else:
             raise AttributeError('updater_type {} did not conform to expected type'.format(updater_type))
 
-    def discrete_filter_updater(self, belief_state, action, observation):
-        belief = belief_state.distribution if belief_state is BeliefState else belief_state
+    def discrete_filter_updater(self, belief, action, observation):
         def _compute_normalization_factor(bel):
             return sum(bel.values())
 
