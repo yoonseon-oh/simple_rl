@@ -142,23 +142,18 @@ class BeliefSparseSampling(object):
         self.root_level_qvals[state] = qvalues
         return self.gen_model.actions[action_idx]
 
-    def run(self, num_episodes=5, verbose=True):
-        final_scores, policies = [], []
-        for episode in range(num_episodes):
-            discounted_sum_rewards = 0.0
-            num_iter = 0
-            self.gen_model.reset()
-            state = self.gen_model.init_state
-            policy = defaultdict()
-            if verbose: print 'Episode {}: '.format(episode)
-            while not self.gen_model.is_in_goal_state():
-                action = self.plan_from_state(state)
-                reward, next_state = self.gen_model.execute_agent_action(action)
-                policy[state] = action
-                discounted_sum_rewards += ((self.gamma ** num_iter) * reward)
-                if verbose: print '({}, {}, {}) -> {} | {}'.format(state, action, next_state, reward, discounted_sum_rewards)
-                state = copy.deepcopy(next_state)
-                num_iter += 1
-            final_scores.append(discounted_sum_rewards)
-            policies.append(policy)
-        return final_scores, policies
+    def run(self, verbose=True):
+        discounted_sum_rewards = 0.0
+        num_iter = 0
+        self.gen_model.reset()
+        state = self.gen_model.init_state
+        policy = defaultdict()
+        while not self.gen_model.is_in_goal_state():
+            action = self.plan_from_state(state)
+            reward, next_state = self.gen_model.execute_agent_action(action)
+            policy[state] = action
+            discounted_sum_rewards += ((self.gamma ** num_iter) * reward)
+            if verbose: print '({}, {}, {}) -> {} | {}'.format(state, action, next_state, reward, discounted_sum_rewards)
+            state = copy.deepcopy(next_state)
+            num_iter += 1
+        return discounted_sum_rewards, policy
