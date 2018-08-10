@@ -5,8 +5,7 @@ from collections import defaultdict
 import copy
 
 # Other imports.
-from simple_rl.planning import Planner
-from simple_rl.planning import ValueIteration
+from simple_rl.planning import Planner, ValueIteration
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.mdp.StateClass import State
 from simple_rl.utils.additional_datastructures import SimpleRLStack
