@@ -1,4 +1,4 @@
-class Stack(object):
+class SimpleRLStack(object):
     def __init__(self, _list=None):
         '''
         Args:
