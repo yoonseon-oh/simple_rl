@@ -7,25 +7,23 @@ import copy
 # Other imports.
 from simple_rl.planning import Planner
 from simple_rl.planning import ValueIteration
-from simple_rl.tasks import GridWorldMDP
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.mdp.StateClass import State
 from simple_rl.utils.additional_datastructures import SimpleRLStack
 
-
 class BoundedRTDP(Planner):
-    def __init__(self, mdp, name='BRTDP', lower_values_init=None, upper_values_init=None, tau=10.):
+    def __init__(self, mdp, lower_values_init, upper_values_init, tau=10., name='BRTDP'):
         '''
         Args:
             mdp (MDP): underlying MDP to plan in
-            name (str): Name of the planner
             lower_values_init (defaultdict): lower bound initialization on the value function
             upper_values_init (defaultdict): upper bound initialization on the value function
             tau (float): scaling factor to help determine when the bounds on the value function are tight enough
+            name (str): Name of the planner
         '''
         Planner.__init__(self, mdp, name)
-        self.lower_values = MonotoneLowerBound(mdp).lower_values if lower_values_init is None else lower_values_init
-        self.upper_values = MonotoneUpperBound(mdp).upper_values if upper_values_init is None else upper_values_init
+        self.lower_values = lower_values_init
+        self.upper_values = upper_values_init
 
         # Using the value iteration class for accessing the matrix of transition probabilities
         vi = ValueIteration(mdp, sample_rate=1000)
@@ -141,45 +139,3 @@ class BoundedRTDP(Planner):
             return _distribution
         scaled_distribution = _scale_distribution(distribution, expected_gap)
         return max(scaled_distribution, key=scaled_distribution.get)
-
-class MonotoneLowerBound(Planner):
-    def __init__(self, mdp, name='MonotoneUpperBound'):
-        relaxed_mdp = MonotoneLowerBound._construct_deterministic_relaxation_mdp(mdp)
-
-        Planner.__init__(self, relaxed_mdp, name)
-        self.vi = ValueIteration(relaxed_mdp)
-        self.states = self.vi.get_states()
-        self.vi._compute_matrix_from_trans_func()
-        self.vi.run_vi()
-        self.lower_values = self._construct_lower_values()
-
-    @staticmethod
-    def _construct_deterministic_relaxation_mdp(mdp):
-        relaxed_mdp = copy.deepcopy(mdp)
-        relaxed_mdp.set_slip_prob(0.0)
-        return relaxed_mdp
-
-    def _construct_lower_values(self):
-        values = defaultdict()
-        for state in self.states:
-            values[state] = self.vi.get_value(state)
-        return values
-
-class MonotoneUpperBound(Planner):
-    def __init__(self, mdp, name='MonotoneUpperBound'):
-        Planner.__init__(self, mdp, name)
-        self.vi = ValueIteration(mdp)
-        self.states = self.vi.get_states()
-        self.upper_values = self._construct_upper_values()
-
-    def _construct_upper_values(self):
-        values = defaultdict()
-        for state in self.states:
-            values[state] = 1. / (1. - self.gamma)
-        return values
-
-if __name__ == '__main__':
-    test_mdp = GridWorldMDP(width=6, height=6, goal_locs=[(6, 6)], slip_prob=0.2)
-    bounded_rtdp = BoundedRTDP(test_mdp)
-    bounded_rtdp.run_sample_trial(verbose=True)
-    test_policy = bounded_rtdp.plan()
