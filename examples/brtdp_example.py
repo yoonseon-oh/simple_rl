@@ -49,7 +49,6 @@ def main():
     lower_value_function = MonotoneLowerBound(test_mdp).lower_values
     upper_value_function = MonotoneUpperBound(test_mdp).upper_values
     bounded_rtdp = BoundedRTDP(test_mdp, lower_values_init=lower_value_function, upper_values_init=upper_value_function)
-    bounded_rtdp.run_sample_trial(verbose=True)
     test_policy = bounded_rtdp.plan()
     print 'Derived policy:\n{}'.format(test_policy)
 

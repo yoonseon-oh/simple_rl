@@ -12,6 +12,13 @@ from simple_rl.mdp.StateClass import State
 from simple_rl.utils.additional_datastructures import SimpleRLStack
 
 class BoundedRTDP(Planner):
+    '''
+    Bounded Real-Time Dynamic Programming: RTDP with monotone upper bounds and performance guarantees (McMahan et al)
+
+    The Bounded RTDP solver can produce partial policies with strong performance guarantees while only touching a
+    fraction of the state space, even on problems where other algorithms would have to visit the full state space.
+    To do so, Bounded RTDP maintains both upper and lower bounds on the optimal value function.
+    '''
     def __init__(self, mdp, lower_values_init, upper_values_init, tau=10., name='BRTDP'):
         '''
         Args:
@@ -47,6 +54,11 @@ class BoundedRTDP(Planner):
         Returns:
             policy (defaultdict)
         '''
+
+        # Run the BRTDP algorithm to perform value function rollouts
+        self.run_sample_trial()
+
+        # Continue planning based on the heuristic refinement performed above
         state = self.mdp.get_init_state() if state is None else state
         policy = defaultdict()
         steps = 0
