@@ -14,3 +14,4 @@ simple_rl/tasks/FetchPOMDP/build
 simple_rl/tasks/FetchPOMDP/_pychache_
 simple_rl/tasks/FetchPOMDP/.idea
 simple_rl/tasks/FetchPOMDP/FetchPOMDP trials
+simple_rl/tasks/FetchPOMDP/FetchPOMDP*

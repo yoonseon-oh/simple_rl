@@ -2,19 +2,12 @@
 from simple_rl.pomdp.POMDPClass import POMDP
 from simple_rl.pomdp.BeliefStateClass import FlatDiscreteBeliefState
 from simple_rl.mdp.StateClass import State
-import numpy as np
-# import scipy.stats
-import json
 import random
 import copy
 import os
 import sys
 from simple_rl.tasks.FetchPOMDP import file_reader as fr
-from math import log
-from collections import defaultdict
-from time import time
-import timeit
-import math
+from simple_rl.tasks.FetchPOMDP.FetchStateClass import FetchPOMDPBeliefState,FetchPOMDPState
 import cython
 print("In FetchPOMDPClass.py")
 print(os.getcwd()+"\config.json")
@@ -25,21 +18,16 @@ pyximport.install()
 from simple_rl.tasks.FetchPOMDP import cstuff
 # from simple_rl.tasks.FetchPOMDP.__init__ import load_json
 
-# jsonreader.load_json("as")
-
-
 class FetchPOMDP(POMDP):
 	def __init__(self,items = None, desired_item = 0, use_gesture = True, use_language = True, use_look = False):
-		# print("use_gesture: " + str(use_gesture))
-		# print("use_language: " + str(use_language))
 		if items is None:
 			self.items = cstuff.get_items()
 		else:
 			self.items = items
 		self.num_items = len(self.items)
-		self.init_state = State([desired_item,None,None])
+		self.init_state = FetchPOMDPState(*[desired_item,None,None])
 		self.curr_state = copy.copy(self.init_state)
-		self.init_belief_state = FlatDiscreteBeliefState([[self.init_state[1],self.init_state[2]], [1.0 / len(self.items) for i in range(self.num_items)]])
+		self.init_belief_state = FetchPOMDPBeliefState([1.0 / len(self.items) for i in range(self.num_items)],self.init_state)
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.actions = []
 		for i in range(self.num_items):
@@ -47,7 +35,6 @@ class FetchPOMDP(POMDP):
 			self.actions.append("point " + str(i))
 			if use_look:
 				self.actions.append("look " + str(i))
-		# self.actions.append("look " + str(i))
 		self.actions.append("wait")
 
 		config = fr.load_json("config.json")
@@ -78,32 +65,29 @@ class FetchPOMDP(POMDP):
 		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief_state,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
 		if use_gesture:
 			if use_language:
-				# self.sample_observation = cstuff.sample_observation_detailed
 				self.sample_observation = cstuff.sample_observation
-
 			else:
-				self.sample_observation = lambda s: {"language": None, "gesture": cstuff.sample_gesture(s)}
+				self.sample_observation = lambda state: {"language": None, "gesture": cstuff.sample_gesture(state)}
 		elif use_language:
-			# self.sample_observation = lambda s: {"language": cstuff.sample_language_detailed(s), "gesture": None}
-			self.sample_observation = lambda s: {"language": cstuff.sample_language(s), "gesture": None}
+			self.sample_observation = lambda state: {"language": cstuff.sample_language(state), "gesture": None}
 		else:
-			self.sample_observation = lambda s: {"language": None, "gesture": None}
-			self.belief_update = lambda b, o: b
+			self.sample_observation = lambda state: {"language": None, "gesture": None}
+			self.belief_update = lambda belief_state, observation: belief_state
 			print("Using neither language nor gesture in FetchPOMDP.")
 			print("use_gesture: " + str(use_gesture))
 			print("use_language: " + str(use_language))
 
-	def observation_func(self,o,s,a = None):
+	def observation_func(self,observation,state,action = None):
 		'''
 		:param s: state
 		:param o: observation
 		:param a: action
 		:return: probability of receiving observation o when taking action a from state s
 		'''
-		return cstuff.observation_func(o,s)
+		return cstuff.observation_func(observation,state)
 
-	def reward_func(self,s,a):
-		vals = a.split(" ")
+	def reward_func(self, state, action):
+		vals = action.split(" ")
 		if vals[0] == "point":
 			return self.point_cost
 		if vals[0] == "look":
@@ -111,7 +95,7 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			if int(vals[1]) == s[0]:
+			if int(vals[1]) == state["desired_item"]:
 				return self.correct_pick_reward
 			else:
 				return self.wrong_pick_cost
@@ -124,7 +108,7 @@ class FetchPOMDP(POMDP):
 		if vals[0] == "wait":
 			return self.wait_cost
 		if vals[0] == "pick":
-			correct_prob = belief_state[1][int(vals[1])]
+			correct_prob = belief_state["desired_item"][int(vals[1])]
 			reward = correct_prob * self.correct_pick_reward + (1 - correct_prob) * self.wrong_pick_cost
 			return reward
 		print("Action with unknown reward: " + vals[0])
@@ -136,7 +120,7 @@ class FetchPOMDP(POMDP):
 		:param action:
 		:return:
 		'''
-		return FlatDiscreteBeliefState(cstuff.belief_update(belief,observation))
+		return FetchPOMDPBeliefState(**cstuff.belief_update(belief,observation))
 	def belief_updater_func(self, belief, action, observation):
 		'''
 		:param belief: [last_referenced (index), [P(desired_item == i) i in items]]
@@ -150,8 +134,8 @@ class FetchPOMDP(POMDP):
 		vals = action.split(" ")
 		if vals[0] in ["look", "point"]:
 			s1 = copy.deepcopy(state)
-			s1[1] = int(vals[1])
-			s1[2] = vals[0]
+			s1["last_referenced_item"] = int(vals[1])
+			s1["reference_type"] = vals[0]
 			return s1
 		return state
 	def execute_action(self, action):
@@ -172,15 +156,16 @@ class FetchPOMDP(POMDP):
 		'''
 		self.curr_state = self.transition_func(self.curr_state, action)
 		reward = self.reward_func(self.curr_state, action)
-		self.update_curr_belief_known_variables()
+		self.curr_belief_state.update_from_state(self.curr_state)
 		return (reward, self.curr_belief_state)
 
 	def reset(self):
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
-		self.curr_state[0] = random.sample([i for i in range(len(self.items))],1)[0]
-		self.curr_state[1] = None
-		self.curr_state[2] = None
-	def is_terminal(self, s, a):
+		self.curr_state["desired_item"] = random.sample([i for i in range(len(self.items))],1)[0]
+		self.curr_state["last_referenced_item"] = None
+		self.curr_state["reference_type"] = None
+		self.curr_belief_state.update_from_state(self.curr_state)
+	def is_terminal(self, state, a):
 		vals = a.split(" ")
 		return vals[0] == "pick"
 	def get_true_state(self):
@@ -188,18 +173,12 @@ class FetchPOMDP(POMDP):
 	def update_curr_belief_state(self, observation):
 		if type(self.curr_belief_state) is list:
 			raise TypeError("curr_belief_state has type list")
-		self.update_curr_belief_known_variables()
+		self.curr_belief_state.update_from_state(self.curr_state)
 		self.curr_belief_state = self.belief_update(self.curr_belief_state,observation)
 		if type(self.curr_belief_state) is list:
 			raise TypeError("curr_belief_state has type list")
 		return self.curr_belief_state
-	def update_curr_belief_known_variables(self):
-		'''
-		Updates the known variables in curr_belief_state based on their true values
-		:return:
-		'''
-		self.curr_belief_state[0][0] = self.curr_state[1]
-		self.curr_belief_state[0][1] = self.curr_state[2]
+
 	def get_constants(self):
 		c = {"wait_cost": self.wait_cost, "point_cost": self.point_cost, "wrong_pick_cost": self.wrong_pick_cost,
 		     "correct_pick_reward": self.correct_pick_reward,"look_cost": self.look_cost, "items": self.items, "gamma": self.gamma,

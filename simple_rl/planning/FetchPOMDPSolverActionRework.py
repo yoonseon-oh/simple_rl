@@ -42,7 +42,7 @@ class FetchPOMDPSolver(object):
 			self.plan = self.plan_from_belief_heuristically
 
 	def plan_from_belief(self, b):
-		sampled_states = cstuff.sample_states(b[1], self.num_state_samples)
+		sampled_states = cstuff.sample_distinct_states(b[1], self.num_state_samples)
 		list_of_q_lists = [self.get_qvalues(b, [s, b[0][0],b[0][1]], self.horizon) for s in sampled_states]
 		weights = cstuff.unit_vectorn([b[1][i] for i in sampled_states])
 		average_q_values = []

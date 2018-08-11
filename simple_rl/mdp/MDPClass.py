@@ -37,6 +37,7 @@ class MDP(object):
 
     def get_transition_func(self):
         return self.transition_func
+
     def get_transition_prob_function(self):
         return self.transition_prob_func
 

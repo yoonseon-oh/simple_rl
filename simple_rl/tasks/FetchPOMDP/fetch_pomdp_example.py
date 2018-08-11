@@ -228,11 +228,23 @@ def custom_test(pomdp1_args,pomdp2_args,solver1_args,solver2_args, n = 10):
 	solver2 = FetchPOMDPSolver(pomdp2,**solver2_args)
 	results1 = solver1.run(num_episodes = n)
 	results2 = solver2.run(num_episodes = n)
-	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config})
-	results2.update({"args":{"pomdp":pomdp2_args,"solver":solver2_args},"config":pomdp2.config})
+	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config, "action_counts":get_count_each_action(results1["histories"])})
+	results2.update({"args":{"pomdp":pomdp2_args,"solver":solver2_args},"config":pomdp2.config,"action_counts":get_count_each_action(results2["histories"])})
 	results = {"1":results1,"2":results2}
+	print("solver1 %" + str(100*float(results1["num_correct"])/n))
+	print("solver1 action counts: " + str(results1["action_counts"]))
+	print("solver2 %" + str(100*float(results2["num_correct"])/n))
+	print("solver2 action counts: " + str(results2["action_counts"]))
+
 	with open(get_full_path("custom test "), 'w') as fp:
 		json.dump(results, fp, indent=4)
+def get_count_each_action(histories):
+	counts = {"look":0,"wait":0,"point":0,"pick":0}
+	for history in histories:
+		for i in history:
+			vals = i["action"].split(" ")
+			counts[vals[0]] += 1
+	return counts
 def main(open_plot=True):
 	# compare_observation_models((True, True), (False, False), n=10)
 	# test_gestureless_pomdp(10)
@@ -241,5 +253,5 @@ def main(open_plot=True):
 	# test_heuristic_planner(n =1000)
 
 	# test((True,True), n=10)
-	custom_test({"use_look":True},{"use_look":False},{"horizon":2,"qvalue_method":"belief based","muted":False},{"horizon":2,"qvalue_method":"state based","muted":False},n=100)
+	custom_test({"use_look":True},{"use_look":True},{"horizon":2,"qvalue_method":"state based","muted":False, "kl_weight":1000},{"horizon":2,"qvalue_method":"belief based","muted":False},n=10)
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
