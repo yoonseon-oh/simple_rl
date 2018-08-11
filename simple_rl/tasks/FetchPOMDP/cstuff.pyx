@@ -104,6 +104,10 @@ cpdef double sum(list a):
 	for i in range(len(a)):
 		total += a[i]
 	return total
+cpdef list add(list a, list b):
+	return [a[i] + b[i] for i in range(len(a))]
+cpdef dict add_dict(dict a, dict b):
+	return {key: a[key] + b[key] for key in a.keys()}
 cpdef list subtract(list a, list b):
 	return [a[i] - b[i] for i in range(len(a))]
 
@@ -175,7 +179,7 @@ cpdef belief_update(belief_state, observation):
 		print("observation_probs = " + str(observation_probs))
 		print("observation = " + str(observation))
 		raise ValueError("Received observation with probability 0")
-		return belief_state
+		# return belief_state
 	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
 	                      range(len(belief_state["desired_item"]))]
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],

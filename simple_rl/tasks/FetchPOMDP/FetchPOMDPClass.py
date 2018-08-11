@@ -27,7 +27,7 @@ class FetchPOMDP(POMDP):
 		self.num_items = len(self.items)
 		self.init_state = FetchPOMDPState(*[desired_item,None,None])
 		self.curr_state = copy.copy(self.init_state)
-		self.init_belief_state = FetchPOMDPBeliefState([1.0 / len(self.items) for i in range(self.num_items)],self.init_state)
+		self.init_belief_state = FetchPOMDPBeliefState(desired_item = [1.0 / len(self.items) for i in range(self.num_items)],state = self.init_state)
 		self.curr_belief_state = copy.deepcopy(self.init_belief_state)
 		self.actions = []
 		for i in range(self.num_items):
@@ -138,6 +138,13 @@ class FetchPOMDP(POMDP):
 			s1["reference_type"] = vals[0]
 			return s1
 		return state
+	def transition_prob_func(self,state,action,state2):
+		correct_state2 = self.transition_func(state,action)
+		if correct_state2 == state2:
+			return 1.0
+		return 0.0
+	def possible_next_states(self,state, action):
+		return [self.transition_func(state,action)]
 	def execute_action(self, action):
 		if type(self.curr_belief_state) is list:
 			raise TypeError("curr_belief_state has type list")
