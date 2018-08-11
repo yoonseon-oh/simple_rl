@@ -3,9 +3,6 @@ import random
 
 from simple_rl.mdp.StateClass import State
 
-from simple_rl.tasks.cleanup.CleanUpMDPClass import CleanUpMDP
-
-
 class CleanUpState(State):
     def __init__(self, task, x, y, blocks=[], doors=[], rooms=[]):
         '''
@@ -64,6 +61,7 @@ class CleanUpState(State):
                self.list_eq(other.blocks, self.blocks)
 
     def is_terminal(self):
+        from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
         return CleanUpMDP.is_terminal(self.task, next_state=self)
 
     def copy(self):
