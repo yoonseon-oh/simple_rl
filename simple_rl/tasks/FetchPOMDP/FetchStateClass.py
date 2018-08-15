@@ -1,4 +1,5 @@
 import copy
+from collections import defaultdict
 from simple_rl.mdp.StateClass import State
 from simple_rl.pomdp.BeliefStateClass import FlatDiscreteBeliefState
 import pyximport;
@@ -58,7 +59,7 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 	def update_from_state(self, state):
 		for key in self.known:
 			self[key] = state[key]
-
+		return self
 	def to_state(self, desired_item):
 		sample_dict = {key: self[key] for key in self.known}
 		sample_dict.update({"desired_item": desired_item})
@@ -66,6 +67,12 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 
 	def get_all_possible_states(self):
 		return [self.to_state(i) for i in range(len(self["desired_item"]))]
+	def get_explicit_distribution(self):
+		states = self.get_all_possible_states()
+		d = defaultdict(float)
+		support = {state: self.belief(state) for state in states}
+		d.update(support)
+		return d
 
 	def __hash__(self):
 		if self.data.__hash__ is None:
@@ -76,7 +83,7 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 	def __eq__(self, other):
 		return self.data == other.data and self.known == other.known and self.unknown == other.unknown
 
-class FetchObservation(object):
+class FetchPOMDPObservation(object):
 	def __init__(self, language = None, gesture = None):
 		self.data = {"language":language, "gesture":gesture}
 	def __getitem__(self, item):
@@ -85,6 +92,8 @@ class FetchObservation(object):
 		return hash(tuple(self["language"],self["gesture"]))
 	def __eq__(self, other):
 		return self["language"] == other["language"] and self["gesture"] == other["gesture"]
+	def __str__(self):
+		return str(self.data)
 
 # def get_counts(samples):
 # 	counts = {i:0 for i in range(4)}
@@ -135,4 +144,12 @@ def test_to_state():
 
 	all_states = bs.get_all_possible_states()
 	print(all_states[0])
-test_to_state()
+
+def test_get_explicit_distribution():
+	st = FetchPOMDPState(0, 1, "point")
+	bs = FetchPOMDPBeliefState([1.0 / 6 for i in range(6)], state=st)
+	d = bs.get_explicit_distribution()
+	print(d[st])
+	print(d[3])
+	print(d)
+# test_get_explicit_distribution()

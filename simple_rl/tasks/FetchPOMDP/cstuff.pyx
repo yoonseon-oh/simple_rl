@@ -1,9 +1,15 @@
 # from config1 import *
 import math
+from collections import defaultdict
+from datetime import datetime
+import copy
 from time import time
 import json
 import random
+
+random.seed(0)
 import numpy as np
+from scipy.stats import truncnorm
 # from libcpp.vector cimport vector
 import os
 import sys
@@ -51,7 +57,6 @@ cdef bag_of_words = config["bag_of_words"]
 cpdef items = config["items"]
 cdef ATTRIBUTES = config["attributes"]
 cdef num_items = len(items)
-cdef double std_theta_look = config["std_theta_look"]
 cdef double point_cost = config["point_cost"]
 cdef double p_g = config["p_g"]
 cdef double p_l = config["p_l"]  # split into base and response probabilities
@@ -59,9 +64,110 @@ cdef double p_r_match = config["p_r_match"]
 cdef double p_r_match_look = config["p_r_match_look"]
 cdef double alpha = config["alpha"]
 cdef double std_theta = config["std_theta"]
+cdef double std_theta_point = config["std_theta_point"]
+cdef double std_theta_look = config["std_theta_look"]
 cdef double gamma = config["gamma"]
 cdef error = 1
 import os
+
+cdef list point_confusion_matrix = calculate_confusion_matrix(items, std_theta_point, -math.pi / 2, math.pi / 2)
+cdef list look_confusion_matrix = calculate_confusion_matrix(items, std_theta_look, -math.pi / 2, math.pi / 2)
+cpdef dict response_confusion_matrices = {"look": look_confusion_matrix, "point": point_confusion_matrix}
+
+#Needs to be proper matrix: it matters which item the human incorrectly thinks the agent is pointing at.
+cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double max_angle):
+	#Indices seem off by one
+	#convert item locations to angles (ignore height for now for simplicity)
+	item_angles = {i: math.atan2(items[i]["location"][1], items[i]["location"][0]) for i in range(len(items))}
+	sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
+	midpoints = [(sorted_angles[i][1] + sorted_angles[i + 1][1]) / 2 for i in range(len(sorted_angles) - 1)]
+	print(midpoints)
+	#Get intervals over which each item is the nearest item (voronoi circle)
+	#First and last should wraparound. TODONE
+	intervals = {}
+	#Set cutoff points for first and last intervals. TODO make sure this works.
+	# The if may in fact be unnecessary, since truncnorm.cdf will handle boundary
+	pi = math.pi
+	print("-math.pi: " + str(-math.pi))
+	print("math.pi: " + str(math.pi))
+	print("type(min_angle): " + str(type(min_angle)))
+	print("min_angle: " + str(min_angle))
+	print("max_angle: " + str(max_angle))
+	# if min_angle == -pi and max_angle == pi:
+	# 	left_mid = ((sorted_angles[-1][1] - 2*math.pi) + sorted_angles[0][1])/2
+	# 	right_mid = ((sorted_angles[0][1] + 2*math.pi) + sorted_angles[-1][1])/2
+	# else:
+	# 	left_mid = min_angle
+	# 	right_mid = max_angle
+	for i in range(len(items)):
+		#zeroth interval is -pi to the zeroth midpoint
+		#modify to work with min and max angles
+		if i == 0:
+			left_mid = ((sorted_angles[-1][1] - 2 * math.pi) + sorted_angles[0][1]) / 2
+			intervals[sorted_angles[i][0]] = (left_mid, midpoints[0])
+		#last interval is last midpoint to pi
+		elif i == len(items) - 1:
+			right_mid = ((sorted_angles[0][1] + 2 * math.pi) + sorted_angles[-1][1]) / 2
+			intervals[sorted_angles[i][0]] = (midpoints[-1], right_mid)
+		#other intervals are from midpoint to midpoint
+		else:
+			intervals[sorted_angles[i][0]] = (midpoints[i - 1], midpoints[i])
+	print(intervals)
+	#Assume that the actual location the agent points to is sampled from a gaussian with variance std_theta_look/point.
+	#Calculate the probability that pointing to an object is interpreted as pointing to another object
+	confusion_matrix = []
+	for i in range(len(items)):
+		print("i = " + str(i) + " in calculate_confusion_matrix")
+		confusion_row = []
+		for j in range(len(items)):
+			print("j = " + str(j) + " in calculate_confusion_matrix")
+			#TODO replace min,max with relative min, max to work with truncnorm
+			center = item_angles[i]
+			#TODO consider increasing precision
+			left_trunc = (min_angle - center) / std_dev
+			right_trunc = (max_angle - center) / std_dev
+			cdf_left = truncnorm.cdf(intervals[j][0], left_trunc, right_trunc, center, std_dev)
+			cdf_right = truncnorm.cdf(intervals[j][1], left_trunc, right_trunc, center, std_dev)
+			prob_match = cdf_right - cdf_left
+			# if prob_match == 0:
+			# 	data = {"i": i, "angles[i]": item_angles[i], "j": j, "angles[j]": item_angles[j],
+			# 	        "min_angle": min_angle, "max_angle": max_angle, "intervals[i]": intervals[i],
+			# 	        "intervals[j]": intervals[j], "cdf_left": cdf_left, "cdf_right": cdf_right,
+			# 	        "left_trunc": left_trunc, "right_trunc": right_trunc, "std_dev": std_dev}
+			# 	with open('error calculating confusion matrix ' + str(datetime.now()).replace(":", ".")[:22] + '.json',
+			# 	          'w') as fp:
+			# 		json.dump(data, fp, indent=4)
+			# raise ValueError("Probability 0 while calculating confusion matrix")
+			confusion_row.append(prob_match)
+		confusion_matrix.append(confusion_row)
+	return confusion_matrix
+
+# cdef calculate_response_probs_old(items, std_dev):
+# 	cdef std_theta_1 = 2 * (std_theta ** 2)
+# 	cdef std_theta_p_g = p_g / math.sqrt(2 * math.pi * (std_theta ** 2))
+# 	#convert item locations to angles (ignore height for now for simplicity)
+# 	item_angles = {i: math.atan2(items[i]["location"][1],items[i]["location"][0]) for i in range(len(items))}
+# 	sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
+# 	midpoints = [sorted_angles[i][1] + sorted_angles[i+1][1] for i in range(len(sorted_angles) - 1)]
+# 	#Get intervals over which each item is the nearest item (voronoi circle)
+# 	#First and last should wraparound. TODO
+# 	intervals = {}
+# 	for i in range(len(items)):
+# 		#zeroth interval is -pi to the zeroth midpoint
+# 		if i == 0:
+# 			intervals[sorted_angles[i][0]]= (-math.pi,midpoints[0])
+# 		#last interval is last midpoint to pi
+# 		elif i == len(items) - 1:
+# 			intervals[sorted_angles[i][0]] = (midpoints[len(midpoints) -1],math.pi)
+# 		#other intervals are from midpoint to midpoint
+# 		else:
+# 			intervals[sorted_angles[i][0]] = (midpoints[i -1],midpoints[i])
+# 	#Assume that the actual location the agent points to is sampled from a gaussian with variance std_theta_look/point
+# 	response_probs = []
+# 	for i in range(len(items)):
+# 		prob_correct = norm.cdf(intervals[i][1],item_angles[i],std_dev) - norm.cdf(intervals[i][0],item_angles[i],std_dev)
+# 		response_probs.append(prob_correct)
+# 	return response_probs
 
 cdef positive_responses = set(config["positive_responses"])
 cdef negative_responses = set(config["negative_responses"])
@@ -98,18 +204,57 @@ cdef all_words = union_dictionary(bag_of_words)
 cdef relevant_words = [get_relevant_words(i, bag_of_words) for i in range(len(items))]
 cdef irrelevant_words = [get_irrelevant_words(i, bag_of_words) for i in range(len(items))]
 
+cpdef double average(list a):
+	cdef double total = sum(a)
+	return total / len(a)
 cpdef double sum(list a):
 	cdef double total = 0
 	cdef int i
 	for i in range(len(a)):
 		total += a[i]
 	return total
+
+cpdef double sum_dict(a):
+	cdef double total = 0
+	cdef int i
+	for key in a.keys():
+		total += a[key]
+	return total
 cpdef list add(list a, list b):
 	return [a[i] + b[i] for i in range(len(a))]
-cpdef dict add_dict(dict a, dict b):
-	return {key: a[key] + b[key] for key in a.keys()}
+
+cpdef add_dict(a, b):
+	#Can't use lambda expressions in cython, so I cannot add the default factories
+	if type(a) is defaultdict:
+		ret = defaultdict(a.default_factory)
+	else:
+		ret = {}
+	ret.update({key: a[key] + b[key] for key in a.keys()})
+	return ret
 cpdef list subtract(list a, list b):
 	return [a[i] - b[i] for i in range(len(a))]
+cpdef times_dict(a, scalar):
+	#Can't use lambda expressions in cython, so I cannot scale the default factories
+	if type(a) is defaultdict:
+		ret = defaultdict(a.default_factory)
+	else:
+		ret = {}
+	ret.update({key: scalar * a[key] for key in a.keys()})
+	return ret
+cpdef double distance(list a, list b):
+	cdef double dist = 0
+	for i in range(len(a)):
+		dist += (a[i] - b[i]) ** 2
+cpdef double distance_dict(a, b):
+	cdef double distance = 0
+	for key in a.keys():
+		distance += (a[key] - b[key]) ** 2
+	return distance
+cpdef double dot_dict(a, b):
+	cdef double total = 0
+	for key in a.keys():
+		total += a[key] * b[key]
+	return total
 
 cpdef double dot(list a, list b):
 	cdef double sum = 0
@@ -157,8 +302,8 @@ cpdef double angle_between(list v1, list v2):
 		prod = 1
 	return math.acos(prod)
 
-cpdef double vec_prob(list ideal, list actual):
-	return std_theta_p_g * (math.e ** (-(angle_between(ideal, actual) ** 2) / std_theta_1))
+cpdef double vec_prob(list ideal, list actual, double a = std_theta_p_g, double b = std_theta_1):
+	return a * (math.e ** (-(angle_between(ideal, actual) ** 2) / b))
 
 cpdef belief_update(belief_state, observation):
 	"""
@@ -166,50 +311,34 @@ cpdef belief_update(belief_state, observation):
 	:param observation: [set of words, gesture vector]
 	:return: [known part of state, belief_state distribution]
 	"""
+	cdef int i
 	global belief_update_total_time
 	start = time()
-	observation_probs = [
-		observation_func(observation,belief_state.to_state(i)) for i
-		in
-		range(len(belief_state["desired_item"]))]
-	denominator = dot(belief_state["desired_item"], observation_probs)
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [observation_func(observation, state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Maybe change the kl boost to ignore improbable states
 	if denominator == 0:
+		print("Received observation with probability 0. Resetting belief.")
 		print("belief_state[2] dot observation_probs = 0")
 		print("belief_state = " + str(belief_state))
 		print("observation_probs = " + str(observation_probs))
 		print("observation = " + str(observation))
-		raise ValueError("Received observation with probability 0")
-		# return belief_state
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+		# raise ValueError("Received observation with probability 0")
+	# return belief_state
 	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
 	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
 	       "reference_type": belief_state["reference_type"]}
-	belief_update_total_time += time() - start
 	return ret
-cpdef belief_update_old(b, o):
-	"""
-	:param b: FetchPOMDPBeliefState
-	:param o: [set of words, gesture vector]
-	:return: [known part of state, belief distribution]
-	"""
-	global belief_update_total_time
-	start = time()
-	# if (o["language"] is None or o["language"] == set()) and o["gesture"] is None:
-	# 	belief_update_total_time += time() - start
-	# 	return b
-	observation_probs = [observation_func(o, [i, b[0][0], b[0][1]]) for i in
-	                     range(len(b[1]))]
-	denominator = dot(b[1], observation_probs)
-	if denominator == 0:
-		print("b[2] dot observation_probs = 0")
-		print("b = " + str(b))
-		print("observation_probs = " + str(observation_probs))
-		print("o = " + str(o))
-		return b
-	ret = [[b[0][0], b[0][1]],
-	       [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
-	belief_update_total_time += time() - start
-	return ret
+
 cpdef belief_update_robot(belief_state, observation):
 	"""
 	:param belief_state: [known part of state, belief distribution over desired item]
@@ -221,7 +350,7 @@ cpdef belief_update_robot(belief_state, observation):
 	start = time()
 	language_probs = [language_func(observation["language"], belief_state.to_state(i)) for i in
 	                  range(len(belief_state["desired_item"]))]
-	gesture_probs = [gesture_func_robot(observation["gesture"],  belief_state.to_state(i)) for i in
+	gesture_probs = [gesture_func_robot(observation["gesture"], belief_state.to_state(i)) for i in
 	                 range(len(belief_state["desired_item"]))]
 	max_gesture_prob = maxish(gesture_probs)
 	if max_gesture_prob < .10:
@@ -238,6 +367,7 @@ cpdef belief_update_robot(belief_state, observation):
 		return belief_state
 	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
 	                      range(len(belief_state["desired_item"]))]
+	#TODO: remove zeros
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
 	       "reference_type": belief_state["reference_type"]}
 	belief_update_total_time += time() - start
@@ -275,7 +405,12 @@ cpdef belief_update_robot_old(b, o):
 	       [b[1][j] * observation_probs[j] / denominator for j in range(len(b[1]))]]  #Replace with c
 	belief_update_total_time += time() - start
 	return ret
-
+cpdef double observation_func_response_only(observation, state):
+	global observation_func_total_time
+	start_time = time()
+	prob = response_probability(observation["language"], state)
+	observation_func_total_time += time() - start_time
+	return prob
 cpdef double observation_func(observation, state):
 	global observation_func_total_time
 	start_time = time()
@@ -318,7 +453,6 @@ cpdef double language_func(observation, state):
 	cdef double base_utterance_prob = base_probability(observation, relevant_words[state["desired_item"]], all_words)
 	cdef double response_utterance_prob = response_probability(observation, state)
 	return base_utterance_prob * response_utterance_prob
-
 cpdef double response_probability(language, state):
 	"""
 	:param language: language
@@ -326,6 +460,34 @@ cpdef double response_probability(language, state):
 	:return: P(language | state)
 	TODO: Probability of null response should be higher if state[1] is None
 	"""
+	#TODO fix
+	cdef int num_positive_included = len(positive_responses.intersection(language))
+	cdef int num_positive_omitted = len(positive_responses) - num_positive_included
+	cdef int num_negative_included = len(negative_responses.intersection(language))
+	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
+
+	if num_positive_included + num_negative_included == 0:
+		return 1 - p_l
+	reference_type = state["reference_type"]
+	last_referenced_item = state["last_referenced_item"]
+	desired_item = state["desired_item"]
+	if last_referenced_item is None:
+		return .5 ** (len(positive_responses) + len(negative_responses))
+	#Return probability that the human thinks the agent pointed at the desired item
+	cdef double pos_prob = response_confusion_matrices[reference_type][last_referenced_item][desired_item]
+	if num_positive_included > num_negative_included:
+		return pos_prob
+	if num_negative_included > num_positive_included:
+		return 1 - pos_prob
+
+cpdef double response_probability_old(language, state):
+	"""
+	:param language: language
+	:param state: state
+	:return: P(language | state)
+	TODO: Probability of null response should be higher if state[1] is None
+	"""
+	#TODO fix
 	cdef int num_positive_included = len(positive_responses.intersection(language))
 	cdef int num_positive_omitted = len(positive_responses) - num_positive_included
 	cdef int num_negative_included = len(negative_responses.intersection(language))
@@ -335,14 +497,43 @@ cpdef double response_probability(language, state):
 		return 1 - p_l
 	if state["last_referenced_item"] is None:
 		return .5 ** (len(positive_responses) + len(negative_responses))
-	match_prob = p_r_match
-	if state["reference_type"] == "look":
+	if state["reference_type"] == "point":
+		match_prob = p_r_match
+	elif state["reference_type"] == "look":
 		match_prob = p_r_match_look
-	if state["desired_item"] == state["last_referenced_item"]:
-		return match_prob ** (num_positive_included + num_negative_omitted) \
-		       * (1 - match_prob) ** (num_positive_omitted + num_negative_omitted)
-	return (1 - match_prob) ** (num_positive_included + num_negative_omitted) \
-	       * match_prob ** (num_positive_omitted + num_negative_omitted)
+	if (state["desired_item"] == state["last_referenced_item"]) == (num_positive_included > num_negative_included):
+		return match_prob
+	return 1 - match_prob
+# if state["desired_item"] == state["last_referenced_item"]:
+# 	return match_prob ** (num_positive_included + num_negative_omitted) \
+# 	       * (1 - match_prob) ** (num_positive_omitted + num_negative_omitted)
+# return (1 - match_prob) ** (num_positive_included + num_negative_omitted) \
+#        * match_prob ** (num_positive_omitted + num_negative_omitted)
+
+cpdef double response_probability_2(language, state):
+	"""
+	:param language: language
+	:param state: state
+	:return: P(language | state)
+	TODO: Probability of null response should be higher if state[1] is None
+	"""
+	#TODO fix
+	cdef int num_positive_included = len(positive_responses.intersection(language))
+	cdef int num_positive_omitted = len(positive_responses) - num_positive_included
+	cdef int num_negative_included = len(negative_responses.intersection(language))
+	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
+
+	if num_positive_included + num_negative_included == 0:
+		return 1 - p_l
+	if state["last_referenced_item"] is None:
+		return .5 ** (len(positive_responses) + len(negative_responses))
+	if state["reference_type"] == "point":
+		match_prob = p_r_match
+	elif state["reference_type"] == "look":
+		match_prob = p_r_match_look
+	if (state["desired_item"] == state["last_referenced_item"]) == (num_positive_included > num_negative_included):
+		return match_prob
+	return 1 - match_prob
 
 cpdef double base_probability(language, vocab, words):
 	'''
@@ -401,6 +592,52 @@ cpdef sample_language(state):
 # 	return language
 # Review sample response, base
 cpdef sample_response_utterance(state):
+	#Note: this assumes the only source of error is the robot miscommunicating to the human, not the human misspeaking
+	"""
+	:param state: state
+	:return: single word response utterance
+	"""
+	if state["last_referenced_item"] is None or random.random() > p_l:
+		return set()  # This seems more reasonable than randomly picking yes/no
+	yes_prob = response_confusion_matrices[state["reference_type"]][state["last_referenced_item"]][
+		state["desired_item"]]
+	if random.random() < yes_prob:
+		return set(["yes"])
+	else:
+		return set(["no"])
+# cpdef sample_response_utterance_old2(state):
+# 	"""
+# 	:param state: state
+# 	:return: single word response utterance
+# 	"""
+# 	if state["last_referenced_item"] is None or random.random() > p_l:
+# 		return set()  # This seems more reasonable than randomly picking yes/no
+# 	match_prob = response_probs[state["reference_type"]][state["last_referenced_item"]]
+# 	if state["last_referenced_item"] == state["desired_item"]:
+# 		if random.random() < match_prob:
+# 			return set(["yes"])
+# 		return set(["no"])
+# 	if random.random() < match_prob:
+# 		return set(["no"])
+# 	return set(["yes"])
+cpdef sample_response_utterance_old(state):
+	"""
+	:param state: state
+	:return: single word response utterance
+	"""
+	if state["last_referenced_item"] is None or random.random() > p_l:
+		return set()  # This seems more reasonable than randomly picking yes/no
+	match_prob = p_r_match
+	if state["reference_type"] == "look":
+		match_prob = p_r_match_look
+	if state["last_referenced_item"] == state["desired_item"]:
+		if random.random() < match_prob:
+			return set(["yes"])
+		return set(["no"])
+	if random.random() < match_prob:
+		return set(["no"])
+	return set(["yes"])
+cpdef sample_response_utterance_2(state):
 	"""
 	:param state: state
 	:return: single word response utterance
@@ -569,11 +806,37 @@ cpdef states_equal(s1, s2):
 		return True
 	return False
 
+cpdef kl_divergence2(a, b):
+	return kl_divergence(a["desired_item"], b["desired_item"])
+cpdef kl_divergence_bounded(a, b, bound):
+	cdef int i
+	cdef double div = 0
+	for i in range(len(a)):
+		# if a[i] == 0.0:
+		# 	a[i] = np.nextafter(0,1)
+		# if b[i] == 0.0:
+		# 	b[i] = np.nextafter(0,1)
+		try:
+			div += a[i] * math.log(a[i] / b[i])
+		except:
+			print("a: " + str(a))
+			print("b: " + str(b))
+			raise ValueError("a[" + str(i) + "] = " + str(a[i]) + "; b[" + str(i) + "] = " + str(b[i]))
+	return div
 cpdef kl_divergence(list a, list b):
 	cdef int i
 	cdef double div = 0
 	for i in range(len(a)):
-		div += a[i] * math.log(a[i] / b[i])
+		# if a[i] == 0.0:
+		# 	a[i] = np.nextafter(0,1)
+		# if b[i] == 0.0:
+		# 	b[i] = np.nextafter(0,1)
+		try:
+			div += a[i] * math.log(a[i] / b[i])
+		except:
+			print("a: " + str(a))
+			print("b: " + str(b))
+			raise ValueError("a[" + str(i) + "] = " + str(a[i]) + "; b[" + str(i) + "] = " + str(b[i]))
 	return div
 
 cpdef maxish(a):
@@ -604,3 +867,24 @@ cpdef dict get_qvalues2(self, list b, dict true_state, int horizon):
 		else:
 			next_qvalues.append(self.get_qvalues2(next_beliefs[i], next_states[i], horizon - 1))
 	return [rewards[i] + self.pomdp.gamma * maxish(next_qvalues[i]) for i in range(len(next_states))]
+cpdef remove_zeros(b):
+	for i in range(len(b)):
+		if b[i] == 0.0:
+			b[i] = np.nextafter(0, 1)
+	return b
+
+def get_response_confusion_matrices():
+	return response_confusion_matrices
+cpdef get_max_angle(items):
+	max_angle = 0
+	for item1 in items():
+		for item2 in items():
+			max_angle = max(angle_between(item1["location"], item2["location"]), max_angle)
+	print(max_angle)
+cpdef clamp(value,min_value,max_value):
+	if value > max_value:
+		return max_value
+	elif value < min_value:
+		return min_value
+	else:
+		return value

@@ -56,7 +56,7 @@
     }
   ],
   "desired_item": 0,
-  "num_items": 6,
+  "num_items": 3,
   "bag_of_words": {
     "spoon": [
       "spoon",
@@ -128,14 +128,15 @@
   "p_g": 0.1,
   "p_l": 0.95,
   "p_r_match": 0.99,
-  "p_r_match_look": 0.8,
-  "alpha": 0.1,
+  "p_r_match_look": 0.7,
+  "alpha": 0.2,
   "std_theta": 0.15,
-  "std_theta_look": 0.3,
-  "point_cost": -6,
-  "look_cost": -0.5,
-  "wait_cost": -0.167,
-  "wrong_pick_cost": -20,
-  "correct_pick_reward": 10,
+  "std_theta_point":0.01,
+  "std_theta_look": 2.0,
+  "point_cost": -1.5,
+  "look_cost": -1.4,
+  "wait_cost": -1.2,
+  "wrong_pick_cost": -15,
+  "correct_pick_reward": 15,
   "gamma": 0.9
 }

@@ -1,5 +1,0 @@
-{
-  "fetch_pomdp_example.py::test": true,
-  "fetch_pomdp_example.py::test_gestureless_pomdp": true,
-  "fetch_pomdp_example.py::test_heuristic_planner": true
-}

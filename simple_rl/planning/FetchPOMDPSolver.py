@@ -5,8 +5,9 @@ import cython
 # pyximport.install()
 # import simple_rl.tasks.FetchPOMDP.cstuff as cstuff
 from simple_rl.tasks.FetchPOMDP import cstuff
+from simple_rl.tasks.FetchPOMDP.FetchStateClass import FetchPOMDPObservation
 import random
-
+random.seed(0)
 
 class FetchPOMDPSolver(object):
 	def __init__(self, pomdp, horizon=2, qvalue_method="state based", kl_weight = 0,
@@ -15,7 +16,7 @@ class FetchPOMDPSolver(object):
 		self.num_state_samples = pomdp.num_items
 		self.horizon = horizon
 		self.muted = muted
-		self.kl_weight = 0
+		self.kl_weight = kl_weight
 		if qvalue_method == "state based":
 			# self.get_qvalues = self.get_qvalues_from_state
 			self.get_reward_sim = lambda b,s,a : self.pomdp.reward_func(s,a)
@@ -98,16 +99,21 @@ class FetchPOMDPSolver(object):
 		if horizon == 0:
 			return rewards
 		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
+		next_beliefs = [copy.deepcopy(belief_state).update_from_state(next_state) for next_state in next_states]
 		# Generalize for general BSS
 		terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 		observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
-		next_beliefs = [self.belief_update(belief_state, o) for o in observations]
-		print(next_beliefs[0]["desired_item"])
+		next_beliefs = [self.belief_update(next_beliefs[i], observations[i]) for i in range(len(next_states))]
+		for b in next_beliefs:
+			for i in range(len(b["desired_item"])):
+				if b["desired_item"][i] <= 0:
+					print(str(b))
+		# print(next_beliefs[0]["desired_item"])
 		kls = [cstuff.kl_divergence(next_beliefs[i]["desired_item"], belief_state["desired_item"]) for i in range(len(next_states))]
 		next_qvalues = [self.get_qvalues(next_beliefs[i], next_states[i],
 		                                             horizon - 1)  if i not in terminal_states else 0.0 for i in
 		                range(len(next_states))]
-		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) + self.kl_weight * kls[i] for i in range(len(next_states))]
+		return [rewards[i] + self.pomdp.gamma * cstuff.maxish(next_qvalues[i]) + cstuff.clamp(self.kl_weight *kls[i],0,self.pomdp.max_value) for i in range(len(next_states))]
 
 	def get_qvalues2Dict(self, b, true_state, horizon):
 		'''
@@ -282,7 +288,7 @@ class FetchPOMDPSolver(object):
 			language = set(raw_observation[1].split(" "))
 		else:
 			language = set()
-		observation = {"language": language, "gesture": gesture}
+		observation = FetchPOMDPObservation(**{"language": language, "gesture": gesture})
 		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state, observation)
 		next_action = self.plan_from_belief(self.pomdp.curr_belief_state)
 		self.pomdp.execute_action_robot(next_action)

@@ -1,13 +1,14 @@
 # v 0.5
 from simple_rl.pomdp.POMDPClass import POMDP
-from simple_rl.pomdp.BeliefStateClass import FlatDiscreteBeliefState
-from simple_rl.mdp.StateClass import State
+# from simple_rl.pomdp.BeliefStateClass import FlatDiscreteBeliefState
+# from simple_rl.mdp.StateClass import State
 import random
+random.seed(0)
 import copy
 import os
 import sys
 from simple_rl.tasks.FetchPOMDP import file_reader as fr
-from simple_rl.tasks.FetchPOMDP.FetchStateClass import FetchPOMDPBeliefState,FetchPOMDPState
+from simple_rl.tasks.FetchPOMDP.FetchStateClass import FetchPOMDPBeliefState,FetchPOMDPState, FetchPOMDPObservation
 import cython
 print("In FetchPOMDPClass.py")
 print(os.getcwd()+"\config.json")
@@ -47,12 +48,15 @@ class FetchPOMDP(POMDP):
 		# self.alpha = .2
 		self.std_theta = config["std_theta"]
 		self.std_theta_look = config["std_theta_look"]
+		self.std_theta_point = config["std_theta_point"]
 		self.gamma = config["gamma"]
 		self.point_cost = config["point_cost"]
 		self.look_cost = config["look_cost"]
 		self.wait_cost = config["wait_cost"]
 		self.wrong_pick_cost = config["wrong_pick_cost"] / self.num_items
 		self.correct_pick_reward = config["correct_pick_reward"] / self.num_items
+		self.min_value = self.wrong_pick_cost
+		self.max_value = self.correct_pick_reward
 
 		self.observation_func = cstuff.observation_func
 		self.belief_updater_type = "FetchPOMDP_belief_updater"
@@ -65,13 +69,13 @@ class FetchPOMDP(POMDP):
 		# POMDP.__init__(self,self.actions,self.transition_func,self.reward_func,cstuff.observation_func, init_belief_state,"custom: FetchPOMDP_belief_updater", self.gamma, 0)
 		if use_gesture:
 			if use_language:
-				self.sample_observation = cstuff.sample_observation
+				self.sample_observation = lambda state: FetchPOMDPObservation(**cstuff.sample_observation(state))
 			else:
-				self.sample_observation = lambda state: {"language": None, "gesture": cstuff.sample_gesture(state)}
+				self.sample_observation = lambda state: FetchPOMDPObservation(**{"language": None, "gesture": cstuff.sample_gesture(state)})
 		elif use_language:
-			self.sample_observation = lambda state: {"language": cstuff.sample_language(state), "gesture": None}
+			self.sample_observation = lambda state: FetchPOMDPObservation(**{"language": cstuff.sample_language(state), "gesture": None})
 		else:
-			self.sample_observation = lambda state: {"language": None, "gesture": None}
+			self.sample_observation = lambda state: FetchPOMDPObservation(**{"language": None, "gesture": None})
 			self.belief_update = lambda belief_state, observation: belief_state
 			print("Using neither language nor gesture in FetchPOMDP.")
 			print("use_gesture: " + str(use_gesture))
@@ -85,7 +89,14 @@ class FetchPOMDP(POMDP):
 		:return: probability of receiving observation o when taking action a from state s
 		'''
 		return cstuff.observation_func(observation,state)
-
+	def sample_observation_from_belief_action(self,belief,action):
+		new_belief = copy.deepcopy(belief)
+		vals = action.split(" ")
+		if vals[0] in ["look", "point"]:
+			new_belief["last_referenced_item"] = int(vals[1])
+			new_belief["reference_type"] = vals[0]
+		state = new_belief.sample()
+		return self.sample_observation(state)
 	def reward_func(self, state, action):
 		vals = action.split(" ")
 		if vals[0] == "point":

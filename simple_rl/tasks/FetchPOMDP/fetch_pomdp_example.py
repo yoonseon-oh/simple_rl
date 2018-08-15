@@ -8,6 +8,8 @@ import json
 # Other imports.
 from simple_rl.tasks.FetchPOMDP import FetchPOMDP, FetchPOMDP
 from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
+from simple_rl.tasks.FetchPOMDP import file_reader as fr
+
 
 # TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 # Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
@@ -17,7 +19,7 @@ output_directory = ".\\FetchPOMDP Trials\\"
 
 
 def get_full_path(file_name="Test results", ext=".json"):
-	return output_directory + file_name + str(datetime.now()).replace(":", ".") + ext
+	return output_directory + file_name + str(datetime.now()).replace(":", ".")[:22] + ext
 
 
 def average(a):
@@ -238,6 +240,35 @@ def custom_test(pomdp1_args,pomdp2_args,solver1_args,solver2_args, n = 10):
 
 	with open(get_full_path("custom test "), 'w') as fp:
 		json.dump(results, fp, indent=4)
+	return results
+def custom_run(pomdp1_args,solver1_args, n = 10):
+	pomdp1 = FetchPOMDP(**pomdp1_args)
+	solver1 = FetchPOMDPSolver(pomdp1, **solver1_args)
+	results1 = solver1.run(num_episodes = n)
+	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config, "action_counts":get_count_each_action(results1["histories"])})
+	results = {"1":results1}
+	print("solver1 %" + str(100*float(results1["num_correct"])/n))
+	print("solver1 action counts: " + str(results1["action_counts"]))
+	with open(get_full_path("custom test "), 'w') as fp:
+		json.dump(results, fp, indent=4)
+	return results
+def balance_point_and_look():
+	for i in range(10):
+		config = fr.load_json("config.json")
+		config["look_cost"] -= 0.1
+		config["point_cost"] += 0.1
+		with open('config.json', 'w') as fp:
+			json.dump(config, fp)
+		res = custom_run({"use_look": True},
+		            {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
+		action_counts = res["1"]["action_counts"]
+		if action_counts["look"] > 0 and action_counts["point"] > 0:
+			print("look and point")
+			print("look cost: " + str(config["look_cost"]))
+			print("point cost: " + str(config["point_cost"]))
+			with open('config look and point' + str(datetime.now()).replace(":", ".") + '.json', 'w') as fp:
+				json.dump(config, fp, indent = 4)
+
 def get_count_each_action(histories):
 	counts = {"look":0,"wait":0,"point":0,"pick":0}
 	for history in histories:
@@ -251,7 +282,11 @@ def main(open_plot=True):
 	# test_arguments()
 	# test_gestureless_pomdp(10, horizon=3)
 	# test_heuristic_planner(n =1000)
-
+	# balance_point_and_look()
 	# test((True,True), n=10)
-	custom_test({"use_look":True},{"use_look":True},{"horizon":2,"qvalue_method":"state based","muted":False, "kl_weight":1000},{"horizon":2,"qvalue_method":"belief based","muted":False},n=10)
+	# custom_run({"use_look": True},
+	#            {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
+	custom_test({"use_look": True},{"use_look": True},
+	           {"horizon": 2, "qvalue_method": "belief based", "muted": False, "kl_weight":10},
+	            {"horizon": 2, "qvalue_method": "state based", "muted": False,"kl_weight":5}, n =10)
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
