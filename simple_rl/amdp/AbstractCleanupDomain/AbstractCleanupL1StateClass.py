@@ -23,18 +23,21 @@ class CleanupL1State(State):
         return self.__str__()
 
 class CleanupL1Robot(object):
-    def __init__(self, current_room, adjacent_block=None):
+    def __init__(self, current_room, current_door, adjacent_block=None):
         '''
         Args:
             current_room (str): color of the agent's current room
+            current_door (str): `src_dest` str representing the source and destination rooms of a door
             adjacent_block (str): color of the block next to the agent
         '''
         self.current_room = current_room
+        self.current_door = current_door
         self.adjacent_block = adjacent_block
 
     def __str__(self):
-        block = self.adjacent_block if self.adjacent_block is not None else 'NoBlock'
-        return 'Robot::room:' + self.current_room + '  adjacent_block:' + block
+        block = self.adjacent_block if self.adjacent_block else 'NoBlock'
+        door = self.current_door if self.current_door else 'NotAtDoor'
+        return 'Robot::room:' + self.current_room + '  adjacent_block:' + block + ' current_door:' + door
 
     def __repr__(self):
         return self.__str__()
@@ -69,17 +72,20 @@ class CleanupL1Room(object):
         return self.__str__()
 
 class CleanupL1Block(object):
-    def __init__(self, current_room, block_color):
+    def __init__(self, current_room, current_door, block_color):
         '''
         Args:
             current_room (str): color of the room in which the current block is placed
+            current_door (str): src_dest str representing the source and destination rooms of a door
             block_color (str): color of the current block
         '''
         self.current_room = current_room
+        self.current_door = current_door
         self.block_color = block_color
 
     def __str__(self):
-        return 'Block::color:' + self.block_color + ' in_room:' + str(self.current_room)
+        door = self.current_door if self.current_door else 'NotAtDoor'
+        return 'Block::color:' + self.block_color + ' in_room:' + str(self.current_room) + ' in_door:' + str(door)
 
     def __repr__(self):
         return self.__str__()

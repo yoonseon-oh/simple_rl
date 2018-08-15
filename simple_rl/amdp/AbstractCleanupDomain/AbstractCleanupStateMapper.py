@@ -40,7 +40,8 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         for block in state.blocks:  # type: CleanUpBlock
             room_color = self._position_to_room_color(state.rooms, (block.x, block.y))
             block_color = block.color
-            l1_blocks.append(CleanupL1Block(room_color, block_color))
+            current_door = self._get_block_door(state, block)
+            l1_blocks.append(CleanupL1Block(room_color, current_door, block_color))
         return l1_blocks
 
     @staticmethod
@@ -64,15 +65,7 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         '''
         l1_doors = []
         for door in state.doors: # type: CleanUpDoor
-            connecting_rooms = []
-            left_room = self._position_to_room_color(state.rooms, (door.x - 1, door.y))
-            right_room = self._position_to_room_color(state.rooms, (door.x + 1, door.y))
-            above_room = self._position_to_room_color(state.rooms, (door.x, door.y + 1))
-            below_room = self._position_to_room_color(state.rooms, (door.x, door.y - 1))
-            if left_room and right_room and left_room != right_room:
-                connecting_rooms = [left_room, right_room]
-            elif above_room and below_room and above_room != below_room:
-                connecting_rooms = [above_room, below_room]
+            connecting_rooms = self._get_connecting_rooms_from_door(state, door)
             if connecting_rooms:
                 l1_doors.append(CleanupL1Door(connecting_rooms))
         return l1_doors
@@ -87,10 +80,17 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         '''
         robot_room = self._position_to_room_color(state.rooms, (state.x, state.y))
         adjacent_block_color = None
+        robot_current_door = ''
         for block in state.blocks:
             if AbstractCleanupL1StateMapper._is_block_adjacent_to_robot(block, state):
                 adjacent_block_color = block.color
-        return CleanupL1Robot(robot_room, adjacent_block_color)
+        for door in state.doors: # type: CleanUpDoor
+            connecting_rooms = self._get_connecting_rooms_from_door(state, door)
+            if connecting_rooms:
+                room1, room2 = connecting_rooms[0], connecting_rooms[1]
+                if state.x == door.x and state.y == door.y:
+                    robot_current_door = room1 + '_' + room2
+        return CleanupL1Robot(robot_room, robot_current_door, adjacent_block_color)
 
     @staticmethod
     def _position_to_room_color(rooms, position):
@@ -119,3 +119,40 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         '''
         manhattan_distance = abs(state.x - block.x) + abs(state.y - block.y)
         return manhattan_distance <= 1
+
+    def _get_connecting_rooms_from_door(self, state, door):
+        '''
+        Args:
+            state (CleanUpState)
+            door (CleanUpDoor)
+
+        Returns:
+            connecting_rooms (list): [source_room_color, destination_room_color]
+        '''
+        connecting_rooms = []
+        left_room = self._position_to_room_color(state.rooms, (door.x - 1, door.y))
+        right_room = self._position_to_room_color(state.rooms, (door.x + 1, door.y))
+        above_room = self._position_to_room_color(state.rooms, (door.x, door.y + 1))
+        below_room = self._position_to_room_color(state.rooms, (door.x, door.y - 1))
+        if left_room and right_room and left_room != right_room:
+            connecting_rooms = [left_room, right_room]
+        elif above_room and below_room and above_room != below_room:
+            connecting_rooms = [above_room, below_room]
+        return connecting_rooms
+
+    def _get_block_door(self, state, block):
+        '''
+        Args:
+            state (CleanUpState)
+            block (CleanUpBlock)
+
+        Returns:
+            door_str: string representing the door in which the block is currently present
+        '''
+        current_door = ''
+        for door in state.doors:  # type: CleanUpDoor
+            if block.x == door.x and block.y == door.y:
+                connecting_rooms = self._get_connecting_rooms_from_door(state, door)
+                current_door = connecting_rooms[0] + '_' + connecting_rooms[1]
+        return current_door
+
