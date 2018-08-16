@@ -43,6 +43,19 @@ class CleanupL1State(State):
     def __repr__(self):
         return self.__str__()
 
+    def get_l1_block_for_color(self, block_color):
+        '''
+        Args:
+            block_color (str)
+
+        Returns:
+            block (CleanupL1Block)
+        '''
+        for block in self.blocks:
+            if block.block_color == block_color:
+                return block
+        return None
+
 class CleanupL1Robot(object):
     def __init__(self, current_room, current_door, adjacent_block=None):
         '''
@@ -80,7 +93,7 @@ class CleanupL1Door(object):
         self.connected_rooms = connected_rooms
 
     def __str__(self):
-        return 'Door::' + str(self.connected_rooms[0]) + '_' + str(self.connected_rooms[1])
+        return str(self.connected_rooms[0]) + '_' + str(self.connected_rooms[1])
 
     def __repr__(self):
         return self.__str__()
@@ -100,7 +113,7 @@ class CleanupL1Room(object):
         self.room_color = room_color
 
     def __str__(self):
-        return 'Room::color:' + self.room_color
+        return self.room_color
 
     def __repr__(self):
         return self.__str__()
