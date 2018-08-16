@@ -1,5 +1,7 @@
 from simple_rl.mdp.StateClass import State
 
+import pdb
+
 class CleanupL1State(State):
     def __init__(self, robot, doors, rooms, blocks):
         '''
@@ -16,8 +18,27 @@ class CleanupL1State(State):
 
         State.__init__(self, data=[robot, doors, rooms, blocks])
 
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        equal = isinstance(other, self.__class__) and self.robot == other.robot
+        for door1, door2 in zip(self.doors, other.doors):
+            if door1 != door2:
+                equal = False
+        for room1, room2 in zip(self.rooms, other.rooms):
+            if room1 != room2:
+                equal = False
+        for block1, block2 in zip(self.blocks, other.blocks):
+            if block1 != block2:
+                equal = False
+        return equal
+
+    def __ne__(self, other):
+        return not self == other
+
     def __str__(self):
-        return str(self.robot) + '\t' + str(self.doors) + '\t' + str(self.rooms) + '\t' + str(self.blocks)
+        return str(self.robot) + '\t' + str(self.doors) + '\t' + str(self.rooms) + '\t' + str(self.blocks) + '\n'
 
     def __repr__(self):
         return self.__str__()
@@ -42,6 +63,13 @@ class CleanupL1Robot(object):
     def __repr__(self):
         return self.__str__()
 
+    def __eq__(self, other):
+        return self.current_room == other.current_room and self.current_door == other.current_door and\
+               self.adjacent_block == other.adjacent_block
+
+    def __ne__(self, other):
+        return not self == other
+
 class CleanupL1Door(object):
     def __init__(self, connected_rooms):
         '''
@@ -57,6 +85,12 @@ class CleanupL1Door(object):
     def __repr__(self):
         return self.__str__()
 
+    def __eq__(self, other):
+        return self.connected_rooms == other.connected_rooms
+
+    def __ne__(self, other):
+        return not self == other
+
 class CleanupL1Room(object):
     def __init__(self, room_color):
         '''
@@ -70,6 +104,12 @@ class CleanupL1Room(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def __eq__(self, other):
+        return self.room_color == other.room_color
+
+    def __ne__(self, other):
+        return not self == other
 
 class CleanupL1Block(object):
     def __init__(self, current_room, current_door, block_color):
@@ -89,3 +129,10 @@ class CleanupL1Block(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def __eq__(self, other):
+        return self.current_room == other.current_room and self.current_door == other.current_door and\
+               self.block_color == other.block_color
+
+    def __ne__(self, other):
+        return not self == other

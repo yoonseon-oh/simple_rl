@@ -9,6 +9,7 @@ from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTask
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import *
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapper import AbstractCleanupL1StateMapper
 from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
+from simple_rl.tasks.cleanup.cleanup_task import CleanUpTask
 
 import pdb
 
@@ -26,13 +27,23 @@ class CleanupL1MDP(MDP):
         Args:
             l0_domain (CleanUpMDP)
         '''
+        self.l0_domain = l0_domain
         state_mapper = AbstractCleanupL1StateMapper(l0_domain)
         l1_init_state = state_mapper.map_state(l0_domain.init_state)
         grounded_actions = CleanupL1MDP.ground_actions(l1_init_state)
+
         MDP.__init__(self, grounded_actions, self._transition_function, self._reward_function, l1_init_state)
 
+    def _is_goal_state(self, state):
+        for block in state.blocks: # type: CleanupL1Block
+            if block.block_color == self.l0_domain.task.block_color:
+                return block.current_room == self.l0_domain.task.goal_room_color and \
+                       state.robot.current_room == self.l0_domain.task.goal_room_color
+        raise ValueError('Did not find an L1 Block object with color {}'.format(self.l0_domain.task.block_color))
+
     def _reward_function(self, state, action):
-        pass
+        next_state = self._transition_function(state, action)
+        return 1. if self._is_goal_state(next_state) else 0.
 
     def _transition_function(self, state, action):
         '''
@@ -70,11 +81,9 @@ class CleanupL1MDP(MDP):
             next_state = self._move_agent_to_room(state, destination_room)
             next_state = self._move_block_to_room(next_state, destination_room)
 
+        next_state.set_terminal(self._is_goal_state(next_state))
+
         return next_state
-
-
-    def _terminal_function(self, state):
-        pass
 
     @classmethod
     def ground_actions(cls, l1_state):
@@ -277,8 +286,19 @@ class CleanupL1MDP(MDP):
                 return room
         return None
 
-def get_l1_policy():
-    pass
+def get_l1_policy(domain):
+    vi = ValueIteration(domain, sample_rate=1)
+    vi.run_vi()
+
+    policy = defaultdict()
+    action_seq, state_seq = vi.plan(domain.init_state)
+
+    print 'Plan for {}:'.format(domain)
+    for i in range(len(action_seq)):
+        print "\tpi[{}] -> {}\n".format(state_seq[i], action_seq[i])
+        policy[state_seq[i]] = action_seq[i]
+
+    return policy
 
 if __name__ == '__main__':
     from simple_rl.tasks.cleanup.cleanup_block import CleanUpBlock
@@ -288,7 +308,7 @@ if __name__ == '__main__':
     from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
     from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapper import AbstractCleanupL1StateMapper
 
-    task = CleanUpTask("green", "red")
+    task = CleanUpTask("purple", "red")
     room1 = CleanUpRoom("room1", [(x, y) for x in range(5) for y in range(3)], "blue")
     block1 = CleanUpBlock("block1", 1, 1, color="green")
     block2 = CleanUpBlock("block2", 2, 4, color="purple")
@@ -301,3 +321,7 @@ if __name__ == '__main__':
     mdp = CleanUpMDP(task, rooms=rooms, doors=doors, blocks=blocks)
 
     amdp = CleanupL1MDP(mdp)
+
+    get_l1_policy(amdp)
+
+
