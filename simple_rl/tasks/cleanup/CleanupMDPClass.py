@@ -14,7 +14,7 @@ class CleanUpMDP(MDP):
     # TODO NOTE MAYBE ADD AGENT CLASS.
 
     def __init__(self, task, init_loc=(0, 0), blocks=[], rooms=[], doors=[], rand_init=False, gamma=0.99,
-                 init_state=None):
+                 init_state=None, terminal_func=None, reward_func=None):
         '''
         :param task: The given CleanUpTask for this MDP
         :param init_loc: Initial agent location
@@ -24,6 +24,8 @@ class CleanUpMDP(MDP):
         :param rand_init: random initialization boolean
         :param gamma: gamma factor
         :param init_state: Initial state if given
+        :param terminal_func: optional input terminal function
+        :param reward_func: optional input reward function
         '''
         from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
         self.task = task
@@ -34,7 +36,11 @@ class CleanUpMDP(MDP):
         init_state = CleanUpState(task, init_loc[0], init_loc[1], blocks=blocks, doors=doors, rooms=rooms) \
             if init_state is None or rand_init else init_state
         self.cur_state = init_state
-        MDP.__init__(self, self.ACTIONS, self._transition_func, self._reward_func, init_state=init_state, gamma=gamma)
+
+        self.terminal_func = self.is_terminal if terminal_func is None else terminal_func
+        self.reward_func = self._reward_func if reward_func is None else reward_func
+
+        MDP.__init__(self, self.ACTIONS, self._transition_func, self.reward_func, init_state=init_state, gamma=gamma)
 
         # The following lines are used for efficiency
         legal_states = [(x, y) for room in rooms for x, y in room.points_in_room]

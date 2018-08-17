@@ -18,6 +18,7 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
         '''
         self.action = l1_action_string
         self.l0_domain = lower_domain
+        self.lifted_action = self.grounded_to_lifted_action(l1_action_string)
 
         tf, rf = self._terminal_function, self._reward_function
         NonPrimitiveAbstractTask.__init__(self, l1_action_string, subtasks, tf, rf)
@@ -49,9 +50,23 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
 
         state_mapper = AbstractCleanupL1StateMapper(self.l0_domain)
         projected_state = state_mapper.map_state(state)
+        action_parameter = self.grounded_to_action_parameter(self.action)
+
+        if self.lifted_action == 'toDoor':
+            return _robot_door_terminal_func(projected_state, action_parameter)
+        if self.lifted_action == 'toRoom':
+            return _robot_room_terminal_func(projected_state, action_parameter)
+        if self.lifted_action == 'toObject':
+            return _robot_to_block_terminal_func(projected_state, action_parameter)
+        if self.lifted_action == 'objectToDoor':
+            return _block_to_door_terminal_func(projected_state, projected_state.robot.adjacent_block, action_parameter)
+        if self.lifted_action == 'objectToRoom':
+            return _block_to_room_terminal_func(projected_state, projected_state.robot.adjacent_block, action_parameter)
+
+        raise ValueError('Lifted action {} not supported yet'.format(self.lifted_action))
 
     def _reward_function(self, state):
-        pass
+        return 1. if self._terminal_function(state) else 0.
 
     # -------------------------------
     # L1 Action Helper Functions
@@ -88,8 +103,6 @@ class CleanupL1MDP(MDP):
         state_mapper = AbstractCleanupL1StateMapper(l0_domain)
         l1_init_state = state_mapper.map_state(l0_domain.init_state)
         grounded_actions = CleanupL1MDP.ground_actions(l1_init_state)
-
-        print 'Grounded actions: ', grounded_actions
 
         MDP.__init__(self, grounded_actions, self._transition_function, self._reward_function, l1_init_state)
 

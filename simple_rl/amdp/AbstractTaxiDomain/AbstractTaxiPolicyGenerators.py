@@ -11,7 +11,7 @@ class L1PolicyGenerator(AMDPPolicyGenerator):
         self.state_mapper = state_mapper
 
     # TODO: The Single Passenger Taxi MDP is kinda strange because the goal state is kind of embedded in the current state
-    # But we still should use the grounded_action to derive the goal state while contructing the policy at L1
+    # But we still should use the grounded_action to derive the goal state while constructing the policy at L1
     def generatePolicy(self, l1_state, grounded_action):
         agent_color = l1_state.agent_obj['current_color']
         passenger_color = l1_state.passenger_obj['current_color']
