@@ -52,13 +52,23 @@ class AMDPAgent(object):
         policy = self.policy_generators[level].generatePolicy(state, grounded_task)
         if level > 0:
             while not grounded_task.is_terminal(state):
-                action = policy[state]
+                try:
+                    action = policy[state]
+                except:
+                    import pdb
+                    pdb.set_trace()
+                    raise ValueError('oops above')
                 self.policy_stack[level][state] = action
                 self._decompose(self.action_to_task_map[action], level-1)
                 state = self.state_stack[level]
         else:
             while not grounded_task.is_terminal(state) and not self._env_is_terminal(state):
-                action = policy[state]
+                try:
+                    action = policy[state]
+                except:
+                    import pdb
+                    pdb.set_trace()
+                    raise ValueError('oops')
                 self.policy_stack[level][state] = action
                 print '({}, {})'.format(state, action)
                 reward, state = self.base_mdp.execute_agent_action(action)

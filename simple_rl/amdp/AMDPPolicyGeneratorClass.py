@@ -37,7 +37,7 @@ class AMDPPolicyGenerator(object):
         Returns:
             policy (defaultdict): optimal policy in mdp
         '''
-        vi = ValueIteration(mdp)
+        vi = ValueIteration(mdp, sample_rate=1)
         vi.run_vi()
 
         policy = defaultdict()

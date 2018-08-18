@@ -11,16 +11,13 @@ def create_l0_cleanup_domain():
     from simple_rl.tasks.cleanup.cleanup_room import CleanUpRoom
     from simple_rl.tasks.cleanup.cleanup_task import CleanUpTask
 
-    task = CleanUpTask("purple", "red")
+    task = CleanUpTask("purple", "yellow")
     room1 = CleanUpRoom("room1", [(x, y) for x in range(5) for y in range(3)], "blue")
-    block1 = CleanUpBlock("block1", 1, 1, color="green")
-    block2 = CleanUpBlock("block2", 2, 4, color="purple")
-    block3 = CleanUpBlock("block3", 8, 1, color="orange")
-    room2 = CleanUpRoom("room2", [(x, y) for x in range(5, 10) for y in range(3)], color="red")
-    room3 = CleanUpRoom("room3", [(x, y) for x in range(0, 10) for y in range(3, 6)], color="yellow")
-    rooms = [room1, room2, room3]
-    blocks = [block1, block2, block3]
-    doors = [CleanUpDoor(4, 0), CleanUpDoor(3, 2)]
+    block1 = CleanUpBlock("block1", 2, 2, color="purple")
+    room2 = CleanUpRoom("room3", [(x, y) for x in range(5) for y in range(3, 6)], color="yellow")
+    rooms = [room1, room2]
+    blocks = [block1]
+    doors = [CleanUpDoor(3, 2)]
     return CleanUpMDP(task, rooms=rooms, doors=doors, blocks=blocks)
 
 def main():
