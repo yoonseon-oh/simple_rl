@@ -7,6 +7,7 @@ from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import *
+from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapper import AbstractCleanupL1StateMapper
 
 class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
     def __init__(self, l1_action_string, subtasks, lower_domain):
@@ -85,7 +86,10 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
         return door_name.split('_')
 
 class CleanupRootGroundedAction(RootTaskNode):
-    pass
+    def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func):
+        self.action = action_str
+
+        RootTaskNode.__init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func)
 
 class CleanupL1MDP(MDP):
     LIFTED_ACTIONS = ['toDoor', 'toRoom', 'toObject', 'objectToDoor', 'objectToRoom']
@@ -100,9 +104,11 @@ class CleanupL1MDP(MDP):
             l0_domain (CleanUpMDP)
         '''
         self.l0_domain = l0_domain
+
         state_mapper = AbstractCleanupL1StateMapper(l0_domain)
         l1_init_state = state_mapper.map_state(l0_domain.init_state)
         grounded_actions = CleanupL1MDP.ground_actions(l1_init_state)
+        self.terminal_func = self._is_goal_state
 
         MDP.__init__(self, grounded_actions, self._transition_function, self._reward_function, l1_init_state)
 

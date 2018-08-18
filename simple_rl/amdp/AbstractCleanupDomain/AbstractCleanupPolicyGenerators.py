@@ -1,6 +1,7 @@
 # Python imports.
 from collections import defaultdict
 import copy
+import pdb
 
 # Other imports.
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
@@ -25,7 +26,7 @@ class CleanupL1PolicyGenerator(AMDPPolicyGenerator):
             policy (defaultdict)
         '''
         mdp = CleanupL1MDP(self.domain)
-        return self.getPolicy(mdp)
+        return self.getPolicy(mdp, verbose=True)
 
     def generateAbstractState(self, l0_state):
         return self.state_mapper.map_state(l0_state)
@@ -53,4 +54,4 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
         mdp.terminal_func = grounded_task.terminal_func
         mdp.reward_func = grounded_task.reward_func
 
-        return self.getPolicy(mdp, verbose=self.verbose)
+        return self.getPolicy(mdp, verbose=True)
