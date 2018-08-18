@@ -219,7 +219,7 @@ class CleanUpMDP(MDP):
         #     block_loc = [(x, y) for block in blocks for (x, y) in (block.x, block.y)]
         #     new_loc = random.choice([(x, y) for room in self.init_state.rooms for (x, y) in
         #                              room.points_in_room if (x, y) not in block_loc])
-        #     self.curr_state.x, self.curr_state.y = new_loc
+        #     self.cur_state.x, self.cur_state.y = new_loc
 
     def visualize_agent(self, agent):
         from simple_rl.utils import mdp_visualizer as mdpv

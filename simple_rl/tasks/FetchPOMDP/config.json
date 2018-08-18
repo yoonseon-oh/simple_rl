@@ -132,11 +132,11 @@
   "alpha": 0.2,
   "std_theta": 0.15,
   "std_theta_point":0.01,
-  "std_theta_look": 2.0,
+  "std_theta_look": 20.0,
   "point_cost": -1.5,
   "look_cost": -1.4,
   "wait_cost": -1.2,
-  "wrong_pick_cost": -15,
+  "wrong_pick_cost": -300,
   "correct_pick_reward": 15,
   "gamma": 0.9
 }

@@ -9,8 +9,10 @@ import json
 from simple_rl.tasks.FetchPOMDP import FetchPOMDP, FetchPOMDP
 from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
 from simple_rl.tasks.FetchPOMDP import file_reader as fr
+from simple_rl.planning.BeliefSparseSamplingClass import BeliefSparseSampling
+from simple_rl.pomdp.BeliefMDPClass import BeliefMDP
 
-
+# TODO try bss
 # TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 # Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
 # The old version was much better. Why?
@@ -93,11 +95,12 @@ def test(obs_mod1=(True, True), n=100, horizon=2):
 	'''
 	solve1_name = "(" + ""
 
-	pomdp = FetchPOMDP(use_look= True)
+	pomdp = FetchPOMDP(use_look=True)
 	pomdp.muted = False
 	# create solver
 	start = time()
-	solver = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1],qvalue_method="belief based")
+	solver = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1],
+	                          qvalue_method="belief based")
 	solver_creation_time = time() - start
 	print("Created solver in " + str(solver_creation_time) + " seconds")
 	solver.muted = False
@@ -107,18 +110,18 @@ def test(obs_mod1=(True, True), n=100, horizon=2):
 	solver_time_elapsed = time() - start
 	print(" ")
 
-
 	results = {"horizon": horizon,
 	           "solver": {"time": solver_time_elapsed,
-	                       "average_actions": float(solver_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver_results["final_scores"]),
-	                       "solver_results":solver_results}}
-	print("Results:" + "\n" +str(results))
+	                      "average_actions": float(solver_results["counter_plan_from_state"]) / n,
+	                      "average": average(solver_results["final_scores"]),
+	                      "solver_results": solver_results}}
+	print("Results:" + "\n" + str(results))
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
 	with open(get_full_path("compare observation models "), 'w') as fp:
 		json.dump(results, fp, indent=4)
+
 
 def compare_observation_models(obs_mod1=(True, True), obs_mod2=(True, True), n=100, horizon=2):
 	'''
@@ -155,28 +158,30 @@ def compare_observation_models(obs_mod1=(True, True), obs_mod2=(True, True), n=1
 	solver2_time_elapsed = time() - start
 
 	results = {"horizon": horizon,
-	           "solver1": {"use_gesture":obs_mod1[0], "use_language":obs_mod1[1],
+	           "solver1": {"use_gesture": obs_mod1[0], "use_language": obs_mod1[1],
 	                       "time": solver1_time_elapsed,
 	                       "average_actions": float(solver1_results["counter_plan_from_state"]) / n,
 	                       "average": average(solver1_results["final_scores"]),
 	                       "num_correct": solver1_results["num_correct"], "all": solver1_results["final_scores"]},
-	           "solver2": {"use_gesture":obs_mod2[0], "use_language":obs_mod2[1],
+	           "solver2": {"use_gesture": obs_mod2[0], "use_language": obs_mod2[1],
 	                       "time": solver2_time_elapsed,
 	                       "average_actions": float(solver2_results["counter_plan_from_state"]) / n,
 	                       "average": average(solver2_results["final_scores"]),
 	                       "num_correct": solver2_results["num_correct"],
 	                       "all": solver2_results["final_scores"]}}
-	print("Results:" + "\n" +str(results))
+	print("Results:" + "\n" + str(results))
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
 	with open(get_full_path("compare observation models "), 'w') as fp:
 		json.dump(results, fp)
 
-def test_gestureless_pomdp(n = 10, horizon  = 2):
+
+def test_gestureless_pomdp(n=10, horizon=2):
 	pomdp = FetchPOMDP(use_gesture=False)
 	pomdp.point_cost = pomdp.wait_cost
-	solver  = FetchPOMDPSolver(pomdp,use_gesture=False, use_language=True, qvalue_method="belief based", horizon= horizon)
+	solver = FetchPOMDPSolver(pomdp, use_gesture=False, use_language=True, qvalue_method="belief based",
+	                          horizon=horizon)
 	solver.muted = False
 	# solve
 	start = time()
@@ -184,10 +189,10 @@ def test_gestureless_pomdp(n = 10, horizon  = 2):
 	solver_time_elapsed = time() - start
 	results = {"horizon": horizon,
 	           "solver": {"time": solver_time_elapsed,
-	                       "average_actions": float(solver_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver_results["final_scores"]),
-	                       "num_correct": solver_results["num_correct"], "all": solver_results["final_scores"]}}
-	print("Results:" + "\n" +str(results))
+	                      "average_actions": float(solver_results["counter_plan_from_state"]) / n,
+	                      "average": average(solver_results["final_scores"]),
+	                      "num_correct": solver_results["num_correct"], "all": solver_results["final_scores"]}}
+	print("Results:" + "\n" + str(results))
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
@@ -195,8 +200,8 @@ def test_gestureless_pomdp(n = 10, horizon  = 2):
 		json.dump(results, fp)
 
 
-def test_heuristic_planner(n = 100, horizon = 2, obs_mod = (True,True)):
-	pomdp = FetchPOMDP(use_gesture=obs_mod[0],use_language=obs_mod[1])
+def test_heuristic_planner(n=100, horizon=2, obs_mod=(True, True)):
+	pomdp = FetchPOMDP(use_gesture=obs_mod[0], use_language=obs_mod[1])
 	pomdp.point_cost = pomdp.wait_cost
 	solver = FetchPOMDPSolver(pomdp, use_gesture=obs_mod[0], use_language=obs_mod[1], qvalue_method="belief based",
 	                          horizon=horizon, planner="heuristic")
@@ -206,52 +211,65 @@ def test_heuristic_planner(n = 100, horizon = 2, obs_mod = (True,True)):
 	solver_time_elapsed = time() - start
 	results = {"horizon": horizon,
 	           "solver": {"time": solver_time_elapsed,
-	                       "average_actions": float(solver_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver_results["final_scores"]),
-	                       "solver_results":solver_results}}
-	print("Results:" + "\n" +str(results))
+	                      "average_actions": float(solver_results["counter_plan_from_state"]) / n,
+	                      "average": average(solver_results["final_scores"]),
+	                      "solver_results": solver_results}}
+	print("Results:" + "\n" + str(results))
 	results.update(pomdp.get_constants())
 	# print(get_constants)
 	print(results)
 	with open(get_full_path("heuristic results "), 'w') as fp:
 		json.dump(results, fp, indent=4)
-def format_results(results,time_elapsed, horizon,n):
+
+
+def format_results(results, time_elapsed, horizon, n):
 	f_results = {"horizon": horizon,
-	           "solver": {"time": time_elapsed,
-	                       "average_actions": float(results["counter_plan_from_state"]) / n,
-	                       "average": average(results["final_scores"]),
-	                       "solver_results":results}}
+	             "solver": {"time": time_elapsed,
+	                        "average_actions": float(results["counter_plan_from_state"]) / n,
+	                        "average": average(results["final_scores"]),
+	                        "solver_results": results}}
 
 
-def custom_test(pomdp1_args,pomdp2_args,solver1_args,solver2_args, n = 10):
+def custom_test(pomdp1_args, pomdp2_args, solver1_args, solver2_args, n=10):
 	pomdp1 = FetchPOMDP(**pomdp1_args)
 	solver1 = FetchPOMDPSolver(pomdp1, **solver1_args)
 	pomdp2 = FetchPOMDP(**pomdp2_args)
-	solver2 = FetchPOMDPSolver(pomdp2,**solver2_args)
-	results1 = solver1.run(num_episodes = n)
-	results2 = solver2.run(num_episodes = n)
-	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config, "action_counts":get_count_each_action(results1["histories"])})
-	results2.update({"args":{"pomdp":pomdp2_args,"solver":solver2_args},"config":pomdp2.config,"action_counts":get_count_each_action(results2["histories"])})
-	results = {"1":results1,"2":results2}
-	print("solver1 %" + str(100*float(results1["num_correct"])/n))
+	solver2 = FetchPOMDPSolver(pomdp2, **solver2_args)
+	results1 = solver1.run(num_episodes=n)
+	results2 = solver2.run(num_episodes=n)
+	results1.update({"args": {"pomdp": pomdp1_args, "solver": solver1_args}, "config": pomdp1.config,
+	                 "action_counts": get_count_each_action(results1["histories"])})
+	results2.update({"args": {"pomdp": pomdp2_args, "solver": solver2_args}, "config": pomdp2.config,
+	                 "action_counts": get_count_each_action(results2["histories"])})
+	results = {"1": results1, "2": results2}
+	print("solver1 %" + str(100 * float(results1["num_correct"]) / n))
 	print("solver1 action counts: " + str(results1["action_counts"]))
-	print("solver2 %" + str(100*float(results2["num_correct"])/n))
+	print("solver2 %" + str(100 * float(results2["num_correct"]) / n))
 	print("solver2 action counts: " + str(results2["action_counts"]))
 
 	with open(get_full_path("custom test "), 'w') as fp:
 		json.dump(results, fp, indent=4)
 	return results
-def custom_run(pomdp1_args,solver1_args, n = 10):
+
+
+def custom_run(pomdp1_args, solver1_args, n=10):
 	pomdp1 = FetchPOMDP(**pomdp1_args)
 	solver1 = FetchPOMDPSolver(pomdp1, **solver1_args)
-	results1 = solver1.run(num_episodes = n)
-	results1.update({"args":{"pomdp":pomdp1_args,"solver":solver1_args},"config":pomdp1.config, "action_counts":get_count_each_action(results1["histories"])})
-	results = {"1":results1}
-	print("solver1 %" + str(100*float(results1["num_correct"])/n))
+	results1 = solver1.run(num_episodes=n)
+	num_belief_updates, num_impossible_observations = pomdp1.get_num_belief_updates_and_impossible_observations()
+	impossible_observations_rate = float(num_impossible_observations) / float(num_belief_updates)
+	results1.update({"args": {"pomdp": pomdp1_args, "solver": solver1_args}, "config": pomdp1.config,
+	                 "action_counts": get_count_each_action(results1["histories"]),
+	                 "impossible_observation_rate": impossible_observations_rate})
+	results = {"1": results1}
+	print("solver1 %" + str(100 * float(results1["num_correct"]) / n))
 	print("solver1 action counts: " + str(results1["action_counts"]))
+	print("impossible_observations_rate: " + str(impossible_observations_rate))
 	with open(get_full_path("custom test "), 'w') as fp:
 		json.dump(results, fp, indent=4)
 	return results
+
+
 def balance_point_and_look():
 	for i in range(10):
 		config = fr.load_json("config.json")
@@ -260,22 +278,32 @@ def balance_point_and_look():
 		with open('config.json', 'w') as fp:
 			json.dump(config, fp)
 		res = custom_run({"use_look": True},
-		            {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
+		                 {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
 		action_counts = res["1"]["action_counts"]
 		if action_counts["look"] > 0 and action_counts["point"] > 0:
 			print("look and point")
 			print("look cost: " + str(config["look_cost"]))
 			print("point cost: " + str(config["point_cost"]))
 			with open('config look and point' + str(datetime.now()).replace(":", ".") + '.json', 'w') as fp:
-				json.dump(config, fp, indent = 4)
+				json.dump(config, fp, indent=4)
+
 
 def get_count_each_action(histories):
-	counts = {"look":0,"wait":0,"point":0,"pick":0}
+	counts = {"look": 0, "wait": 0, "point": 0, "pick": 0}
 	for history in histories:
 		for i in history:
 			vals = i["action"].split(" ")
 			counts[vals[0]] += 1
 	return counts
+
+
+def bss(pomdp1_args, num_episodes=5):
+	pomdp1 = FetchPOMDP(**pomdp1_args)
+	bmdp = BeliefMDP(pomdp1)
+	solver = BeliefSparseSampling(bmdp, pomdp1.gamma, 5.0, pomdp1.correct_pick_reward, bmdp.init_state)
+	scores, policies = solver.run(num_episodes=num_episodes, verbose=True)
+
+
 def main(open_plot=True):
 	# compare_observation_models((True, True), (False, False), n=10)
 	# test_gestureless_pomdp(10)
@@ -284,9 +312,12 @@ def main(open_plot=True):
 	# test_heuristic_planner(n =1000)
 	# balance_point_and_look()
 	# test((True,True), n=10)
-	# custom_run({"use_look": True},
-	#            {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
-	custom_test({"use_look": True},{"use_look": True},
-	           {"horizon": 2, "qvalue_method": "belief based", "muted": False, "kl_weight":10},
-	            {"horizon": 2, "qvalue_method": "state based", "muted": False,"kl_weight":5}, n =10)
+	custom_run({"use_look": True},
+	           {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
+
+
+# custom_test({"use_look": True},{"use_look": True},
+#            {"horizon": 2, "qvalue_method": "belief based", "muted": False, "kl_weight":0},
+#             {"horizon": 2, "qvalue_method": "belief based", "muted": False,"kl_weight":0}, n =10)
+# bss({"use_look": True})
 if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")

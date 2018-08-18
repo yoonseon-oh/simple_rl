@@ -68,6 +68,9 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 	def get_all_possible_states(self):
 		return [self.to_state(i) for i in range(len(self["desired_item"]))]
 	def get_explicit_distribution(self):
+		'''
+		:return: distribution as defaultdict where impossible states return 0 by default
+		'''
 		states = self.get_all_possible_states()
 		d = defaultdict(float)
 		support = {state: self.belief(state) for state in states}
@@ -76,20 +79,32 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 
 	def __hash__(self):
 		if self.data.__hash__ is None:
-			return hash(tuple(self.data, self.known, self.unknown))
+			dict_tuple = tuple([(key,self.data[key]) if type(self.data[key]) is not list else (key,tuple(self.data[key])) for key in self.data.keys()])
+			return hash((dict_tuple, tuple(self.known), tuple(self.unknown)))
 		else:
 			return hash(self.data)
 
 	def __eq__(self, other):
 		return self.data == other.data and self.known == other.known and self.unknown == other.unknown
 
+	def __str__(self):
+		ret = str(self.data)
+		return ret
 class FetchPOMDPObservation(object):
 	def __init__(self, language = None, gesture = None):
 		self.data = {"language":language, "gesture":gesture}
 	def __getitem__(self, item):
 		return self.data[item]
 	def __hash__(self):
-		return hash(tuple(self["language"],self["gesture"]))
+		if self["language"] is None:
+			language = None
+		else:
+			language = tuple(self["language"])
+		if self["gesture"] is None:
+			gesture = None
+		else:
+			gesture = tuple(self["gesture"])
+		return hash((language,gesture))
 	def __eq__(self, other):
 		return self["language"] == other["language"] and self["gesture"] == other["gesture"]
 	def __str__(self):
@@ -152,4 +167,3 @@ def test_get_explicit_distribution():
 	print(d[st])
 	print(d[3])
 	print(d)
-# test_get_explicit_distribution()

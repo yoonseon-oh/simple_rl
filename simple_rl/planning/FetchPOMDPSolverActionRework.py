@@ -189,7 +189,7 @@ class FetchPOMDPSolver(object):
 				observation = ret[2]
 				if type(curr_belief_state) is list:
 					raise TypeError(
-						"curr_belief_state has type list on iteration " + str(num_iter) + " of episode " + str(
+						"cur_belief has type list on iteration " + str(num_iter) + " of episode " + str(
 							episode) + ": " + str(curr_belief_state))
 
 				history.append({"belief": curr_belief_state.data, "action": action,
@@ -203,7 +203,7 @@ class FetchPOMDPSolver(object):
 				curr_belief_state = copy.deepcopy(next_belief_state)
 				if type(curr_belief_state) is list:
 					raise TypeError(
-						"curr_belief_state has type list on iteration " + str(num_iter) + " of episode " + str(
+						"cur_belief has type list on iteration " + str(num_iter) + " of episode " + str(
 							episode) + ": " + str(curr_belief_state))
 				if running:
 					action = plan(curr_belief_state)
@@ -271,7 +271,7 @@ class FetchPOMDPSolver(object):
 				current_history["action"] = "Fin"
 
 	# def receive_observation(self, o):
-	# 	self.pomp.curr_belief_state = self.belief_update_robot(self.pomdp.curr_belief_state,o)
+	# 	self.pomp.cur_belief = self.belief_update_robot(self.pomdp.cur_belief,o)
 	def act(self, raw_observation):
 		gesture = raw_observation[0]
 		if gesture is not None:
@@ -297,7 +297,7 @@ class FetchPOMDPSolver(object):
 # 	pomdp = FetchPOMDP(use_language=False,use_gesture=False)
 # 	solver = FetchPOMDPSolver(pomdp,2,"state based", False,False)
 # 	o = solver.sample_observation(pomdp.init_state)
-# 	b = pomdp.curr_belief_state
+# 	b = pomdp.cur_belief
 # 	b1 = solver.belief_update(b,o)
 # 	print("o: " + str(o))
 # 	print("b: " + str(b))

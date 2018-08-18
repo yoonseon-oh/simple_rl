@@ -29,6 +29,8 @@ from simple_rl.tasks.FetchPOMDP import file_reader as fr
 #
 # If you get a build or link error, try deleting the ".pyxbld" folder. On Windows, this is located in "C:\Users\[user]".
 # '''
+cdef num_belief_updates = 0
+cdef num_impossible_observations = 0
 
 cdef obs_sampling_time = 0
 cdef estimate_qs_counter = 0
@@ -119,13 +121,13 @@ cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double 
 	for i in range(len(items)):
 		print("i = " + str(i) + " in calculate_confusion_matrix")
 		confusion_row = []
+		center = item_angles[i]
+		left_trunc = (min_angle - center) / std_dev
+		right_trunc = (max_angle - center) / std_dev
 		for j in range(len(items)):
 			print("j = " + str(j) + " in calculate_confusion_matrix")
 			#TODO replace min,max with relative min, max to work with truncnorm
-			center = item_angles[i]
 			#TODO consider increasing precision
-			left_trunc = (min_angle - center) / std_dev
-			right_trunc = (max_angle - center) / std_dev
 			cdf_left = truncnorm.cdf(intervals[j][0], left_trunc, right_trunc, center, std_dev)
 			cdf_right = truncnorm.cdf(intervals[j][1], left_trunc, right_trunc, center, std_dev)
 			prob_match = cdf_right - cdf_left
@@ -177,6 +179,8 @@ cdef std_theta_1 = 2 * (std_theta ** 2)
 cdef std_theta_p_g = p_g / math.sqrt(2 * math.pi * (std_theta ** 2))
 cpdef get_items():
 	return items
+cpdef get_num_belief_updates_and_impossible_observations():
+	return num_belief_updates, num_impossible_observations
 cpdef union_dictionary(dictionary):
 	un = set()
 	for value in dictionary.values():
@@ -207,6 +211,8 @@ cdef irrelevant_words = [get_irrelevant_words(i, bag_of_words) for i in range(le
 cpdef double average(list a):
 	cdef double total = sum(a)
 	return total / len(a)
+cpdef double median(list a):
+	pass
 cpdef double sum(list a):
 	cdef double total = 0
 	cdef int i
@@ -223,23 +229,44 @@ cpdef double sum_dict(a):
 cpdef list add(list a, list b):
 	return [a[i] + b[i] for i in range(len(a))]
 
-cpdef add_dict(a, b):
+cpdef add_defaultdict(a, b, keys = None):
 	#Can't use lambda expressions in cython, so I cannot add the default factories
+	if keys == None:
+		keys = a.keys()
 	if type(a) is defaultdict:
 		ret = defaultdict(a.default_factory)
 	else:
 		ret = {}
-	ret.update({key: a[key] + b[key] for key in a.keys()})
+	ret.update({key: a[key] + b[key] for key in keys})
 	return ret
+cpdef add_dict(a, b, keys = None):
+	#Can't use lambda expressions in cython, so I cannot add the default factories
+	if keys == None:
+		keys = a.keys()
+	ret = {key: a[key] + b[key] for key in keys}
+	return ret
+cpdef add_list_of_alphas(alphas,list keys):
+	new_alpha = {"values":{}, "action":None}
+	cdef double sum
+	for key in keys:
+		sum = 0
+		for alpha in alphas:
+			sum += alpha["values"][key]
+		new_alpha["values"][key] = sum
+	return new_alpha
 cpdef list subtract(list a, list b):
 	return [a[i] - b[i] for i in range(len(a))]
-cpdef times_dict(a, scalar):
+cpdef times_defaultdict(a, scalar):
 	#Can't use lambda expressions in cython, so I cannot scale the default factories
 	if type(a) is defaultdict:
 		ret = defaultdict(a.default_factory)
 	else:
 		ret = {}
 	ret.update({key: scalar * a[key] for key in a.keys()})
+	return ret
+cpdef times_dict(a, scalar):
+	#Can't use lambda expressions in cython, so I cannot scale the default factories
+	ret = {key: scalar * a[key] for key in a.keys()}
 	return ret
 cpdef double distance(list a, list b):
 	cdef double dist = 0
@@ -311,6 +338,9 @@ cpdef belief_update(belief_state, observation):
 	:param observation: [set of words, gesture vector]
 	:return: [known part of state, belief_state distribution]
 	"""
+	global num_belief_updates
+	global num_impossible_observations
+	num_belief_updates += 1
 	cdef int i
 	global belief_update_total_time
 	start = time()
@@ -320,6 +350,40 @@ cpdef belief_update(belief_state, observation):
 	# observation_probs = remove_zeros(observation_probs)
 	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
 	#TODO find better solution for impossible observations. Maybe change the kl boost to ignore improbable states
+	if denominator == 0:
+		num_impossible_observations += 1
+		print("Received observation with probability 0. Resetting belief.")
+		print("belief_state[2] dot observation_probs = 0")
+		print("belief_state = " + str(belief_state))
+		print("observation_probs = " + str(observation_probs))
+		print("observation = " + str(observation))
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+		# raise ValueError("Received observation with probability 0")
+	# return belief_state
+	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
+	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
+	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+	return ret
+cpdef belief_update_response_only(belief_state, observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: [known part of state, belief_state distribution]
+	"""
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [response_probability(observation["language"], state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total
 	if denominator == 0:
 		print("Received observation with probability 0. Resetting belief.")
 		print("belief_state[2] dot observation_probs = 0")
@@ -338,7 +402,6 @@ cpdef belief_update(belief_state, observation):
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
 	       "reference_type": belief_state["reference_type"]}
 	return ret
-
 cpdef belief_update_robot(belief_state, observation):
 	"""
 	:param belief_state: [known part of state, belief distribution over desired item]
@@ -602,9 +665,9 @@ cpdef sample_response_utterance(state):
 	yes_prob = response_confusion_matrices[state["reference_type"]][state["last_referenced_item"]][
 		state["desired_item"]]
 	if random.random() < yes_prob:
-		return set(["yes"])
+		return {"yes"}
 	else:
-		return set(["no"])
+		return {"no"}
 # cpdef sample_response_utterance_old2(state):
 # 	"""
 # 	:param state: state
@@ -805,17 +868,18 @@ cpdef states_equal(s1, s2):
 	if s1[0] == s2[0] and s1[1] == s2[1] and s1[2] == s2[2]:
 		return True
 	return False
-
+cpdef entropy(a):
+	cdef int i
+	cdef double ent = 0
+	for i in range(len(a)):
+		ent -= a[i] * math.log(a[i])
+	return ent
 cpdef kl_divergence2(a, b):
 	return kl_divergence(a["desired_item"], b["desired_item"])
 cpdef kl_divergence_bounded(a, b, bound):
 	cdef int i
 	cdef double div = 0
 	for i in range(len(a)):
-		# if a[i] == 0.0:
-		# 	a[i] = np.nextafter(0,1)
-		# if b[i] == 0.0:
-		# 	b[i] = np.nextafter(0,1)
 		try:
 			div += a[i] * math.log(a[i] / b[i])
 		except:
