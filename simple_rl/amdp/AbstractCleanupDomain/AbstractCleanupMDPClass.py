@@ -85,6 +85,15 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
     def door_name_to_room_colors(door_name):
         return door_name.split('_')
 
+    @staticmethod
+    def get_other_room_color(state, door_name):
+        connected_rooms = CleanupL1GroundedAction.door_name_to_room_colors(door_name)
+        if state.robot.current_room == connected_rooms[0]:
+            return connected_rooms[1]
+        if state.robot.current_room == connected_rooms[1]:
+            return connected_rooms[0]
+        return ''
+
 class CleanupRootGroundedAction(RootTaskNode):
     def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func):
         self.action = action_str
@@ -214,6 +223,14 @@ class CleanupL1MDP(MDP):
         next_state = copy.deepcopy(state)
         destination_door = state.get_l1_door_for_color(door_name)
         if destination_door and state.robot.current_room in door_name:
+
+            # If there is already a block at the door, then move it to the other room
+            block = state.get_l1_block_for_color(state.robot.adjacent_block)
+            if block:
+                if block.current_door == door_name:
+                    other_room = CleanupL1GroundedAction.get_other_room_color(state, door_name)
+                    next_state = CleanupL1MDP._move_block_to_room(state, other_room)
+
             next_state.robot.current_door = door_name
             next_state.robot.current_room = destination_door.current_room
         return next_state
