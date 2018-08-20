@@ -212,12 +212,10 @@ class CleanupL1MDP(MDP):
             next_state (CleanupL1State)
         '''
         next_state = copy.deepcopy(state)
-        connecting_rooms = CleanupL1GroundedAction.door_name_to_room_colors(door_name)
-        for door in state.doors:  # type: CleanupL1Door
-            # Find the correct door and make sure that the door is in the same room as the robot
-            if connecting_rooms == door.connected_rooms and state.robot.current_room in door_name:
-                next_state.robot.current_door = door_name
-                next_state.robot.current_room = door.current_room
+        destination_door = state.get_l1_door_for_color(door_name)
+        if destination_door and state.robot.current_room in door_name:
+            next_state.robot.current_door = door_name
+            next_state.robot.current_room = destination_door.current_room
         return next_state
 
     @staticmethod
