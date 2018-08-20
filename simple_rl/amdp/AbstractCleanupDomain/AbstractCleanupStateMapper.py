@@ -44,8 +44,7 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
             l1_blocks.append(CleanupL1Block(room_color, current_door, block_color))
         return l1_blocks
 
-    @staticmethod
-    def _derive_l1_rooms(state):
+    def _derive_l1_rooms(self, state):
         '''
         Args:
             state (CleanUpState)
@@ -53,7 +52,10 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         Returns:
             l1_rooms (list)
         '''
-        return [CleanupL1Room(room.color) for room in state.rooms]
+        def _doors_in_room(s, room_points, doors):
+            door_names = [self._get_connecting_rooms_from_door(s, dr) for dr in doors if (dr.x, dr.y) in room_points]
+            return [connecting_rooms[0] + '_' + connecting_rooms[1] for connecting_rooms in door_names]
+        return [CleanupL1Room(room.color, _doors_in_room(state, room.points_in_room, state.doors)) for room in state.rooms]
 
     def _derive_l1_doors(self, state):
         '''
@@ -63,11 +65,17 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         Returns:
             l1_doors (list): list of CleanupL1Door Objects
         '''
+        def determine_room(rooms, xpos, ypos):
+            for room in rooms: # type: CleanUpRoom
+                if (xpos, ypos) in room.points_in_room:
+                    return room.color
+            raise ValueError('Unable to find the room corresponding to door at {}'.format((xpos, ypos)))
+
         l1_doors = []
         for door in state.doors: # type: CleanUpDoor
             connecting_rooms = self._get_connecting_rooms_from_door(state, door)
             if connecting_rooms:
-                l1_doors.append(CleanupL1Door(connecting_rooms))
+                l1_doors.append(CleanupL1Door(connecting_rooms, determine_room(state.rooms, door.x, door.y)))
         return l1_doors
 
     def _derive_l1_robot(self, state):
@@ -82,7 +90,7 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         adjacent_block_color = None
         robot_current_door = ''
         for block in state.blocks:
-            if AbstractCleanupL1StateMapper._is_block_adjacent_to_robot(block, state):
+            if AbstractCleanupL1StateMapper._is_block_adjacent_to_robot(state, block):
                 adjacent_block_color = block.color
         for door in state.doors: # type: CleanUpDoor
             connecting_rooms = self._get_connecting_rooms_from_door(state, door)

@@ -35,7 +35,7 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
         def _robot_door_terminal_func(s, door_color):
             return s.robot.current_door == door_color
         def _robot_room_terminal_func(s, room_color):
-            return s.robot.current_room == room_color
+            return s.robot.current_room == room_color and s.robot.current_door == ''
         def _robot_to_block_terminal_func(s, block_color):
             return s.robot.adjacent_block == block_color
         def _block_to_door_terminal_func(s, block_color, door_color):
@@ -45,7 +45,7 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
             return False
         def _block_to_room_terminal_func(s, block_color, room_color):
             for block in s.blocks:
-                if block.block_color == block_color and block.current_room == room_color:
+                if block.block_color == block_color and block.current_room == room_color and block.current_door == '':
                     return True
             return False
 
@@ -157,7 +157,7 @@ class CleanupL1MDP(MDP):
 
         if lifted_action == 'objectToDoor':
             target_door_name = CleanupL1GroundedAction.grounded_to_action_parameter(action)
-            next_state = self._move_agent_to_door(state, target_door_name)
+            # next_state = self._move_agent_to_door(state, target_door_name)
             next_state = self._move_block_to_door(next_state, target_door_name)
 
         if lifted_action == 'objectToRoom':
@@ -196,23 +196,14 @@ class CleanupL1MDP(MDP):
 
         return grounded_actions
 
-    # -------------------------------
-    # Navigation Helper functions
-    # -------------------------------
+    # -----------------------------------
+    # Agent Navigation Helper functions
+    # -----------------------------------
 
     @staticmethod
     def _move_agent_to_door(state, door_name):
-        next_state = copy.deepcopy(state)
-        connecting_rooms = CleanupL1GroundedAction.door_name_to_room_colors(door_name)
-        for door in state.doors:  # type: CleanupL1Door
-            if connecting_rooms[0] in door.connected_rooms and connecting_rooms[1] in door.connected_rooms:
-                next_state.robot.current_door = door.connected_rooms[0] + '_' + door.connected_rooms[1]
-                next_state.robot.current_room = ''
-        return next_state
-
-    @staticmethod
-    def _move_block_to_door(state, door_name):
         '''
+        If the specified door connects the agent's current room, then it may transition to the door.
         Args:
             state (CleanupL1State)
             door_name (str)
@@ -223,16 +214,16 @@ class CleanupL1MDP(MDP):
         next_state = copy.deepcopy(state)
         connecting_rooms = CleanupL1GroundedAction.door_name_to_room_colors(door_name)
         for door in state.doors:  # type: CleanupL1Door
-            if connecting_rooms[0] in door.connected_rooms and connecting_rooms[1] in door.connected_rooms:
-                for block in next_state.blocks:
-                    if block.block_color == state.robot.adjacent_block:
-                        block.current_door = door
-                        block.current_room = ''
+            # Find the correct door and make sure that the door is in the same room as the robot
+            if connecting_rooms == door.connected_rooms and state.robot.current_room in door_name:
+                next_state.robot.current_door = door_name
+                next_state.robot.current_room = door.current_room
         return next_state
 
     @staticmethod
     def _move_agent_to_room(state, destination_room_color):
         '''
+        Move the agent to the specified room if it is at a door connecting it to the said room.
         Args:
             state (CleanupL1State)
             destination_room_color (str)
@@ -247,27 +238,9 @@ class CleanupL1MDP(MDP):
         return next_state
 
     @staticmethod
-    def _move_block_to_room(state, destination_room_color):
-        '''
-        Args:
-            state (CleanupL1State)
-            destination_room_color (str)
-
-        Returns:
-            next_state (CleanupL1State)
-        '''
-        if state.robot.adjacent_block is None or state.robot.adjacent_block == '':
-            return state
-
-        next_state = copy.deepcopy(state)
-        block = next_state.get_l1_block_for_color(next_state.robot.adjacent_block)
-        block.current_room = destination_room_color
-        block.current_door = ''
-        return next_state
-
-    @staticmethod
     def _move_agent_to_block(state, block_color):
         '''
+        Move the agent to the specified block if they are both in the same room.
         Args:
             state (CleanupL1State)
             block_color (str)
@@ -281,6 +254,51 @@ class CleanupL1MDP(MDP):
             if target_block.current_room == state.robot.current_room:
                 next_state.robot.adjacent_block = target_block.block_color
                 next_state.robot.current_door = ''
+        return next_state
+
+    # -----------------------------------
+    # Block Navigation Helper functions
+    # -----------------------------------
+
+    @staticmethod
+    def _move_block_to_door(state, door_name):
+        '''
+        Move the agent's adjacent block to the specified door if they are in a room connected by said door.
+        Args:
+            state (CleanupL1State)
+            door_name (str)
+
+        Returns:
+            next_state (CleanupL1State)
+        '''
+        next_state = copy.deepcopy(state)
+        block = next_state.get_l1_block_for_color(next_state.robot.adjacent_block)
+        destination_door = next_state.get_l1_door_for_color(door_name)
+        if block and destination_door:
+            if state.robot.current_room in door_name and block.current_room in door_name:
+                next_state.robot.current_room = block.current_room
+                next_state.robot.current_door = ''
+                block.current_door = door_name
+                block.current_room = destination_door.current_room
+        return next_state
+
+    @staticmethod
+    def _move_block_to_room(state, destination_room_color):
+        '''
+        Move the block to the specified room if the block is at a door connecting said room.
+        Args:
+            state (CleanupL1State)
+            destination_room_color (str)
+
+        Returns:
+            next_state (CleanupL1State)
+        '''
+        next_state = copy.deepcopy(state)
+        block = next_state.get_l1_block_for_color(next_state.robot.adjacent_block)
+        if block:
+            if destination_room_color in block.current_door:
+                block.current_room = destination_room_color
+                block.current_door = ''
         return next_state
 
 def get_l1_policy(domain):

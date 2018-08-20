@@ -56,6 +56,19 @@ class CleanupL1State(State):
                 return block
         return None
 
+    def get_l1_door_for_color(self, door_name):
+        '''
+        Args:
+            door_name (str): '<room1_room2>
+
+        Returns:
+            door (CleanupL1Door)
+        '''
+        for door in self.doors: # type: CleanupL1Door
+            if door.connected_rooms[0] in door_name and door.connected_rooms[1] in door_name:
+                return door
+        return None
+
 class CleanupL1Robot(object):
     def __init__(self, current_room, current_door, adjacent_block=None):
         '''
@@ -84,13 +97,15 @@ class CleanupL1Robot(object):
         return not self == other
 
 class CleanupL1Door(object):
-    def __init__(self, connected_rooms):
+    def __init__(self, connected_rooms, current_room):
         '''
         Args:
             connected_rooms (list): list of strings representing the colors of the 2 rooms connected
             by the current door
+            current_room (str): color of the room in which the current door is placed
         '''
         self.connected_rooms = connected_rooms
+        self.current_room = current_room
 
     def __str__(self):
         return str(self.connected_rooms[0]) + '_' + str(self.connected_rooms[1])
@@ -99,18 +114,20 @@ class CleanupL1Door(object):
         return self.__str__()
 
     def __eq__(self, other):
-        return self.connected_rooms == other.connected_rooms
+        return self.connected_rooms == other.connected_rooms and self.current_room == other.current_room
 
     def __ne__(self, other):
         return not self == other
 
 class CleanupL1Room(object):
-    def __init__(self, room_color):
+    def __init__(self, room_color, door_names):
         '''
         Args:
             room_color (str): color of the current room
+            door_names (list): list of strings <door1_color__door2_color>
         '''
         self.room_color = room_color
+        self.door_names = door_names
 
     def __str__(self):
         return self.room_color
@@ -119,7 +136,7 @@ class CleanupL1Room(object):
         return self.__str__()
 
     def __eq__(self, other):
-        return self.room_color == other.room_color
+        return self.room_color == other.room_color and self.door_names == other.door_names
 
     def __ne__(self, other):
         return not self == other
