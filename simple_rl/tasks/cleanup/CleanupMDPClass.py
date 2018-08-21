@@ -214,7 +214,10 @@ class CleanUpMDP(MDP):
         else:
             task_room = [room for room in next_state.rooms if room.name == task.goal_room_name][0]
 
-        return task_room.contains(task_block)
+        return task_room.contains(task_block) and (next_state.x, next_state.y) in task_room.points_in_room
+
+    def in_goal_set(self, state):
+        return self.is_terminal(self.task, state)
 
     def __str__(self):
         # TODO WRITE OUT LATER
