@@ -6,7 +6,7 @@ from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
 from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1OOMDP, TaxiL1GroundedAction
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
 
-class L1PolicyGenerator(AMDPPolicyGenerator):
+class TaxiL1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0MDP, state_mapper, verbose=False):
         self.domain = l0MDP
         self.verbose = verbose
@@ -25,7 +25,7 @@ class L1PolicyGenerator(AMDPPolicyGenerator):
     def generateAbstractState(self, l0_state):
         return self.state_mapper.map_state(l0_state)
 
-class L0PolicyGenerator(AMDPPolicyGenerator):
+class TaxiL0PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0_domain, verbose=False):
         self.domain = l0_domain
         self.verbose = verbose

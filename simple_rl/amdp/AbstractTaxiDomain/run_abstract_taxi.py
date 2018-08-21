@@ -1,6 +1,6 @@
 # Other imports.
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiPolicyGeneratorClass import L0PolicyGenerator, L1PolicyGenerator
+from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiPolicyGeneratorClass import TaxiL0PolicyGenerator, TaxiL1PolicyGenerator
 from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
 from simple_rl.amdp.AMDPSolverClass import AMDPAgent
 from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1GroundedAction, TaxiL1OOMDP, TaxiRootGroundedAction
@@ -18,8 +18,8 @@ def main():
     l1_domain = TaxiL1OOMDP(agent_init_color, passenger_init_color, passenger_dest_color)
 
     policy_generators = []
-    l0_policy_generator = L0PolicyGenerator(l0_domain)
-    l1_policy_generator = L1PolicyGenerator(l0_domain, AbstractTaxiL1StateMapper(l0_domain))
+    l0_policy_generator = TaxiL0PolicyGenerator(l0_domain)
+    l1_policy_generator = TaxiL1PolicyGenerator(l0_domain, AbstractTaxiL1StateMapper(l0_domain))
     policy_generators.append(l0_policy_generator)
     policy_generators.append(l1_policy_generator)
 

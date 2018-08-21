@@ -1,7 +1,7 @@
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
 from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomRootGroundedAction
 from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldPolicyGeneratorClass import L0PolicyGenerator, L1PolicyGenerator
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldPolicyGeneratorClass import GridWorldL0PolicyGenerator, GridWorldL1PolicyGenerator
 from simple_rl.amdp.AMDPSolverClass import AMDPAgent
 from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapperClass import AbstractGridWorldL1StateMapper
 
@@ -17,8 +17,8 @@ def main():
     l1Domain = FourRoomL1MDP(start_room, goal_room)
 
     policy_generators = []
-    l0_policy_generator = L0PolicyGenerator(l0Domain)
-    l1_policy_generator = L1PolicyGenerator(l0Domain, AbstractGridWorldL1StateMapper(l0Domain))
+    l0_policy_generator = GridWorldL0PolicyGenerator(l0Domain)
+    l1_policy_generator = GridWorldL1PolicyGenerator(l0Domain, AbstractGridWorldL1StateMapper(l0Domain))
     policy_generators.append(l0_policy_generator)
     policy_generators.append(l1_policy_generator)
 
