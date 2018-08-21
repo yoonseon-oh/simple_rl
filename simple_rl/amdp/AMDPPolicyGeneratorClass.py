@@ -23,7 +23,7 @@ class AMDPPolicyGenerator(object):
         '''
         pass
 
-    def  generate_abstract_state(self, state):
+    def generate_abstract_state(self, state):
         '''
         Args:
             state (State): state in the lower level MDP

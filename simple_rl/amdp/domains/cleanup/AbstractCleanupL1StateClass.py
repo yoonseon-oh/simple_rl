@@ -21,17 +21,8 @@ class CleanupL1State(State):
         return hash(str(self))
 
     def __eq__(self, other):
-        equal = isinstance(other, self.__class__) and self.robot == other.robot
-        for door1, door2 in zip(self.doors, other.doors):
-            if door1 != door2:
-                equal = False
-        for room1, room2 in zip(self.rooms, other.rooms):
-            if room1 != room2:
-                equal = False
-        for block1, block2 in zip(self.blocks, other.blocks):
-            if block1 != block2:
-                equal = False
-        return equal
+        return isinstance(other, self.__class__) and self.robot == other.robot and self.doors == other.doors and \
+                self.rooms == other.rooms and self.blocks == other.blocks
 
     def __ne__(self, other):
         return not self == other
