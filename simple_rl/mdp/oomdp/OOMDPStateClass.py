@@ -38,7 +38,6 @@ class OOMDPState(State):
             Turn object attributes into a feature list.
         '''
         state_vec = []
-        # pdb.set_trace()
         for obj_class in self.objects.keys():
             for obj in self.objects[obj_class]:
                 state_vec += obj.get_obj_state()
