@@ -9,8 +9,6 @@ from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import Cle
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupMDPClass import CleanupRootGroundedAction, CleanupL1MDP, CleanupL1GroundedAction
 from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
 from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
-from simple_rl.planning.BoundedRTDPClass import BoundedRTDP
-from examples.brtdp_example import MonotoneUpperBound, MonotoneLowerBound
 
 class CleanupL1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0_domain, state_mapper, verbose=False):
@@ -54,6 +52,6 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
         '''
         mdp = copy.deepcopy(self.domain)
         mdp.terminal_func = grounded_task.terminal_func
-        mdp.reward_func = self.domain.reward_func
-
-        return self.getPolicy(mdp, verbose=True)
+        mdp.reward_func = grounded_task.reward_func
+        mdp.init_state = l0_state
+        return self.getPolicy(mdp)
