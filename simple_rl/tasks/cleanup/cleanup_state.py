@@ -2,6 +2,7 @@ import copy
 import random
 
 from simple_rl.mdp.StateClass import State
+from simple_rl.tasks.cleanup.cleanup_block import CleanUpBlock
 
 class CleanUpState(State):
     def __init__(self, task, x, y, blocks=[], doors=[], rooms=[]):
@@ -22,9 +23,6 @@ class CleanUpState(State):
         State.__init__(self, data=[task, (x, y), blocks, doors, rooms])
 
     def __hash__(self):
-        # alod = [tuple(self.data[i]) for i in range(1, len(self.data))]
-        # alod.append(self.data[0])
-        # return hash(tuple(alod))
         hash_str = str(self.x) + str(self.y) + '00'
         for block in self.blocks: # type: CleanUpBlock
             hash_str += str(block.x) + str(block.y)
