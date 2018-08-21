@@ -13,8 +13,8 @@ def create_l0_cleanup_domain():
 
     task = CleanUpTask("purple", "yellow")
     room1 = CleanUpRoom("room1", [(x, y) for x in range(5) for y in range(3)], "blue")
-    block1 = CleanUpBlock("block1", 2, 2, color="purple")
-    room2 = CleanUpRoom("room3", [(x, y) for x in range(5) for y in range(3, 6)], color="yellow")
+    block1 = CleanUpBlock("block1", 3, 1, color="purple")
+    room2 = CleanUpRoom("room2", [(x, y) for x in range(5) for y in range(3, 6)], color="yellow")
     rooms = [room1, room2]
     blocks = [block1]
     doors = [CleanUpDoor(3, 2)]
