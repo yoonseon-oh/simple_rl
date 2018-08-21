@@ -58,10 +58,10 @@ class FourRoomL1GroundedAction(NonPrimitiveAbstractTask):
 
 class FourRoomRootGroundedAction(RootTaskNode):
     def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func):
-        self.action = action_str
+        self.action = 'Root_' + action_str
         self.goal_state = FourRoomL1State(FourRoomL1GroundedAction.extract_goal_room(action_str), is_terminal=True)
 
-        RootTaskNode.__init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func)
+        RootTaskNode.__init__(self, self.action, subtasks, l1_domain, terminal_func, reward_func)
 
 class FourRoomL1MDP(MDP):
     ACTIONS = ['toRoom1', 'toRoom2', 'toRoom3', 'toRoom4']
