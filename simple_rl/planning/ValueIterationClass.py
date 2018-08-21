@@ -2,7 +2,6 @@
 from __future__ import print_function
 from collections import defaultdict
 import random
-import pdb
 
 # Check python version for queue module.
 import sys
@@ -34,6 +33,10 @@ class ValueIteration(Planner):
         self.reachability_done = False
         self.has_computed_matrix = False
         self.bellman_backups = 0
+
+    # TODO: Get rid of this function and modify CleanUp L0 state to have a configurable terminal function
+    def _is_terminal(self, state):
+        return state.is_terminal() or self.mdp.terminal_func(state)
 
     def _compute_matrix_from_trans_func(self):
         if self.has_computed_matrix:
@@ -93,8 +96,6 @@ class ValueIteration(Planner):
         expected_future_val = 0
         for s_prime in self.trans_dict[s][a].keys():
             expected_future_val += self.trans_dict[s][a][s_prime] * self.value_func[s_prime]
-
-        # pdb.set_trace()
         return self.reward_func(s,a) + self.gamma*expected_future_val
 
     def _compute_reachable_state_space(self):
@@ -140,7 +141,7 @@ class ValueIteration(Planner):
             max_diff = 0
             for s in state_space:
                 self.bellman_backups += 1
-                if s.is_terminal():
+                if self._is_terminal(s):
                     continue
 
                 max_q = float("-inf")
@@ -190,7 +191,7 @@ class ValueIteration(Planner):
         state_seq = [state]
         steps = 0
 
-        while (not state.is_terminal()) and steps < horizon:
+        while (not self._is_terminal(state)) and steps < horizon:
             next_action = self._get_max_q_action(state)
             action_seq.append(next_action)
             state = self.transition_func(state, next_action)
