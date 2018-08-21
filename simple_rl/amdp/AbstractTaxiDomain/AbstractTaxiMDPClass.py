@@ -1,11 +1,13 @@
+# Python imports.
+from collections import defaultdict
+from copy import deepcopy
+
+# Other imports.
 from simple_rl.mdp.oomdp.OOMDPStateClass import OOMDPState
 from simple_rl.mdp.oomdp.OOMDPClass import OOMDP
 from simple_rl.mdp.oomdp.OOMDPObjectClass import OOMDPObject
 from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
-
-from collections import defaultdict
-from copy import deepcopy
 
 class TaxiL1State(OOMDPState):
     def __init__(self, agent_obj, passenger_obj, is_terminal=False):
@@ -53,7 +55,7 @@ class TaxiL1GroundedAction(NonPrimitiveAbstractTask):
         Returns:
             terminal (bool): whether l0_state is terminal in l1_domain
         '''
-        from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiStateMapper import AbstractTaxiL1StateMapper
+        from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiStateMapperClass import AbstractTaxiL1StateMapper
         def _color_terminal_function(s, goal_color):
             return s.agent_obj['current_color'] == goal_color
         def _pickup_terminal_function(s):

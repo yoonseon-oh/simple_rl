@@ -1,8 +1,10 @@
+# Python imports.
+from collections import defaultdict
+
+# Other imports.
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
 from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1OOMDP, TaxiL1GroundedAction
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
-
-from collections import defaultdict
 
 class L1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0MDP, state_mapper, verbose=False):

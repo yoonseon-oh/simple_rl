@@ -1,9 +1,10 @@
+# Other imports.
 from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupMDPClass import CleanupL1MDP, CleanupL1GroundedAction, CleanupRootGroundedAction
 from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupPolicyGenerators import CleanupL0PolicyGenerator, CleanupL1PolicyGenerator
+from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupPolicyGeneratorClass import CleanupL0PolicyGenerator, CleanupL1PolicyGenerator
 from simple_rl.amdp.AMDPSolverClass import AMDPAgent
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapper import AbstractCleanupL1StateMapper
+from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
 
 def create_l0_cleanup_domain():
     from simple_rl.tasks.cleanup.cleanup_block import CleanUpBlock

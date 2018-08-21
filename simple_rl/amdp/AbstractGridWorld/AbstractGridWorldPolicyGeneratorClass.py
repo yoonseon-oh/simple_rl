@@ -2,7 +2,7 @@ from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
 from simple_rl.tasks.grid_world.GridWorldStateClass import GridWorldState
 from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1State, FourRoomRootGroundedAction, FourRoomL1GroundedAction
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapper import AbstractGridWorldL1StateMapper
+from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapperClass import AbstractGridWorldL1StateMapper
 
 class L1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0MDP, state_mapper, verbose=False):
