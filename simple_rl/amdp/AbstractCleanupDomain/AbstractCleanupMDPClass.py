@@ -8,17 +8,18 @@ from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import *
 from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapper import AbstractCleanupL1StateMapper
+from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
 
 class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
-    def __init__(self, l1_action_string, subtasks, lower_domain):
+    def __init__(self, l1_action_string, subtasks, l0_domain):
         '''
         Args:
             l1_action_string (str)
             subtasks (list)
-            lower_domain (CleanUpMDP)
+            l0_domain (CleanUpMDP)
         '''
         self.action = l1_action_string
-        self.l0_domain = lower_domain
+        self.l0_domain = l0_domain
         self.lifted_action = self.grounded_to_lifted_action(l1_action_string)
 
         tf, rf = self._terminal_function, self._reward_function
@@ -32,6 +33,9 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
         Returns:
             is_terminal (bool)
         '''
+
+        assert type(state) == CleanUpState, 'Actual type of state is {}'.format(type(state))
+
         def _robot_door_terminal_func(s, door_color):
             return s.robot.current_door == door_color
         def _robot_room_terminal_func(s, room_color):
@@ -66,8 +70,10 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
 
         raise ValueError('Lifted action {} not supported yet'.format(self.lifted_action))
 
-    def _reward_function(self, state):
-        return 1. if self._terminal_function(state) else 0.
+    def _reward_function(self, state, action):
+        assert type(state) == CleanUpState, 'Actual type of state is {}'.format(type(state))
+        next_state = self.l0_domain.transition_func(state, action)
+        return 1. if self._terminal_function(next_state) else 0.
 
     # -------------------------------
     # L1 Action Helper Functions
