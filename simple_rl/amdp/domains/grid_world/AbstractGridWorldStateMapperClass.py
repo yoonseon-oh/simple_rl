@@ -1,5 +1,5 @@
 from simple_rl.amdp.AMDPStateMapperClass import AMDPStateMapper
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1State
+from simple_rl.amdp.domains.grid_world.AbstractGridWorldMDPClass import FourRoomL1State
 
 class AbstractGridWorldL1StateMapper(AMDPStateMapper):
     def __init__(self, l0_domain):

@@ -4,7 +4,7 @@ from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
 from simple_rl.tasks.cleanup.cleanup_block import CleanUpBlock
 from simple_rl.tasks.cleanup.cleanup_door import CleanUpDoor
 from simple_rl.tasks.cleanup.cleanup_room import CleanUpRoom
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import *
+from simple_rl.amdp.domains.cleanup.AbstractCleanupL1StateClass import *
 
 class AbstractCleanupL1StateMapper(AMDPStateMapper):
     def __init__(self, l0_domain):

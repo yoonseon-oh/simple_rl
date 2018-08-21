@@ -1,25 +1,27 @@
 # Python imports.
 from __future__ import print_function
 
+# Generic AMDP imports.
+from simple_rl.amdp.AMDPSolverClass import AMDPAgent
+from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
+
 # Abstract grid world imports.
 from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomRootGroundedAction
-from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldPolicyGeneratorClass import GridWorldL0PolicyGenerator, GridWorldL1PolicyGenerator
-from simple_rl.amdp.AMDPSolverClass import AMDPAgent
-from simple_rl.amdp.AbstractGridWorld.AbstractGridWorldStateMapperClass import AbstractGridWorldL1StateMapper
+from simple_rl.amdp.domains.grid_world.AbstractGridWorldMDPClass import FourRoomL1MDP, FourRoomL1GroundedAction, FourRoomRootGroundedAction
+from simple_rl.amdp.domains.grid_world.AbstractGridWorldPolicyGeneratorClass import GridWorldL0PolicyGenerator, GridWorldL1PolicyGenerator
+from simple_rl.amdp.domains.grid_world.AbstractGridWorldStateMapperClass import AbstractGridWorldL1StateMapper
 
 # Abstract taxi imports.
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiPolicyGeneratorClass import TaxiL0PolicyGenerator, TaxiL1PolicyGenerator
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1GroundedAction, TaxiL1OOMDP, TaxiRootGroundedAction
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiStateMapperClass import AbstractTaxiL1StateMapper
+from simple_rl.amdp.domains.taxi.AbstractTaxiPolicyGeneratorClass import TaxiL0PolicyGenerator, TaxiL1PolicyGenerator
+from simple_rl.amdp.domains.taxi.AbstractTaxiMDPClass import TaxiL1GroundedAction, TaxiL1OOMDP, TaxiRootGroundedAction
+from simple_rl.amdp.domains.taxi.AbstractTaxiStateMapperClass import AbstractTaxiL1StateMapper
 
 # Abstract cleanup imports.
 from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupMDPClass import CleanupL1MDP, CleanupL1GroundedAction, CleanupRootGroundedAction
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupPolicyGeneratorClass import CleanupL0PolicyGenerator, CleanupL1PolicyGenerator
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
+from simple_rl.amdp.domains.cleanup.AbstractCleanupMDPClass import CleanupL1MDP, CleanupL1GroundedAction, CleanupRootGroundedAction
+from simple_rl.amdp.domains.cleanup.AbstractCleanupPolicyGeneratorClass import CleanupL0PolicyGenerator, CleanupL1PolicyGenerator
+from simple_rl.amdp.domains.cleanup.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
 
 def run_abstract_grid_world():
     start_location = (1, 1)

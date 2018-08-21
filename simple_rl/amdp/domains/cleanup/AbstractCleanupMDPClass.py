@@ -6,8 +6,8 @@ import copy
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import *
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
+from simple_rl.amdp.domains.cleanup.AbstractCleanupL1StateClass import *
+from simple_rl.amdp.domains.cleanup.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
 from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
 
 class CleanupL1GroundedAction(NonPrimitiveAbstractTask):
@@ -342,7 +342,7 @@ if __name__ == '__main__':
     from simple_rl.tasks.cleanup.cleanup_room import CleanUpRoom
     from simple_rl.tasks.cleanup.cleanup_task import CleanUpTask
     from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
-    from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
+    from simple_rl.amdp.domains.cleanup import AbstractCleanupL1StateMapper
 
     task = CleanUpTask("purple", "red")
     room1 = CleanUpRoom("room1", [(x, y) for x in range(5) for y in range(3)], "blue")

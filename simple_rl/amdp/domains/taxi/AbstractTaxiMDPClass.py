@@ -55,7 +55,7 @@ class TaxiL1GroundedAction(NonPrimitiveAbstractTask):
         Returns:
             terminal (bool): whether l0_state is terminal in l1_domain
         '''
-        from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiStateMapperClass import AbstractTaxiL1StateMapper
+        from simple_rl.amdp.domains.taxi.AbstractTaxiStateMapperClass import AbstractTaxiL1StateMapper
         def _color_terminal_function(s, goal_color):
             return s.agent_obj['current_color'] == goal_color
         def _pickup_terminal_function(s):

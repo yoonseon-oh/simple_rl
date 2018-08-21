@@ -4,8 +4,8 @@ import copy
 
 # Other imports.
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupL1StateClass import CleanupL1State
-from simple_rl.amdp.AbstractCleanupDomain.AbstractCleanupMDPClass import CleanupRootGroundedAction, CleanupL1MDP, CleanupL1GroundedAction
+from simple_rl.amdp.domains.cleanup.AbstractCleanupL1StateClass import CleanupL1State
+from simple_rl.amdp.domains.cleanup.AbstractCleanupMDPClass import CleanupL1MDP
 from simple_rl.tasks.cleanup.cleanup_state import CleanUpState
 from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
 

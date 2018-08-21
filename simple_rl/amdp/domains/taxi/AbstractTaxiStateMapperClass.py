@@ -1,7 +1,7 @@
 from simple_rl.amdp.AMDPStateMapperClass import AMDPStateMapper
 from simple_rl.mdp.oomdp.OOMDPStateClass import OOMDPState
 from simple_rl.mdp.oomdp.OOMDPObjectClass import OOMDPObject
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1State
+from simple_rl.amdp.domains.taxi.AbstractTaxiMDPClass import TaxiL1State
 
 class AbstractTaxiL1StateMapper(AMDPStateMapper):
     def __init__(self, l0_domain):

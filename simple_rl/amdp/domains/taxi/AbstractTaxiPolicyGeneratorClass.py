@@ -3,7 +3,7 @@ from collections import defaultdict
 
 # Other imports.
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
-from simple_rl.amdp.AbstractTaxiDomain.AbstractTaxiMDPClass import TaxiL1OOMDP, TaxiL1GroundedAction
+from simple_rl.amdp.domains.taxi.AbstractTaxiMDPClass import TaxiL1OOMDP
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
 
 class TaxiL1PolicyGenerator(AMDPPolicyGenerator):
