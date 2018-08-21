@@ -24,19 +24,11 @@ class FourRoomMDP(GridWorldMDP):
         GridWorldMDP.__init__(self, width, height, init_loc, goal_locs=goal_locs, walls=self._compute_walls(width, height), gamma=gamma, slip_prob=slip_prob, name=name, is_goal_terminal=is_goal_terminal, rand_init=rand_init, step_cost=step_cost)
 
         self.room_to_locs = defaultdict()
-        self.single_room_locations = defaultdict()
-
         for i in range(1, 5):
             self.room_to_locs[i] = self._locs_in_room(i)
-            self.single_room_locations[i] = self.get_single_location_for_room(i)
 
     def is_loc_in_room(self, loc, room_number):
         return loc in self.room_to_locs[room_number]
-
-    def get_single_location_for_room(self, room_number):
-        locations_in_room = self.room_to_locs[room_number]
-        sorted_locations = sorted(locations_in_room, key=lambda x: sum(x))
-        return sorted_locations[0]
 
     def get_room_numbers(self, loc):
         room_numbers = []

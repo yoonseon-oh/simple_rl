@@ -40,8 +40,7 @@ class GridWorldL0PolicyGenerator(AMDPPolicyGenerator):
              state (GridWorldState): plan in L0 starting from state
              grounded_task (FourRoomL1GroundedAction): L1 TaskNode defining L0 subgoal
         '''
-        destination_location = self.domain.get_single_location_for_room(grounded_task.goal_state.agent_in_room_number)
-        print 'Generating policy for goal location {}...'.format(destination_location)
+        destination_locations = self.domain.room_to_locs[grounded_task.goal_state.agent_in_room_number]
         init_location = (state.x, state.y)
-        mdp = FourRoomMDP(self.domain.width, self.domain.height, init_loc=init_location, goal_locs=[destination_location])
+        mdp = FourRoomMDP(self.domain.width, self.domain.height, init_loc=init_location, goal_locs=destination_locations)
         return self.get_policy(mdp, verbose=True)
