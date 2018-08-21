@@ -2,9 +2,9 @@
 from collections import defaultdict
 
 # Other imports.
-from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
-from simple_rl.amdp.domains.taxi.AbstractTaxiMDPClass import TaxiL1OOMDP
 from simple_rl.tasks.taxi.TaxiOOMDPClass import TaxiOOMDP
+from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
+from simple_rl.amdp.domains.taxi.AbstractTaxiMDPClass import TaxiL1OOMDP, TaxiL1State, TaxiL1GroundedAction, TaxiRootGroundedAction
 
 class TaxiL1PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l0MDP, state_mapper, verbose=False):
@@ -12,12 +12,18 @@ class TaxiL1PolicyGenerator(AMDPPolicyGenerator):
         self.verbose = verbose
         self.state_mapper = state_mapper
 
-    # TODO: The Single Passenger Taxi MDP is kinda strange because the goal state is kind of embedded in the current state
-    # But we still should use the grounded_action to derive the goal state while constructing the policy at L1
     def generate_policy(self, l1_state, grounded_action):
+        '''
+        Args:
+            l1_state (TaxiL1State)
+            grounded_action (TaxiRootGroundedAction)
+
+        Returns:
+            policy (defaultdict)
+        '''
         agent_color = l1_state.agent_obj['current_color']
         passenger_color = l1_state.passenger_obj['current_color']
-        passenger_dest_color = l1_state.passenger_obj['dest_color']
+        passenger_dest_color = grounded_action.goal_state.passenger_obj['dest_color']
         mdp = TaxiL1OOMDP(agent_color=agent_color, passenger_color=passenger_color,
                           passenger_dest_color=passenger_dest_color)
         return self.get_policy(mdp)

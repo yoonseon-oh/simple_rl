@@ -89,9 +89,8 @@ class TaxiL1GroundedAction(NonPrimitiveAbstractTask):
 class TaxiRootGroundedAction(RootTaskNode):
     def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func):
         self.action = action_str
-        dest_color = l1_domain.init_state.get_first_obj_of_class('passenger')
+        dest_color = l1_domain.init_state.get_first_obj_of_class('passenger')['dest_color']
         self.goal_state = TaxiL1OOMDP.create_goal_state(dest_color)
-
         RootTaskNode.__init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func)
 
 class TaxiL1OOMDP(OOMDP):
