@@ -36,7 +36,10 @@ class ValueIteration(Planner):
 
     # TODO: Get rid of this function and modify CleanUp L0 state to have a configurable terminal function
     def _is_terminal(self, state):
-        return state.is_terminal() or self.mdp.terminal_func(state)
+        is_terminal = state.is_terminal()
+        if hasattr(self.mdp, 'terminal_func'):
+            is_terminal = is_terminal or self.mdp.terminal_func(state)
+        return is_terminal
 
     def _compute_matrix_from_trans_func(self):
         if self.has_computed_matrix:
