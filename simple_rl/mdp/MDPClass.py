@@ -40,10 +40,6 @@ class MDP(object):
     def get_num_state_feats(self):
         return self.init_state.get_num_feats()
 
-    # TODO: Get rid of this function
-    def get_slip_prob(self):
-        pass
-
     # --------------
     # -- Mutators --
     # --------------
@@ -53,9 +49,6 @@ class MDP(object):
 
     def set_step_cost(self, new_step_cost):
         self.step_cost = new_step_cost
-
-    def set_slip_prob(self, slip_prob):
-        pass
 
     # ----------
     # -- Core --
