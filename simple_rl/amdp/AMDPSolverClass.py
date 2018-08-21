@@ -38,13 +38,14 @@ class AMDPAgent(object):
         # Start decomposing the highest-level task in hierarchy
         self._decompose(self.root_grounded_task, self.max_level)
 
-    def _decompose(self, grounded_task, level):
+    def _decompose(self, grounded_task, level, verbose=False):
         '''
         Ground high level tasks into environment level actions and then execute
         in underlying environment MDP
         Args:
             grounded_task (AbstractTask): TaskNode representing node in task hierarchy
             level (int): what depth we are in our AMDP task hierarchy (base MDP is l0)
+            verbose (bool): debug mode
         '''
         print 'Decomposing action {} at level {}'.format(grounded_task, level)
         state = self.state_stack[level]
@@ -52,27 +53,16 @@ class AMDPAgent(object):
         policy = self.policy_generators[level].generatePolicy(state, grounded_task)
         if level > 0:
             while not grounded_task.is_terminal(state):
-                try:
-                    action = policy[state]
-                except:
-                    import pdb
-                    pdb.set_trace()
-                    raise ValueError('oops above')
+                action = policy[state]
                 self.policy_stack[level][state] = action
                 self._decompose(self.action_to_task_map[action], level-1)
                 state = self.state_stack[level]
         else:
             while not grounded_task.is_terminal(state) and not self._env_is_terminal(state):
-                try:
-                    action = policy[state]
-                except:
-                    import pdb
-                    pdb.set_trace()
-                    raise ValueError('oops')
+                action = policy[state]
                 self.policy_stack[level][state] = action
-                print '({}, {})'.format(state, action)
+                if verbose: print '({}, {})'.format(state, action)
                 reward, state = self.base_mdp.execute_agent_action(action)
-                print '\t--> {}'.format(state)
                 self.state_stack[level] = state
         if level < self.max_level:
             projected_state = self.policy_generators[level+1].generateAbstractState(self.state_stack[level])
