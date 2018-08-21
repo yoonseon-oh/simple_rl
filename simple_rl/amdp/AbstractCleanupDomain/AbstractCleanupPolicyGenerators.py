@@ -1,7 +1,6 @@
 # Python imports.
 from collections import defaultdict
 import copy
-import pdb
 
 # Other imports.
 from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator

@@ -34,7 +34,6 @@ class ValueIteration(Planner):
         self.has_computed_matrix = False
         self.bellman_backups = 0
 
-    # TODO: Get rid of this function and modify CleanUp L0 state to have a configurable terminal function
     def _is_terminal(self, state):
         is_terminal = state.is_terminal()
         if hasattr(self.mdp, 'terminal_func'):
