@@ -24,12 +24,8 @@ from simple_rl.amdp.domains.cleanup.AbstractCleanupPolicyGeneratorClass import C
 from simple_rl.amdp.domains.cleanup.AbstractCleanupStateMapperClass import AbstractCleanupL1StateMapper
 
 def run_abstract_grid_world():
-    start_location = (1, 1)
-    goal_location = (3, 4)
-
-    l0Domain = FourRoomMDP(width=5, height=5, init_loc=start_location, goal_locs=[goal_location])
-    start_room = l0Domain.get_room_numbers(start_location)[0]
-    goal_room = l0Domain.get_room_numbers(goal_location)[0]
+    start_room, goal_room = 1, 4
+    l0Domain = FourRoomMDP(width=5, height=5, init_loc=(1, 1), goal_locs=[(4, 4)])
     l1Domain = FourRoomL1MDP(start_room, goal_room)
 
     policy_generators = []
