@@ -23,7 +23,7 @@ class L1PolicyGenerator(AMDPPolicyGenerator):
             grounded_action (FourRoomRootGroundedAction): TaskNode above defining the subgoal for current MDP
         '''
         mdp = FourRoomL1MDP(l1_state.agent_in_room_number, grounded_action.goal_state.agent_in_room_number)
-        return self.getPolicy(mdp)
+        return self.getPolicy(mdp, verbose=True)
 
     def generateAbstractState(self, l0_state):
         return self.state_mapper.map_state(l0_state)
@@ -40,6 +40,7 @@ class L0PolicyGenerator(AMDPPolicyGenerator):
              grounded_task (FourRoomL1GroundedAction): L1 TaskNode defining L0 subgoal
         '''
         destination_location = self.domain.get_single_location_for_room(grounded_task.goal_state.agent_in_room_number)
+        print 'Generating policy for goal location {}...'.format(destination_location)
         init_location = (state.x, state.y)
         mdp = FourRoomMDP(self.domain.width, self.domain.height, init_loc=init_location, goal_locs=[destination_location])
-        return self.getPolicy(mdp)
+        return self.getPolicy(mdp, verbose=True)
