@@ -216,9 +216,6 @@ class CleanUpMDP(MDP):
 
         return task_room.contains(task_block) and (next_state.x, next_state.y) in task_room.points_in_room
 
-    def in_goal_set(self, state):
-        return self.is_terminal(self.task, state)
-
     def __str__(self):
         # TODO WRITE OUT LATER
         return "CleanUpMDP: " + str(self.task)

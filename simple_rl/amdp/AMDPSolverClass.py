@@ -61,7 +61,7 @@ class AMDPAgent(object):
                 self._decompose(self.action_to_task_map[action], level-1)
                 state = self.state_stack[level]
         else:
-            while not grounded_task.is_terminal(state) and not self._env_is_terminal(state):
+            while not grounded_task.is_terminal(state):
                 action = policy[state]
                 self.policy_stack[level][state] = action
                 if verbose: print '({}, {})'.format(state, action)
@@ -70,9 +70,6 @@ class AMDPAgent(object):
         if level < self.max_level:
             projected_state = self.policy_generators[level+1].generate_abstract_state(self.state_stack[level])
             self.state_stack[level+1] = projected_state
-
-    def _env_is_terminal(self, state):
-        return self.base_mdp.in_goal_set(state)
 
     def _construct_action_to_node_map(self, root_node):
         '''

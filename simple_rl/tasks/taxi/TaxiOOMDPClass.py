@@ -274,13 +274,6 @@ class TaxiOOMDP(OOMDP):
             return 'yellow'
         return ''
 
-    def in_goal_set(self, state):
-        agent = state.get_first_obj_of_class('agent')
-        passenger = state.get_first_obj_of_class('passenger')
-        return agent['x'] == passenger['x'] == passenger['dest_x'] and \
-               agent['y'] == passenger['y'] == passenger['dest_y'] and \
-               agent['has_passenger'] == passenger['in_taxi'] == False
-
 def _error_check(state, action):
     '''
     Args:
