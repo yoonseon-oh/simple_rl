@@ -35,7 +35,7 @@ class AMDPAgent(object):
         # Project env MDP init state to all higher levels
         for i in range(1, len(self.policy_generators)):
             pg = self.policy_generators[i]
-            base_state = pg.generateAbstractState(base_state)
+            base_state = pg.generate_abstract_state(base_state)
             self.state_stack[i] = base_state
 
         # Start decomposing the highest-level task in hierarchy
@@ -53,7 +53,7 @@ class AMDPAgent(object):
         print 'Decomposing action {} at level {}'.format(grounded_task, level)
         state = self.state_stack[level]
 
-        policy = self.policy_generators[level].generatePolicy(state, grounded_task)
+        policy = self.policy_generators[level].generate_policy(state, grounded_task)
         if level > 0:
             while not grounded_task.is_terminal(state):
                 action = policy[state]
@@ -68,7 +68,7 @@ class AMDPAgent(object):
                 reward, state = self.base_mdp.execute_agent_action(action)
                 self.state_stack[level] = state
         if level < self.max_level:
-            projected_state = self.policy_generators[level+1].generateAbstractState(self.state_stack[level])
+            projected_state = self.policy_generators[level+1].generate_abstract_state(self.state_stack[level])
             self.state_stack[level+1] = projected_state
 
     def _env_is_terminal(self, state):

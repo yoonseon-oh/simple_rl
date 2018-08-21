@@ -96,7 +96,7 @@ def run_abstract_cleanup():
     policy_generators = [l0_policy_generator, l1_policy_generator]
 
     l0_init_state = l0_domain.init_state
-    l1_init_state = l1_policy_generator.generateAbstractState(l0_init_state)
+    l1_init_state = l1_policy_generator.generate_abstract_state(l0_init_state)
 
     l0_actions = [PrimitiveAbstractTask(action) for action in l0_domain.ACTIONS]
     l1_actions = [CleanupL1GroundedAction(action, l0_actions, l0_domain) for action in

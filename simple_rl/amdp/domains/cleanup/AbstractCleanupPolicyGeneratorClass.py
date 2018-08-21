@@ -15,7 +15,7 @@ class CleanupL1PolicyGenerator(AMDPPolicyGenerator):
         self.state_mapper = state_mapper
         self.verbose = verbose
 
-    def generatePolicy(self, l1_state, grounded_task):
+    def generate_policy(self, l1_state, grounded_task):
         '''
         Args:
             l1_state (CleanupL1State)
@@ -25,9 +25,9 @@ class CleanupL1PolicyGenerator(AMDPPolicyGenerator):
             policy (defaultdict)
         '''
         mdp = CleanupL1MDP(self.domain)
-        return self.getPolicy(mdp, verbose=True)
+        return self.get_policy(mdp, verbose=True)
 
-    def generateAbstractState(self, l0_state):
+    def generate_abstract_state(self, l0_state):
         return self.state_mapper.map_state(l0_state)
 
 class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
@@ -40,7 +40,7 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
         self.domain = l0_domain
         self.verbose = verbose
 
-    def generatePolicy(self, l0_state, grounded_task):
+    def generate_policy(self, l0_state, grounded_task):
         '''
         Args:
             l0_state (CleanUpState)
@@ -53,4 +53,4 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
         mdp.terminal_func = grounded_task.terminal_func
         mdp.reward_func = grounded_task.reward_func
         mdp.init_state = l0_state
-        return self.getPolicy(mdp)
+        return self.get_policy(mdp)

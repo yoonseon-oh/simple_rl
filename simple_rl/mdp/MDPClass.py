@@ -40,6 +40,7 @@ class MDP(object):
     def get_num_state_feats(self):
         return self.init_state.get_num_feats()
 
+    # TODO: Get rid of this function
     def get_slip_prob(self):
         pass
 
@@ -59,6 +60,7 @@ class MDP(object):
     # ----------
     # -- Core --
     # ----------
+    # TODO: Get rid of this function
     def in_goal_set(self, state):
         pass
 

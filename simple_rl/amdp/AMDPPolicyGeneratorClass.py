@@ -13,7 +13,7 @@ class AMDPPolicyGenerator(object):
      state abstraction and a lower level state. It also has access to the state mapper allowing generation
      of abstract states
     '''
-    def generatePolicy(self, state, grounded_task):
+    def generate_policy(self, state, grounded_task):
         '''
         Args:
             state (State)
@@ -23,7 +23,7 @@ class AMDPPolicyGenerator(object):
         '''
         pass
 
-    def  generateAbstractState(self, state):
+    def  generate_abstract_state(self, state):
         '''
         Args:
             state (State): state in the lower level MDP
@@ -32,7 +32,7 @@ class AMDPPolicyGenerator(object):
         '''
         pass
 
-    def getPolicy(self, mdp, verbose=False):
+    def get_policy(self, mdp, verbose=False):
         '''
         Args:
             mdp (MDP): MDP (same level as the current Policy Generator)

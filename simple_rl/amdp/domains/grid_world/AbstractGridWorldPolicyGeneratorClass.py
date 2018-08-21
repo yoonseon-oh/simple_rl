@@ -17,16 +17,16 @@ class GridWorldL1PolicyGenerator(AMDPPolicyGenerator):
         self.verbose = verbose
         self.state_mapper = state_mapper
 
-    def generatePolicy(self, l1_state, grounded_action):
+    def generate_policy(self, l1_state, grounded_action):
         '''
         Args:
             l1_state (FourRoomL1State): generate policy in l1 domain starting from l1_state
             grounded_action (FourRoomRootGroundedAction): TaskNode above defining the subgoal for current MDP
         '''
         mdp = FourRoomL1MDP(l1_state.agent_in_room_number, grounded_action.goal_state.agent_in_room_number)
-        return self.getPolicy(mdp, verbose=True)
+        return self.get_policy(mdp, verbose=True)
 
-    def generateAbstractState(self, l0_state):
+    def generate_abstract_state(self, l0_state):
         return self.state_mapper.map_state(l0_state)
 
 class GridWorldL0PolicyGenerator(AMDPPolicyGenerator):
@@ -34,7 +34,7 @@ class GridWorldL0PolicyGenerator(AMDPPolicyGenerator):
         self.domain = l0_domain
         self.verbose = verbose
 
-    def generatePolicy(self, state, grounded_task):
+    def generate_policy(self, state, grounded_task):
         '''
         Args:
              state (GridWorldState): plan in L0 starting from state
@@ -44,4 +44,4 @@ class GridWorldL0PolicyGenerator(AMDPPolicyGenerator):
         print 'Generating policy for goal location {}...'.format(destination_location)
         init_location = (state.x, state.y)
         mdp = FourRoomMDP(self.domain.width, self.domain.height, init_loc=init_location, goal_locs=[destination_location])
-        return self.getPolicy(mdp, verbose=True)
+        return self.get_policy(mdp, verbose=True)

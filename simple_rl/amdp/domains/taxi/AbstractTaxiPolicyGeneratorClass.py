@@ -14,15 +14,15 @@ class TaxiL1PolicyGenerator(AMDPPolicyGenerator):
 
     # TODO: The Single Passenger Taxi MDP is kinda strange because the goal state is kind of embedded in the current state
     # But we still should use the grounded_action to derive the goal state while constructing the policy at L1
-    def generatePolicy(self, l1_state, grounded_action):
+    def generate_policy(self, l1_state, grounded_action):
         agent_color = l1_state.agent_obj['current_color']
         passenger_color = l1_state.passenger_obj['current_color']
         passenger_dest_color = l1_state.passenger_obj['dest_color']
         mdp = TaxiL1OOMDP(agent_color=agent_color, passenger_color=passenger_color,
                           passenger_dest_color=passenger_dest_color)
-        return self.getPolicy(mdp)
+        return self.get_policy(mdp)
 
-    def generateAbstractState(self, l0_state):
+    def generate_abstract_state(self, l0_state):
         return self.state_mapper.map_state(l0_state)
 
 class TaxiL0PolicyGenerator(AMDPPolicyGenerator):
@@ -30,7 +30,7 @@ class TaxiL0PolicyGenerator(AMDPPolicyGenerator):
         self.domain = l0_domain
         self.verbose = verbose
 
-    def generatePolicy(self, l0_state, l1_grounded_task):
+    def generate_policy(self, l0_state, l1_grounded_task):
         policy = defaultdict()
         if l1_grounded_task.is_navigation_task:
             agent = l0_state.get_first_obj_of_class('agent')
@@ -47,7 +47,7 @@ class TaxiL0PolicyGenerator(AMDPPolicyGenerator):
             mdp = TaxiOOMDP(self.domain.width, self.domain.height, agent_dict, [], [passenger_dict],
                             goal_loc=destination_location)
 
-            return self.getPolicy(mdp)
+            return self.get_policy(mdp)
 
         elif l1_grounded_task.is_pickup_task:
             policy[l0_state] = 'pickup'
