@@ -1,10 +1,12 @@
+# Python imports.
+from collections import defaultdict
+import re
+
+# Other imports.
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
-
-from collections import defaultdict
-import re
 
 class FourRoomL1State(State):
     def __init__(self, room_number, is_terminal=False):
@@ -129,20 +131,23 @@ class FourRoomL1MDP(MDP):
                 return action
         raise ValueError('unable to find action corresponding to room {}'.format(room_number))
 
-def get_l1_policy(start_room=None, goal_room=None, mdp=None):
-    if mdp is None:
-        mdp = FourRoomL1MDP(start_room, goal_room)
-    vi = ValueIteration(mdp)
-    vi.run_vi()
+# -----------------------------------
+# Debug functions
+# -----------------------------------
 
-    policy = defaultdict()
-    action_seq, state_seq = vi.plan(mdp.init_state)
+def debug_l1_grid_world():
+    def get_l1_policy(start_room=None, goal_room=None, mdp=None):
+        if mdp is None:
+            mdp = FourRoomL1MDP(start_room, goal_room)
+        vi = ValueIteration(mdp)
+        vi.run_vi()
 
-    print 'Plan for {}:'.format(mdp)
-    for i in range(len(action_seq)):
-        print "\tpi[{}] -> {}".format(state_seq[i], action_seq[i])
-        policy[state_seq[i]] = action_seq[i]
-    return policy
+        policy = defaultdict()
+        action_seq, state_seq = vi.plan(mdp.init_state)
 
-if __name__ == '__main__':
+        print 'Plan for {}:'.format(mdp)
+        for i in range(len(action_seq)):
+            print "\tpi[{}] -> {}".format(state_seq[i], action_seq[i])
+            policy[state_seq[i]] = action_seq[i]
+        return policy
     policy = get_l1_policy(1, 4)

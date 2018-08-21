@@ -322,27 +322,30 @@ class CleanupL1MDP(MDP):
                 block.current_door = ''
         return next_state
 
-def get_l1_policy(domain):
-    vi = ValueIteration(domain, sample_rate=1)
-    vi.run_vi()
+# -----------------------------------
+# Debug functions
+# -----------------------------------
 
-    policy = defaultdict()
-    action_seq, state_seq = vi.plan(domain.init_state)
-
-    print 'Plan for {}:'.format(domain)
-    for i in range(len(action_seq)):
-        print "\tpi[{}] -> {}\n".format(state_seq[i], action_seq[i])
-        policy[state_seq[i]] = action_seq[i]
-
-    return policy
-
-if __name__ == '__main__':
+def debug_l1_domain():
     from simple_rl.tasks.cleanup.cleanup_block import CleanUpBlock
     from simple_rl.tasks.cleanup.cleanup_door import CleanUpDoor
     from simple_rl.tasks.cleanup.cleanup_room import CleanUpRoom
     from simple_rl.tasks.cleanup.cleanup_task import CleanUpTask
     from simple_rl.tasks.cleanup.CleanupMDPClass import CleanUpMDP
-    from simple_rl.amdp.domains.cleanup import AbstractCleanupL1StateMapper
+
+    def get_l1_policy(domain):
+        vi = ValueIteration(domain, sample_rate=1)
+        vi.run_vi()
+
+        policy = defaultdict()
+        action_seq, state_seq = vi.plan(domain.init_state)
+
+        print 'Plan for {}:'.format(domain)
+        for i in range(len(action_seq)):
+            print "\tpi[{}] -> {}\n".format(state_seq[i], action_seq[i])
+            policy[state_seq[i]] = action_seq[i]
+
+        return policy
 
     task = CleanUpTask("purple", "red")
     room1 = CleanUpRoom("room1", [(x, y) for x in range(5) for y in range(3)], "blue")
@@ -359,5 +362,3 @@ if __name__ == '__main__':
     amdp = CleanupL1MDP(mdp)
 
     get_l1_policy(amdp)
-
-

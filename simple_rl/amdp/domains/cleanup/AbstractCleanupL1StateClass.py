@@ -1,6 +1,5 @@
+# Other imports.
 from simple_rl.mdp.StateClass import State
-
-import pdb
 
 class CleanupL1State(State):
     def __init__(self, robot, doors, rooms, blocks):

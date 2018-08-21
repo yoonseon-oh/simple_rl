@@ -169,22 +169,27 @@ class TaxiL1OOMDP(OOMDP):
 
         return next_state
 
-def get_l1_policy(oomdp=None):
-    if oomdp is None:
-        oomdp = TaxiL1OOMDP()
-    vi = ValueIteration(oomdp, sample_rate=1)
-    vi.run_vi()
+# -----------------------------------
+# Debug functions
+# -----------------------------------
 
-    policy = defaultdict()
-    action_seq, state_seq = vi.plan(oomdp.init_state)
+def debug_l1_taxi():
+    def get_l1_policy(oomdp=None):
+        if oomdp is None:
+            oomdp = TaxiL1OOMDP()
+        vi = ValueIteration(oomdp, sample_rate=1)
+        vi.run_vi()
 
-    print 'Plan for {}:'.format(oomdp)
-    for i in range(len(action_seq)):
-        print "\tpi[{}] -> {}\n".format(state_seq[i], action_seq[i])
-        policy[state_seq[i]] = action_seq[i]
+        policy = defaultdict()
+        action_seq, state_seq = vi.plan(oomdp.init_state)
 
-    return policy
+        print 'Plan for {}:'.format(oomdp)
+        for i in range(len(action_seq)):
+            print "\tpi[{}] -> {}\n".format(state_seq[i], action_seq[i])
+            policy[state_seq[i]] = action_seq[i]
 
-if __name__ == '__main__':
+        return policy
+
     mdp = TaxiL1OOMDP()
     pi = get_l1_policy(mdp)
+    return pi

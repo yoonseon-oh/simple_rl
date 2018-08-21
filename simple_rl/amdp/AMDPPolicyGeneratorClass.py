@@ -1,8 +1,10 @@
+# Python imports.
+from collections import defaultdict
+
+# Other imports.
 from simple_rl.planning.ValueIterationClass import ValueIteration
 from simple_rl.mdp.StateClass import State
 from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask
-
-from collections import defaultdict
 
 class AMDPPolicyGenerator(object):
     '''

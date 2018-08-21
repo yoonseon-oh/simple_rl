@@ -1,10 +1,13 @@
+# Python imports.
+from collections import defaultdict
+
+# Other imports.
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask, RootTaskNode
 
-from collections import defaultdict
-
 class AMDPAgent(object):
+    ''' Generic solver for all domains that adhere to the AMDP framework (Gopalan et al). '''
     def __init__(self, root_grounded_task, policy_generators, base_mdp):
         '''
         AbstractMDP solver class
