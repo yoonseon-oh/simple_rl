@@ -29,8 +29,12 @@ from simple_rl.tasks.FetchPOMDP import file_reader as fr
 #
 # If you get a build or link error, try deleting the ".pyxbld" folder. On Windows, this is located in "C:\Users\[user]".
 # '''
+#Debugging variables
 cdef num_belief_updates = 0
 cdef num_impossible_observations = 0
+cdef impossible_responses = 0
+cdef impossible_bases = 0
+cdef impossible_gestures = 0
 
 cdef obs_sampling_time = 0
 cdef estimate_qs_counter = 0
@@ -61,7 +65,8 @@ cdef ATTRIBUTES = config["attributes"]
 cdef num_items = len(items)
 cdef double point_cost = config["point_cost"]
 cdef double p_g = config["p_g"]
-cdef double p_l = config["p_l"]  # split into base and response probabilities
+cdef double p_l_b = config["p_l_b"]  # split into base and response probabilities
+cdef double p_l_r = config["p_l_r"]
 cdef double p_r_match = config["p_r_match"]
 cdef double p_r_match_look = config["p_r_match_look"]
 cdef double alpha = config["alpha"]
@@ -143,33 +148,15 @@ cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double 
 			confusion_row.append(prob_match)
 		confusion_matrix.append(confusion_row)
 	return confusion_matrix
-
-# cdef calculate_response_probs_old(items, std_dev):
-# 	cdef std_theta_1 = 2 * (std_theta ** 2)
-# 	cdef std_theta_p_g = p_g / math.sqrt(2 * math.pi * (std_theta ** 2))
-# 	#convert item locations to angles (ignore height for now for simplicity)
-# 	item_angles = {i: math.atan2(items[i]["location"][1],items[i]["location"][0]) for i in range(len(items))}
-# 	sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
-# 	midpoints = [sorted_angles[i][1] + sorted_angles[i+1][1] for i in range(len(sorted_angles) - 1)]
-# 	#Get intervals over which each item is the nearest item (voronoi circle)
-# 	#First and last should wraparound. TODO
-# 	intervals = {}
-# 	for i in range(len(items)):
-# 		#zeroth interval is -pi to the zeroth midpoint
-# 		if i == 0:
-# 			intervals[sorted_angles[i][0]]= (-math.pi,midpoints[0])
-# 		#last interval is last midpoint to pi
-# 		elif i == len(items) - 1:
-# 			intervals[sorted_angles[i][0]] = (midpoints[len(midpoints) -1],math.pi)
-# 		#other intervals are from midpoint to midpoint
-# 		else:
-# 			intervals[sorted_angles[i][0]] = (midpoints[i -1],midpoints[i])
-# 	#Assume that the actual location the agent points to is sampled from a gaussian with variance std_theta_look/point
-# 	response_probs = []
-# 	for i in range(len(items)):
-# 		prob_correct = norm.cdf(intervals[i][1],item_angles[i],std_dev) - norm.cdf(intervals[i][0],item_angles[i],std_dev)
-# 		response_probs.append(prob_correct)
-# 	return response_probs
+cpdef sample_interpreted_reference(state):
+	#TODO rename
+	last_referenced_item = state["last_referenced_item"]
+	#TODO consider representing confusion matrices as dicts so that we do not need a special case for None
+	if last_referenced_item is None:
+		return None
+	probs = response_confusion_matrices[state["reference_type"]][last_referenced_item]
+	interpreted_item = sample_state(probs)
+	return interpreted_item
 
 cdef positive_responses = set(config["positive_responses"])
 cdef negative_responses = set(config["negative_responses"])
@@ -208,6 +195,26 @@ cdef all_words = union_dictionary(bag_of_words)
 cdef relevant_words = [get_relevant_words(i, bag_of_words) for i in range(len(items))]
 cdef irrelevant_words = [get_irrelevant_words(i, bag_of_words) for i in range(len(items))]
 
+cdef get_potential_words(desired_item, last_referenced_item):
+	'''
+	:param desired_item: 
+	:param last_referenced_item: 
+	:return: set of words related to desired_item but not last_referenced_item if the resulting set is nonempty, else
+	all words related to desired_item
+	'''
+	words = relevant_words[desired_item]
+	if last_referenced_item is None:
+		other_words = set()
+	else:
+		other_words = relevant_words[last_referenced_item]
+	potential_words = words.difference(other_words)
+	if potential_words == set():
+		potential_words = words
+	return potential_words
+cdef potential_words = [
+	[get_potential_words(desired_item, last_referenced_item) for last_referenced_item in range(num_items)] for
+	desired_item in range(num_items)]
+
 cpdef double average(list a):
 	cdef double total = sum(a)
 	return total / len(a)
@@ -245,8 +252,29 @@ cpdef add_dict(a, b, keys = None):
 		keys = a.keys()
 	ret = {key: a[key] + b[key] for key in keys}
 	return ret
-cpdef add_list_of_alphas(alphas,list keys):
-	new_alpha = {"values":{}, "action":None}
+cpdef linear_combination_of_dicts(ds,weights):
+	new_dicts = [times_dict(ds[i],weights[i]) for i in range(len(ds))]
+	return add_list_of_dicts(new_dicts)
+cpdef linear_combination_of_lists(ds,weights):
+	new_lists = [times_list(ds[i],weights[i]) for i in range(len(ds))]
+	return add_list_of_lists(new_lists)
+cpdef linear_combination_of_alphas(alphas,weights):
+	ds = [a["values"] for a in alphas]
+	vals = linear_combination_of_dicts(ds,weights)
+	alpha = {"values":vals, "action":None}
+	return alpha
+cpdef add_list_of_dicts(ds):
+	#TODO check whether swapping order of iteration is faster
+	cdef double sum
+	cdef dict new_d = {}
+	for key in ds[0].keys():
+		sum = 0
+		for d in ds:
+			sum += d[key]
+		new_d[key] = sum
+	return new_d
+cpdef add_list_of_alphas(alphas, list keys):
+	new_alpha = {"values": {}, "action": None}
 	cdef double sum
 	for key in keys:
 		sum = 0
@@ -268,6 +296,19 @@ cpdef times_dict(a, scalar):
 	#Can't use lambda expressions in cython, so I cannot scale the default factories
 	ret = {key: scalar * a[key] for key in a.keys()}
 	return ret
+cpdef list times_list(list a, double scalar):
+	return [scalar * i for i in a]
+cpdef list add_list_of_lists(ls):
+	cdef double sum
+	cdef int i
+	cdef list new_list = []
+	for element_index in range(len(ls[0])):
+		sum = 0
+		for list_index in range(len(ls)):
+			sum += ls[list_index][element_index]
+		new_list.append(sum)
+	return new_list
+
 cpdef double distance(list a, list b):
 	cdef double dist = 0
 	for i in range(len(a)):
@@ -331,7 +372,29 @@ cpdef double angle_between(list v1, list v2):
 
 cpdef double vec_prob(list ideal, list actual, double a = std_theta_p_g, double b = std_theta_1):
 	return a * (math.e ** (-(angle_between(ideal, actual) ** 2) / b))
-
+cpdef is_observation_impossible(belief_state,observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: 1 if observation is impossible, otherwise 0
+	"""
+	global num_belief_updates
+	global num_impossible_observations
+	num_belief_updates += 1
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [observation_func(observation, state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total.
+	#Consider using decimal, may or not work with cython.
+	#Consider ignoring observation and returning unaltered belief.
+	if denominator == 0:
+		return 1
+	return 0
 cpdef belief_update(belief_state, observation):
 	"""
 	:param belief_state: FetchPOMDPBeliefState
@@ -349,7 +412,9 @@ cpdef belief_update(belief_state, observation):
 	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
 	# observation_probs = remove_zeros(observation_probs)
 	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
-	#TODO find better solution for impossible observations. Maybe change the kl boost to ignore improbable states
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total.
+	#Consider using decimal, may or not work with cython.
+	#Consider ignoring observation and returning unaltered belief.
 	if denominator == 0:
 		num_impossible_observations += 1
 		print("Received observation with probability 0. Resetting belief.")
@@ -359,8 +424,8 @@ cpdef belief_update(belief_state, observation):
 		print("observation = " + str(observation))
 		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
 		return {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
-	       "reference_type": belief_state["reference_type"]}
-		# raise ValueError("Received observation with probability 0")
+		        "reference_type": belief_state["reference_type"]}
+	# raise ValueError("Received observation with probability 0")
 	# return belief_state
 	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
 	                      range(len(belief_state["desired_item"]))]
@@ -369,6 +434,158 @@ cpdef belief_update(belief_state, observation):
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
 	       "reference_type": belief_state["reference_type"]}
 	return ret
+cpdef belief_update_full_debug(belief_state, observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: [known part of state, belief_state distribution]
+	"""
+	global num_belief_updates
+	global num_impossible_observations
+	num_belief_updates += 1
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [observation_func(observation, state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total.
+	#Consider using decimal, may or not work with cython.
+	#Consider ignoring observation and returning unaltered belief.
+	if denominator == 0:
+		num_impossible_observations += 1
+		print("Full update")
+		print("Received observation with probability 0. Resetting belief.")
+		print("belief_state[2] dot observation_probs = 0")
+		print("belief_state = " + str(belief_state))
+		print("observation_probs = " + str(observation_probs))
+		print("observation = " + str(observation))
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return 1
+	# raise ValueError("Received observation with probability 0")
+	# return belief_state
+	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
+	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
+	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+	return 0
+cpdef belief_update_gesture_only_debug(belief_state, observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: [known part of state, belief_state distribution]
+	"""
+	global num_belief_updates
+	global num_impossible_observations
+	num_belief_updates += 1
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [gesture_func(observation["gesture"], state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total.
+	#Consider using decimal, may or not work with cython.
+	#Consider ignoring observation and returning unaltered belief.
+	if denominator == 0:
+		num_impossible_observations += 1
+		print("Gesture only")
+		print("Received observation with probability 0. Resetting belief.")
+		print("belief_state[2] dot observation_probs = 0")
+		print("belief_state = " + str(belief_state))
+		print("observation_probs = " + str(observation_probs))
+		print("observation = " + str(observation))
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return 1
+		return {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+		        "reference_type": belief_state["reference_type"]}
+	# raise ValueError("Received observation with probability 0")
+	# return belief_state
+	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
+	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
+	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+	return 0
+cpdef belief_update_base_only_debug(belief_state, observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: [known part of state, belief_state distribution]
+	"""
+	global num_belief_updates
+	global num_impossible_observations
+	num_belief_updates += 1
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [base_probability(observation["language"], state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total.
+	#Consider using decimal, may or not work with cython.
+	#Consider ignoring observation and returning unaltered belief.
+	if denominator == 0:
+		num_impossible_observations += 1
+		print("Base only")
+		print("Received observation with probability 0. Resetting belief.")
+		print("belief_state[2] dot observation_probs = 0")
+		print("belief_state = " + str(belief_state))
+		print("observation_probs = " + str(observation_probs))
+		print("observation = " + str(observation))
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return 1
+	# raise ValueError("Received observation with probability 0")
+	# return belief_state
+	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
+	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
+	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+	return 0
+cpdef belief_update_response_only_debug(belief_state, observation):
+	"""
+	:param belief_state: FetchPOMDPBeliefState
+	:param observation: [set of words, gesture vector]
+	:return: [known part of state, belief_state distribution]
+	"""
+	cdef int i
+	global belief_update_total_time
+	start = time()
+	possible_states = belief_state.get_all_possible_states()
+	observation_probs = [response_probability(observation["language"], state) for state in possible_states]
+	#remove zeros because anything is possible. TODO: Find out where the zeros are coming from
+	# observation_probs = remove_zeros(observation_probs)
+	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
+	#TODO find better solution for impossible observations. Currently getting .01 impossible/total
+	if denominator == 0:
+		print("Response only")
+		print("Received observation with probability 0. Resetting belief.")
+		print("belief_state[2] dot observation_probs = 0")
+		print("belief_state = " + str(belief_state))
+		print("observation_probs = " + str(observation_probs))
+		print("observation = " + str(observation))
+		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
+		return 1
+	# raise ValueError("Received observation with probability 0")
+	# return belief_state
+	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
+	                      range(len(belief_state["desired_item"]))]
+	#Probability 0 breaks things (ex. KL divergence), so we'll replace 0 with the smallest positive float
+	desired_item_distr = remove_zeros(desired_item_distr)
+	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
+	       "reference_type": belief_state["reference_type"]}
+	return 0
 cpdef belief_update_response_only(belief_state, observation):
 	"""
 	:param belief_state: FetchPOMDPBeliefState
@@ -385,6 +602,7 @@ cpdef belief_update_response_only(belief_state, observation):
 	cdef double denominator = dot(belief_state["desired_item"], observation_probs)
 	#TODO find better solution for impossible observations. Currently getting .01 impossible/total
 	if denominator == 0:
+		print("Response only")
 		print("Received observation with probability 0. Resetting belief.")
 		print("belief_state[2] dot observation_probs = 0")
 		print("belief_state = " + str(belief_state))
@@ -392,8 +610,8 @@ cpdef belief_update_response_only(belief_state, observation):
 		print("observation = " + str(observation))
 		desired_item_distr = [1.0 / len(possible_states) for i in range(len(possible_states))]
 		return {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
-	       "reference_type": belief_state["reference_type"]}
-		# raise ValueError("Received observation with probability 0")
+		        "reference_type": belief_state["reference_type"]}
+	# raise ValueError("Received observation with probability 0")
 	# return belief_state
 	desired_item_distr = [belief_state["desired_item"][j] * observation_probs[j] / denominator for j in
 	                      range(len(belief_state["desired_item"]))]
@@ -402,6 +620,7 @@ cpdef belief_update_response_only(belief_state, observation):
 	ret = {"desired_item": desired_item_distr, "last_referenced_item": belief_state["last_referenced_item"],
 	       "reference_type": belief_state["reference_type"]}
 	return ret
+
 cpdef belief_update_robot(belief_state, observation):
 	"""
 	:param belief_state: [known part of state, belief distribution over desired item]
@@ -478,6 +697,7 @@ cpdef double observation_func(observation, state):
 	global observation_func_total_time
 	start_time = time()
 	prob = language_func(observation["language"], state) * gesture_func(observation["gesture"], state)
+	# prob = language_func(observation["language"], state) * gesture_func(observation["gesture"], state)
 	observation_func_total_time += time() - start_time
 	return prob
 cpdef double observation_func_robot(observation, state):
@@ -513,7 +733,7 @@ cpdef double gesture_func_robot(observation, state):
 	return prob
 cpdef double language_func(observation, state):
 	# Need to change the way we handle BoW data. Store items with attributes, get descriptors from attributes
-	cdef double base_utterance_prob = base_probability(observation, relevant_words[state["desired_item"]], all_words)
+	cdef double base_utterance_prob = base_probability(observation, state)
 	cdef double response_utterance_prob = response_probability(observation, state)
 	return base_utterance_prob * response_utterance_prob
 cpdef double response_probability(language, state):
@@ -530,7 +750,35 @@ cpdef double response_probability(language, state):
 	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
 
 	if num_positive_included + num_negative_included == 0:
-		return 1 - p_l
+		return 1 - p_l_r
+	reference_type = state["reference_type"]
+	last_referenced_item = state["last_referenced_item"]
+	desired_item = state["desired_item"]
+	if last_referenced_item is None:
+		return .5 ** (len(positive_responses) + len(negative_responses))
+	#Return probability that the human thinks the agent pointed at the desired item
+	cdef double pos_prob = response_confusion_matrices[reference_type][last_referenced_item][desired_item]
+	#p_r_match < 1 to represent error in speech detection
+	# pos_prob *= p_r_match
+	if num_positive_included > num_negative_included:
+		return pos_prob
+	if num_negative_included > num_positive_included:
+		return 1 - pos_prob
+cpdef double response_probability_state(observation, state):
+	"""
+	:param language: language
+	:param state: state
+	:return: P(language | state)
+	TODO: Probability of null response should be higher if state[1] is None
+	"""
+	#TODO fix
+	language = observation["language"]
+	cdef int num_positive_included = len(positive_responses.intersection(language))
+	cdef int num_positive_omitted = len(positive_responses) - num_positive_included
+	cdef int num_negative_included = len(negative_responses.intersection(language))
+	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
+	if num_positive_included + num_negative_included == 0:
+		return 1 - p_l_r
 	reference_type = state["reference_type"]
 	last_referenced_item = state["last_referenced_item"]
 	desired_item = state["desired_item"]
@@ -557,7 +805,7 @@ cpdef double response_probability_old(language, state):
 	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
 
 	if num_positive_included + num_negative_included == 0:
-		return 1 - p_l
+		return 1 - p_l_b
 	if state["last_referenced_item"] is None:
 		return .5 ** (len(positive_responses) + len(negative_responses))
 	if state["reference_type"] == "point":
@@ -587,7 +835,7 @@ cpdef double response_probability_2(language, state):
 	cdef int num_negative_omitted = len(negative_responses) - num_negative_included
 
 	if num_positive_included + num_negative_included == 0:
-		return 1 - p_l
+		return 1 - p_l_b
 	if state["last_referenced_item"] is None:
 		return .5 ** (len(positive_responses) + len(negative_responses))
 	if state["reference_type"] == "point":
@@ -598,7 +846,7 @@ cpdef double response_probability_2(language, state):
 		return match_prob
 	return 1 - match_prob
 
-cpdef double base_probability(language, vocab, words):
+cpdef double base_probability_old_params(language, vocab, words):
 	'''
 	:param language: set of words uttered. Consider changing to multiset
 	:param words: set of all known words
@@ -607,7 +855,7 @@ cpdef double base_probability(language, vocab, words):
 	'''
 	# TODO: take into account words ommitted so that probability sums to 1.
 	if language is None or language == set():
-		return 1 - p_l
+		return 1 - p_l_b
 	cdef double denominator = len(vocab) + alpha * len(words)
 	cdef int num_relevant_words_included = len(set([word for word in language if word in vocab]))
 	cdef int num_relevant_words_omitted = len(vocab) - num_relevant_words_included
@@ -616,12 +864,39 @@ cpdef double base_probability(language, vocab, words):
 
 	cdef double prob_relevant_word_included = (1 + alpha) / denominator
 	cdef double prob_irrelevant_word_included = alpha / denominator
-	return p_l * (prob_relevant_word_included ** num_relevant_words_included) \
+	return p_l_b * (prob_relevant_word_included ** num_relevant_words_included) \
 	       * (prob_irrelevant_word_included ** num_irrelevant_words_included) \
 	       * (1 - prob_relevant_word_included) ** num_relevant_words_omitted \
 	       * (1 - prob_irrelevant_word_included) ** num_irrelevant_words_omitted
 
-cdef sample_gesture(state, allow_none=True):
+cpdef double base_probability(observation, state):
+	'''
+	:param language: set of words uttered. Consider changing to multiset
+	:param words: set of all known words
+	:param vocab: set of words related to object in question
+	:return: probablity of language
+	'''
+	# TODO: take into account words ommitted so that probability sums to 1.
+	# language = observation["language"]
+	language = observation
+	vocab = relevant_words[state["desired_item"]]
+	words = all_words
+	if language is None or language == set():
+		return 1 - p_l_b
+	cdef double denominator = len(vocab) + alpha * len(words)
+	cdef int num_relevant_words_included = len(set([word for word in language if word in vocab]))
+	cdef int num_relevant_words_omitted = len(vocab) - num_relevant_words_included
+	cdef int num_irrelevant_words_included = len(language) - num_relevant_words_included
+	cdef int num_irrelevant_words_omitted = len(words) - len(vocab) - num_irrelevant_words_included
+
+	cdef double prob_relevant_word_included = (1 + alpha) / denominator
+	cdef double prob_irrelevant_word_included = alpha / denominator
+	return p_l_b * (prob_relevant_word_included ** num_relevant_words_included) \
+	       * (prob_irrelevant_word_included ** num_irrelevant_words_included) \
+	       * (1 - prob_relevant_word_included) ** num_relevant_words_omitted \
+	       * (1 - prob_irrelevant_word_included) ** num_irrelevant_words_omitted
+
+cpdef sample_gesture(state, allow_none=True):
 	global sample_gesture_total_time
 	cdef double start_time = time()
 	if allow_none and random.random() < p_g:
@@ -660,7 +935,7 @@ cpdef sample_response_utterance(state):
 	:param state: state
 	:return: single word response utterance
 	"""
-	if state["last_referenced_item"] is None or random.random() > p_l:
+	if state["last_referenced_item"] is None or random.random() > p_l_r :
 		return set()  # This seems more reasonable than randomly picking yes/no
 	yes_prob = response_confusion_matrices[state["reference_type"]][state["last_referenced_item"]][
 		state["desired_item"]]
@@ -673,7 +948,7 @@ cpdef sample_response_utterance(state):
 # 	:param state: state
 # 	:return: single word response utterance
 # 	"""
-# 	if state["last_referenced_item"] is None or random.random() > p_l:
+# 	if state["last_referenced_item"] is None or random.random() > p_l_b:
 # 		return set()  # This seems more reasonable than randomly picking yes/no
 # 	match_prob = response_probs[state["reference_type"]][state["last_referenced_item"]]
 # 	if state["last_referenced_item"] == state["desired_item"]:
@@ -688,7 +963,7 @@ cpdef sample_response_utterance_old(state):
 	:param state: state
 	:return: single word response utterance
 	"""
-	if state["last_referenced_item"] is None or random.random() > p_l:
+	if state["last_referenced_item"] is None or random.random() > p_l_b:
 		return set()  # This seems more reasonable than randomly picking yes/no
 	match_prob = p_r_match
 	if state["reference_type"] == "look":
@@ -705,7 +980,7 @@ cpdef sample_response_utterance_2(state):
 	:param state: state
 	:return: single word response utterance
 	"""
-	if state["last_referenced_item"] is None or random.random() > p_l:
+	if state["last_referenced_item"] is None or random.random() > p_l_b:
 		return set()  # This seems more reasonable than randomly picking yes/no
 	match_prob = p_r_match
 	if state["reference_type"] == "look":
@@ -718,7 +993,45 @@ cpdef sample_response_utterance_2(state):
 		return set(["no"])
 	return set(["yes"])
 
-cdef sample_base_utterance(state):
+cpdef sample_base_utterance(state):
+	"""
+	:param relevant_words: words related to desired object
+	:param other_words: words unrelated to desired object
+	:return: single word response utterance, related to desired item but not referenced item if possible
+	"""
+	# TODO: Potentially make this more realistic - Currently gives equal weight to all relevant words: shape, color, etc.
+	# return nothing if the human doesn't speak
+	if random.random() > p_l_b:
+		return set()
+	global relevant_words
+	global irrelevant_words
+	global potential_words
+	# relevant_words_local = relevant_words[state[0]]
+	cdef int item_id = state["desired_item"]
+	#TODO turn response_confusion_matrices to dicts so that
+	# if item_id >= len(items) or item_id < 0:
+	# 	print("item_id is all fouled up: " + str(item_id))
+	cdef set relevant_words_local = relevant_words[item_id]
+	cdef set other_words_local = irrelevant_words[item_id]
+	cdef set potential_words_local
+	if state["last_referenced_item"] is None:
+		potential_words_local = relevant_words_local
+	else:
+		assumed_referenced_item = sample_interpreted_reference(state)
+		potential_words_local = potential_words[item_id][assumed_referenced_item]
+	# return a relevant word with probability |id.vocab| * p(w | i_d) for w \in id.vocab
+	num_potential_words = len(potential_words_local)
+	num_relevant_words = len(relevant_words_local)
+	num_other_words = len(other_words_local)
+	num_all_words = num_relevant_words + num_other_words
+	#TODO think about adjusting these probabilities to reflect the new model. Maybe split into three cases
+	if random.random() < num_relevant_words * (1 - alpha) / (num_relevant_words + alpha * num_all_words):
+		r = random.sample(potential_words_local, 1)
+	else:
+		r = random.sample(other_words_local, 1)
+	return set(r)
+
+cdef sample_base_utterance_old(state):
 	"""
 	:param relevant_words: words related to desired object
 	:param other_words: words unrelated to desired object
@@ -726,7 +1039,7 @@ cdef sample_base_utterance(state):
 	"""
 	# TODO: Potentially make this more realistic - Currently gives equal weight to all relevant words: shape, color, etc.
 	# return nothing if the human doesn't speak
-	if random.random() > p_l:
+	if random.random() > p_l_b:
 		return set()
 	global relevant_words
 	global irrelevant_words
@@ -754,7 +1067,7 @@ cdef sample_base_utterance(state):
 # 	"""
 # 	# TODO: Potentially make this more realistic - Currently gives equal weight to all relevant words: shape, color, etc.
 # 	# return nothing if the human doesn't speak
-# 	if random.random() > p_l:
+# 	if random.random() > p_l_b:
 # 		return set()
 # 	global relevant_words
 # 	global irrelevant_words
@@ -785,6 +1098,7 @@ cpdef sample_observation(state):
 	gesture = sample_gesture(state)
 	obs_sampling_time += time() - start_time
 	return {"language": language, "gesture": gesture}
+
 # cpdef sample_observation_detailed(s):
 # 	global obs_sampling_time
 # 	cdef double start_time = time()
@@ -945,10 +1259,233 @@ cpdef get_max_angle(items):
 		for item2 in items():
 			max_angle = max(angle_between(item1["location"], item2["location"]), max_angle)
 	print(max_angle)
-cpdef clamp(value,min_value,max_value):
+cpdef clamp(value, min_value, max_value):
 	if value > max_value:
 		return max_value
 	elif value < min_value:
 		return min_value
 	else:
 		return value
+cpdef argmax(args, fn):
+	cdef double max_value = fn(args[0])
+	cdef double cur_v
+	maxarg = args[0]
+	for i in range(len(args)):
+		cur_v = fn(args[i])
+		if cur_v > max_value:
+			maxarg = args[i]
+			max_value = cur_v
+	return maxarg
+
+
+cpdef argmax2(args, fn):
+	'''
+	:param args:
+	:param fn:
+	:return: (maxarg,max_value)
+	'''
+	cdef double max_value = fn(args[0])
+	cdef double cur_v
+	maxarg = args[0]
+	for i in range(len(args)):
+		cur_v = fn(args[i])
+		if cur_v > max_value:
+			maxarg = args[i]
+			max_value = cur_v
+	return (maxarg, max_value)
+
+
+cpdef update_v(self, double convergence_threshold=1):
+	'''
+	Taken from algorithm 4 from Shani et al
+	:return:
+	'''
+	# for i in range(depth):
+	cdef double max_improvement = convergence_threshold + 0.1
+	cdef int iterations = self.num_update_iterations
+	cdef int num_updated = 0
+	cdef list beliefs_to_update
+	cdef list v_prime
+	while max_improvement > convergence_threshold:
+		beliefs_to_update = copy.deepcopy(self.beliefs)
+		print("max_improvement: " + str(max_improvement))
+		max_improvement = 0
+		v_prime = []
+		while len(beliefs_to_update) > 0:
+			b = random.sample(beliefs_to_update, 1)[0]
+			new_alpha = backup(self, b, self.v)
+			current_best_alpha, current_value = self.get_best_alpha(b)
+			new_value = self.alpha_dot_b(new_alpha, b)
+			# Changed from >= to >
+			if new_value > current_value:
+				# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
+				beliefs_to_update.remove(b)
+				alpha_b = new_alpha
+				max_improvement = max(max_improvement, new_value - current_value)
+			else:
+				beliefs_to_update.remove(b)
+				alpha_b = current_best_alpha
+			# self.add_alpha(alpha_b)
+			v_prime.append(alpha_b)
+			num_updated += 1
+			if num_updated % 100 == 0:
+				self.pickle_partial_update(alphas = v_prime)
+				# self.pickle_data(
+				# 	name=self.name + " value iteration " + str(num_updated) + " beliefs updated time " + str(
+				# 		datetime.now()).replace(":", ".")[:22])
+		self.v = v_prime
+		iterations += 1
+		self.max_improvement = max_improvement
+		self.pickle_data(
+			name=self.name + " value iteration " + str(iterations) + " time " + str(datetime.now()).replace(":", ".")[:22])
+		self.num_update_iterations = iterations
+	return self.v
+cpdef update_v_shani(self, double convergence_threshold=1):
+	'''
+	Taken from algorithm 4 from Shani et al
+	:return:
+	'''
+	#TODO reread and fix this
+	cdef double max_improvement = convergence_threshold + 0.1
+	cdef int iterations = self.num_update_iterations
+	cdef int num_updated = 0
+	cdef list beliefs_to_update
+	cdef list v_prime
+	while max_improvement > convergence_threshold:
+		beliefs_to_update = copy.deepcopy(self.beliefs)
+		if iterations > 0:
+			print("max_improvement: " + str(max_improvement))
+		max_improvement = 0
+		v_prime = []
+		while len(beliefs_to_update) > 0:
+			b = random.sample(beliefs_to_update, 1)[0]
+			new_alpha = backup(self, b, self.v)
+			current_best_alpha, current_value = self.get_best_alpha(b)
+			new_value = self.alpha_dot_b(new_alpha, b)
+			# Changed from >= to >
+			if new_value > current_value:
+				#Consider
+				beliefs_to_update.remove(b)
+				if len(beliefs_to_update) > 0:# and iterations > 0: #TODO Iteration restriction is hacky, find the correct solution
+					beliefs_to_update, max_delta = self.remove_improved_beliefs(beliefs_to_update,new_alpha,self.v,convergence_threshold)
+				else:
+					max_delta = new_value - current_value
+				# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
+				alpha_b = new_alpha
+				max_improvement = max(max_improvement, max_delta)
+			else:
+				beliefs_to_update.remove(b)
+				alpha_b = current_best_alpha
+			# self.add_alpha(alpha_b)
+			v_prime.append(alpha_b)
+			num_updated += 1
+			if num_updated % 100 == 0:
+				self.pickle_partial_update(alphas = v_prime)
+				# self.pickle_data(
+				# 	name=self.name + " value iteration " + str(num_updated) + " beliefs updated time " + str(
+				# 		datetime.now()).replace(":", ".")[:22])
+		check_for_actions_in_alphas(self.pomdp.actions, v_prime)
+		self.v = v_prime
+		#TODO fix root cause instead of hacking pick actions back in. Tests show that each item has at least 47 beliefs which are > .95 confident in it, 30-70 > .99
+		#Tests also show that all 69 pick actions pick 0 :/
+		iterations += 1
+		self.max_improvement = max_improvement
+		self.pickle_data(
+			name=self.name + " value iteration " + str(iterations) + " time " + str(datetime.now()).replace(":", ".")[:22])
+		self.num_update_iterations = iterations
+	return self.v
+cpdef check_for_actions_in_alphas(actions,alphas):
+	alphas_by_actions = {}
+	missing_actions = []
+	for a in actions:
+		rel_alphas = [al for al in alphas if al[1] == a]
+		alphas_by_actions[a] = rel_alphas
+		if len(rel_alphas) == 0 and a.split(" ")[0] == "pick":
+			print(a + " has " + str(len(rel_alphas)) + " alphas")
+			missing_actions.append(a)
+	if len(missing_actions) > 0:
+		s = ""
+		for a in missing_actions:
+			s += a + "; "
+		raise ValueError("Missing alphas for actions :" + s)
+cpdef backup(self, belief, v, num_observations=3):
+	# TODO check if it is can be more efficient to compute observation prob and/or new belief while sampling observation
+	#TODO PROBLEM! I am taking alphas that maximize next belief to represent the value of the next belief, but I need to evaluate the alphas against the current belief.
+	cdef list alphas = []
+	cdef list observations
+	cdef list observation_probs, norm_observation_probs
+	cdef list new_beliefs
+	cdef list alpha_a_os
+	cdef list best_alpha_a_os_pairs
+	for a in self.actions:
+		if a not in self.pomdp.terminal_actions:
+			observations = [self.pomdp.sample_observation_from_belief_action(belief, a) for i in
+			                range(num_observations)]
+			observation_probs = [self.pomdp.observation_from_belief_prob(o, belief, a) for o in observations]
+			norm_observation_probs = unit_vectorn(observation_probs)
+			new_beliefs = [self.pomdp.belief_update(belief, o, a) for o in observations]
+			#TODO use * to unpack in one line zip unzip pack unpack google it
+			obs_alpha_val_pairs = [self.get_best_alpha(b,v) for b in new_beliefs]
+			obs_alphas = [pair[0] for pair in obs_alpha_val_pairs]
+			alpha_a_os = get_alpha_a_os(self,a,observations)
+			best_alpha_a_os_pairs = [self.get_best_alpha(belief,alphs) for alphs in alpha_a_os]
+			best_alpha_a_os = [pair[0] for pair in best_alpha_a_os_pairs]
+			best_alpha_a_os_values = [alph[0] for alph in best_alpha_a_os]
+			value_of_next_beliefs = [pair[1] for pair in best_alpha_a_os_pairs]
+			alpha_a_b_vals = linear_combination_of_lists(best_alpha_a_os_values, norm_observation_probs)
+			a_val = add(self.reward_vectors[a], times_list(alpha_a_b_vals, self.pomdp.gamma))
+			new_alpha = [a_val, a]
+			alphas.append(new_alpha)
+		else:
+			#TODO replace with dictionary lookup for speed
+			new_alpha = self.terminal_action_alphas[a]
+	best_alpha, best_value = self.get_best_alpha(belief, alphas)
+	return best_alpha
+cpdef get_alpha_a_os(self,a,observations):
+	next_states = [self.pomdp.transition_func(self.pomdp.states[i],a) for i in range(len(self.pomdp.states))]
+	obs_probs = [[self.pomdp.observation_func(o,next_states[i]) for i in range(len(next_states))] for o in observations]
+	denominators = []
+	for s_index in range(len(next_states)):
+		sum = 0
+		for o_index in range(len(observations)):
+			sum += obs_probs[o_index][s_index]
+		#if sum is 0, none of the observations are possible from that state, ex if all observations include response but last_referenced is None. In this case, the denominator does not matter, so set it to 1 to avoid /0
+		if sum == 0:
+			sum = 1
+		denominators.append(sum)
+
+	rel_probs = [[obs_probs[o_index][s_index]/denominators[s_index] for s_index in range(len(self.pomdp.states))] for o_index in range(len(observations))]
+	ret_alphas = []
+	for o_index in range(len(observations)):
+		o_alphas = []
+		for alpha in self.v:
+			new_alpha = [[alpha[0][s_index] * rel_probs[o_index][s_index] for s_index in range(len(self.pomdp.states))],None]
+			o_alphas.append(new_alpha)
+		ret_alphas.append(o_alphas)
+	return ret_alphas
+cpdef get_value_numpy(self,belief):
+	alpha_vals = np.array([alpha[0] for alpha in self.v])
+	belief_arr = np.array(self.pomdp.belief_to_array_of_probs(belief))
+	values = np.dot(alpha_vals,belief_arr)
+	max_value = np.max(values)
+	return max_value
+
+cpdef get_count_each_action(histories):
+	counts = {"look": 0, "wait": 0, "point": 0, "pick": 0}
+	for history in histories:
+		for i in history:
+			vals = i["action"].split(" ")
+			counts[vals[0]] += 1
+	return counts
+
+cpdef get_count_each_action_precise(histories):
+	counts = defaultdict(int)
+	for history in histories:
+		for i in history:
+			counts[i["action"]] += 1
+	keys = list(counts.keys())
+	keys.sort()
+	a = {}
+	for key in keys:
+		a[key] = counts[key]
+	return a

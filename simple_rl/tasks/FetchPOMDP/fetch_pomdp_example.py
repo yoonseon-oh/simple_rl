@@ -5,20 +5,22 @@ import sys
 from time import time
 from datetime import datetime
 import json
+import pickle
 # Other imports.
 from simple_rl.tasks.FetchPOMDP import FetchPOMDP, FetchPOMDP
 from simple_rl.planning.FetchPOMDPSolver import FetchPOMDPSolver
 from simple_rl.tasks.FetchPOMDP import file_reader as fr
 from simple_rl.planning.BeliefSparseSamplingClass import BeliefSparseSampling
 from simple_rl.pomdp.BeliefMDPClass import BeliefMDP
-
+from simple_rl.tasks.FetchPOMDP.PBVIClass import Perseus
+from simple_rl.tasks.FetchPOMDP.PBVIClassVectorized import Perseus2
 # TODO try bss
 # TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 # Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
 # The old version was much better. Why?
 # output_directory = "C:\\Users\\Brolly\\Documents\\simple_rl-FetchPOMDP\\simple_rl\\tasks\\FetchPOMDP\\FetchPOMDP Trials"
 output_directory = ".\\FetchPOMDP Trials\\"
-
+pickle_directory = ".\\PBVIPickles\\"
 
 def get_full_path(file_name="Test results", ext=".json"):
 	return output_directory + file_name + str(datetime.now()).replace(":", ".")[:22] + ext
@@ -85,99 +87,10 @@ def compare_gesture_no_gesture(n=100, horizon=2):
 		json.dump(results, fp)
 
 
-def test(obs_mod1=(True, True), n=100, horizon=2):
-	'''
-	:param obs_mod1: (use_gesture, use_language)
-	:param obs_mod2: (use_gesture, use_language)
-	:param n: Number of trials
-	:param horizon: depth of forward search
-	:return: None. prints and writes results in a json file.
-	'''
-	solve1_name = "(" + ""
-
-	pomdp = FetchPOMDP(use_look=True)
-	pomdp.muted = False
-	# create solver
-	start = time()
-	solver = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1],
-	                          qvalue_method="belief based")
-	solver_creation_time = time() - start
-	print("Created solver in " + str(solver_creation_time) + " seconds")
-	solver.muted = False
-	# solve
-	start = time()
-	solver_results = solver.run(num_episodes=n)
-	solver_time_elapsed = time() - start
-	print(" ")
-
-	results = {"horizon": horizon,
-	           "solver": {"time": solver_time_elapsed,
-	                      "average_actions": float(solver_results["counter_plan_from_state"]) / n,
-	                      "average": average(solver_results["final_scores"]),
-	                      "solver_results": solver_results}}
-	print("Results:" + "\n" + str(results))
-	results.update(pomdp.get_constants())
-	# print(get_constants)
-	print(results)
-	with open(get_full_path("compare observation models "), 'w') as fp:
-		json.dump(results, fp, indent=4)
 
 
-def compare_observation_models(obs_mod1=(True, True), obs_mod2=(True, True), n=100, horizon=2):
-	'''
-	:param obs_mod1: (use_gesture, use_language)
-	:param obs_mod2: (use_gesture, use_language)
-	:param n: Number of trials
-	:param horizon: depth of forward search
-	:return: None. prints and writes results in a json file.
-	'''
-	solve1_name = "(" + ""
 
-	pomdp = FetchPOMDP()
-	# create solver
-	start = time()
-	solver1 = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod1[0], use_language=obs_mod1[1])
-	solver_creation_time = time() - start
-	print("Created solver in " + str(solver_creation_time) + " seconds")
-	solver1.muted = False
-	# solve
-	start = time()
-	solver1_results = solver1.run(num_episodes=n)
-	solver1_time_elapsed = time() - start
-	print(" ")
-
-	# create solver
-	start = time()
-	solver2 = FetchPOMDPSolver(pomdp, horizon=horizon, use_gesture=obs_mod2[0], use_language=obs_mod2[1])
-	solver_creation_time = time() - start
-	print("Created solver in " + str(solver_creation_time) + " seconds")
-	solver2.muted = False
-	# solve
-	start = time()
-	solver2_results = solver2.run(num_episodes=n)
-	solver2_time_elapsed = time() - start
-
-	results = {"horizon": horizon,
-	           "solver1": {"use_gesture": obs_mod1[0], "use_language": obs_mod1[1],
-	                       "time": solver1_time_elapsed,
-	                       "average_actions": float(solver1_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver1_results["final_scores"]),
-	                       "num_correct": solver1_results["num_correct"], "all": solver1_results["final_scores"]},
-	           "solver2": {"use_gesture": obs_mod2[0], "use_language": obs_mod2[1],
-	                       "time": solver2_time_elapsed,
-	                       "average_actions": float(solver2_results["counter_plan_from_state"]) / n,
-	                       "average": average(solver2_results["final_scores"]),
-	                       "num_correct": solver2_results["num_correct"],
-	                       "all": solver2_results["final_scores"]}}
-	print("Results:" + "\n" + str(results))
-	results.update(pomdp.get_constants())
-	# print(get_constants)
-	print(results)
-	with open(get_full_path("compare observation models "), 'w') as fp:
-		json.dump(results, fp)
-
-
-def test_gestureless_pomdp(n=10, horizon=2):
+def gestureless_pomdp(n=10, horizon=2):
 	pomdp = FetchPOMDP(use_gesture=False)
 	pomdp.point_cost = pomdp.wait_cost
 	solver = FetchPOMDPSolver(pomdp, use_gesture=False, use_language=True, qvalue_method="belief based",
@@ -200,7 +113,7 @@ def test_gestureless_pomdp(n=10, horizon=2):
 		json.dump(results, fp)
 
 
-def test_heuristic_planner(n=100, horizon=2, obs_mod=(True, True)):
+def heuristic_planner(n=100, horizon=2, obs_mod=(True, True)):
 	pomdp = FetchPOMDP(use_gesture=obs_mod[0], use_language=obs_mod[1])
 	pomdp.point_cost = pomdp.wait_cost
 	solver = FetchPOMDPSolver(pomdp, use_gesture=obs_mod[0], use_language=obs_mod[1], qvalue_method="belief based",
@@ -230,7 +143,7 @@ def format_results(results, time_elapsed, horizon, n):
 	                        "solver_results": results}}
 
 
-def custom_test(pomdp1_args, pomdp2_args, solver1_args, solver2_args, n=10):
+def custom(pomdp1_args, pomdp2_args, solver1_args, solver2_args, n=10):
 	pomdp1 = FetchPOMDP(**pomdp1_args)
 	solver1 = FetchPOMDPSolver(pomdp1, **solver1_args)
 	pomdp2 = FetchPOMDP(**pomdp2_args)
@@ -269,6 +182,29 @@ def custom_run(pomdp1_args, solver1_args, n=10):
 		json.dump(results, fp, indent=4)
 	return results
 
+def perseus_run(pomdp1_args,solver1_args, n = 10):
+	pomdp1 = FetchPOMDP(**pomdp1_args)
+	# p = pickle.load(open(pickle_directory + "value iteration 1time 2018-08-21 21.00.15.60.pickle", "rb"))
+	# p = pickle.load(open(pickle_directory + "Perseus lab items value iteration 4 time 2018-08-22 09.39.27.67.pickle", "rb"))
+	# solver1 = Perseus2(pomdp1, **solver1_args, pickle = p)
+	solver1 = Perseus2(pomdp1, **solver1_args, name="Perseus lab items")
+	solver1.update_v()
+	# values1 = solver1.evaluate_alphas_at_beliefs(solver1.v,solver1.beliefs)
+	# values2 = [solver1.get_value(b) for b in solver1.beliefs]
+	# print("cat")
+	results1 = solver1.run(num_episodes=n)
+	num_belief_updates, num_impossible_observations = pomdp1.get_num_belief_updates_and_impossible_observations()
+	impossible_observations_rate = float(num_impossible_observations) / float(num_belief_updates)
+	results1.update({"args": {"pomdp": pomdp1_args, "solver": solver1_args}, "config": pomdp1.config,
+	                 "action_counts": get_count_each_action(results1["histories"]),
+	                 "impossible_observation_rate": impossible_observations_rate})
+	results = {"1": results1}
+	print("solver1 %" + str(100 * float(results1["num_correct"]) / n))
+	print("solver1 action counts: " + str(results1["action_counts"]))
+	print("impossible_observations_rate: " + str(impossible_observations_rate))
+	with open(get_full_path("Perseus test "), 'w') as fp:
+		json.dump(results, fp, indent=4)
+	return results
 
 def balance_point_and_look():
 	for i in range(10):
@@ -304,20 +240,24 @@ def bss(pomdp1_args, num_episodes=5):
 	scores, policies = solver.run(num_episodes=num_episodes, verbose=True)
 
 
-def main(open_plot=True):
-	# compare_observation_models((True, True), (False, False), n=10)
-	# test_gestureless_pomdp(10)
-	# test_arguments()
-	# test_gestureless_pomdp(10, horizon=3)
-	# test_heuristic_planner(n =1000)
-	# balance_point_and_look()
-	# test((True,True), n=10)
-	custom_run({"use_look": True},
-	           {"horizon": 2, "qvalue_method": "belief based", "muted": False}, n=10)
+# def main(open_plot=True):
+# 	# compare_observation_models((True, True), (False, False), n=10)
+# 	# test_gestureless_pomdp(10)
+# 	# test_arguments()
+# 	# test_gestureless_pomdp(10, horizon=3)
+# 	# test_heuristic_planner(n =1000)
+# 	# balance_point_and_look()
+# 	# test((True,True), n=10)
+# 	custom_run({"use_look": True},
+# 	           {"horizon": 2, "qvalue_method": "belief based", "observation_branching": 10, "muted": False}, n = 10)
+#
+# 	# custom_test({"use_look": True},{"use_look": True},
+# 	#            {"horizon": 2, "qvalue_method": "belief based", "muted": False, "kl_weight":0},
+# 	#             {"horizon": 2, "qvalue_method": "belief based", "muted": False,"kl_weight":0}, n =10)
+# 	# bss({"use_look": True})
+# 	if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
+# custom_run({"use_look": True},
+# 	           {"horizon": 2, "qvalue_method": "belief based", "observation_branching": 1, "muted": False}, n = 10)
 
-
-# custom_test({"use_look": True},{"use_look": True},
-#            {"horizon": 2, "qvalue_method": "belief based", "muted": False, "kl_weight":0},
-#             {"horizon": 2, "qvalue_method": "belief based", "muted": False,"kl_weight":0}, n =10)
-# bss({"use_look": True})
-if __name__ == "__main__":    main(open_plot=not sys.argv[-1] == "no_plot")
+perseus_run({"use_look": True},
+            {"num_beliefs":500, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.5}, n = 100)

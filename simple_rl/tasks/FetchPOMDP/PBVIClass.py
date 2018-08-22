@@ -2,6 +2,9 @@ from collections import defaultdict
 import copy
 import math
 import random
+import pickle
+from time import time
+from datetime import datetime
 import cython
 import pyximport;
 
@@ -9,14 +12,29 @@ pyximport.install()
 from simple_rl.tasks.FetchPOMDP import cstuff
 from simple_rl.tasks.FetchPOMDP.FetchPOMDPClass import FetchPOMDP
 from simple_rl.tasks.FetchPOMDP.FetchStateClass import FetchPOMDPBeliefState, FetchPOMDPState, FetchPOMDPObservation
-#TODO check that alpha["action"] is correctly set
+
+# TODO check that alpha["action"] is correctly set
+pickle_location = ".\\PBVIPickles\\"
+
 
 class PBVI():
 	def __init__(self, pomdp, observations_sample_size=3):
 		self.pomdp = pomdp
 		self.reward_func = self.pomdp.reward_func
+		self.states = self.pomdp.states
+		self.actions = self.pomdp.actions
 		self.observations_sample_size = observations_sample_size
 		self.belief_branching = 1
+		self.muted = False
+		self.name = "Generic PBVI"
+		self.initialize_reward_vectors()
+
+	def initialize_reward_vectors(self):
+		self.reward_vectors = {}
+		for a in self.actions:
+			vals = {state: self.reward_func(state, a) for state in self.states}
+			self.reward_vectors[a] = vals
+		return self.reward_vectors
 
 	def get_best_action(self, belief):
 		alpha = self.get_best_alpha(belief)
@@ -27,16 +45,19 @@ class PBVI():
 		max_value = max(values)
 		return max_value
 
-	def get_best_alpha(self, belief):
+	def get_best_alpha(self, belief, v=None):
 		'''
 		:param belief:
 		:return: (alpha,belief . alpha)
 		'''
-		alpha, value = argmax2(self.v, lambda a: self.alpha_dot_b(a, belief))
+		if v is None:
+			v = self.v
+		alpha, value = argmax2(v, lambda a: self.alpha_dot_b(a, belief))
 		return alpha, value
 
 	def alpha_dot_b(self, alpha, belief_state):
 		# TODONE? Fixed by putting alpha as second argument since dot_dict iterates over keys in first argument
+		# TODO check speed, create vectorized version for multiple beliefs and/or alphas
 		return cstuff.dot_dict(belief_state.get_explicit_distribution(), alpha["values"])
 
 	def add_alpha(self, alpha):
@@ -44,8 +65,28 @@ class PBVI():
 			self.v.append(alpha)
 		return self.v
 
-	def backup(self, belief_state, v):
-		return argmax(v, lambda alpha: self.alpha_dot_b(alpha, belief_state))
+	def backup_old(self, belief_state, v):
+		alphas = [self.alpha_a_b(action, belief_state) for action in self.pomdp.actions]
+		return argmax(alphas, lambda alpha: self.alpha_dot_b(alpha, belief_state))
+
+	def backup(self, belief, v, num_observations=3):
+		# TODO check if it is can be more efficient to compute observation prob and/or new belief while sampling observation
+		alphas = []
+		for a in self.actions:
+			if a.split(" ")[0] == "point":
+				pointing = True
+			observations = [self.pomdp.sample_observation_from_belief_action(belief, a) for i in
+			                range(num_observations)]
+			observation_probs = [self.pomdp.observation_from_belief_prob(o, belief, a) for o in observations]
+			norm_observation_probs = cstuff.unit_vectorn(observation_probs)
+			new_beliefs = [self.pomdp.belief_update(belief, o, a) for o in observations]
+			vals_per_observation = [argmax(v, lambda alpha: self.alpha_dot_b(alpha, b))["values"] for b in new_beliefs]
+			alpha_a_b_vals = cstuff.linear_combination_of_dicts(vals_per_observation, norm_observation_probs)
+			a_val = cstuff.add_dict(self.reward_vectors[a], cstuff.times_dict(alpha_a_b_vals, self.pomdp.gamma))
+			new_alpha = {"values": a_val, "action": a}
+			alphas.append(new_alpha)
+		best_alpha = self.get_best_alpha(belief, alphas)[0]
+		return best_alpha
 
 	def alpha_a_b(self, action, belief):
 		'''
@@ -53,22 +94,84 @@ class PBVI():
 		:param belief:
 		:return: a (non default) dict with keys in belief.possible_states and values as in shani (34)
 		'''
-		# TODO perhaps we should evaluate alpha_a_o against b_a_o
+		# TODO perhaps we should evaluate alpha_a_o against b_a_o. Shani and Pineau both say b, but that seems odd :/
 		# Not a function of alpha. Shani (33) seems to have a typo, since we are taking argmax over alphas
-		possible_states = belief.get_all_possible_states()
+		# b = self.pomdp.belief_transition_func(belief, action)
+		b = belief
+		possible_states = b.get_all_plausible_states()
+		# possible_states = belief.get_all_possible_states()
 		# possible_states = self.pomdp.states
-		observations_per_state = {state: math.ceil(self.observations_sample_size * belief.belief(state)) for state in
+		observations_per_state = {state: math.ceil(self.observations_sample_size * b.belief(state)) for state in
 		                          possible_states}
 		# Consider storing r_a's based on belief.known for speedup
 		r_a = {state: self.reward_func(state, action) for state in self.pomdp.states}
 		observations_by_state = {
 			state: [self.pomdp.sample_observation(state) for i in range(observations_per_state[state])] for state in
 			possible_states}
+		# all_sampled_observations might be broken
 		all_sampled_observations = [observation for l in observations_by_state.values() for observation in l]
-		# TODO Need to take best alpha_a_o, not best alpha
+		# TODO Need to take best alpha_a_o, not best alpha (maybe)
 		obs_alphas = {observation: [self.alpha_a_o(alpha, action, observation) for alpha in self.v] for observation in
 		              all_sampled_observations}
-		obs_bs = {observation: self.pomdp.belief_update(belief, observation, action) for observation in
+		# TODO remove impossible observation checking code to increase speed
+		# possible_configs = []
+		# impossible_configs = []
+		# for i in range(len(all_sampled_observations)):
+		# 	imposs = cstuff.is_observation_impossible(b,all_sampled_observations[i])
+		# 	if imposs == 1:
+		# 		impossible_configs.append((b,all_sampled_observations[i]))
+		# obs_bs = {observation: self.pomdp.belief_update(b, observation, action) for observation in
+		#           all_sampled_observations}
+		obs_bs = {observation: b for observation in all_sampled_observations}
+		max_alphas = {
+			observation: argmax(obs_alphas[observation], lambda alpha: self.alpha_dot_b(alpha, obs_bs[observation])) for
+			observation in all_sampled_observations}
+		# max_alphas = {observation: argmax(self.v, lambda alpha: self.alpha_dot_b(
+		# 	self.alpha_a_o(alpha, action, observation, possible_states), belief)) for
+		#               observation in
+		#               all_sampled_observations}
+		# Need to add all max_alphas
+		sum_alpha = cstuff.add_list_of_alphas(max_alphas.values(), self.pomdp.states)
+		sum_alpha["values"] = add_dict(sum_alpha["values"], r_a, self.pomdp.states)
+		sum_alpha["action"] = action
+		# sum_alpha["values"] = cstuff.add_dict(sum_alpha,r_a,self.pomdp.states)
+		# ret = add_dict(r_a, times_dict(max_alphas, self.pomdp.gamma))
+		# ret.default_factory = lambda: a.default_factory() + b.default_factory()
+		return sum_alpha
+
+	def alpha_a_b_new(self, action, belief):
+		'''
+		:param action:
+		:param belief:
+		:return: a (non default) dict with keys in belief.possible_states and values as in shani (34)
+		'''
+		# TODO perhaps we should evaluate alpha_a_o against b_a_o. Shani and Pineau both say b, but that seems odd :/
+		# Not a function of alpha. Shani (33) seems to have a typo, since we are taking argmax over alphas
+		b = self.pomdp.belief_transition_func(belief, action)
+
+		possible_states = b.get_all_plausible_states()
+		# possible_states = belief.get_all_possible_states()
+		# possible_states = self.pomdp.states
+		observations_per_state = {state: math.ceil(self.observations_sample_size * b.belief(state)) for state in
+		                          possible_states}
+		# Consider storing r_a's based on belief.known for speedup
+		r_a = {state: self.reward_func(state, action) for state in self.pomdp.states}
+		observations_by_state = {
+			state: [self.pomdp.sample_observation(state) for i in range(observations_per_state[state])] for state in
+			possible_states}
+		# all_sampled_observations might be broken
+		all_sampled_observations = [observation for l in observations_by_state.values() for observation in l]
+		# TODO Need to take best alpha_a_o, not best alpha (maybe)
+		obs_alphas = {observation: [self.alpha_a_o(alpha, action, observation) for alpha in self.v] for observation in
+		              all_sampled_observations}
+		# TODO remove impossible observation checking code to increase speed
+		# possible_configs = []
+		# impossible_configs = []
+		# for i in range(len(all_sampled_observations)):
+		# 	imposs = cstuff.is_observation_impossible(b,all_sampled_observations[i])
+		# 	if imposs == 1:
+		# 		impossible_configs.append((b,all_sampled_observations[i]))
+		obs_bs = {observation: self.pomdp.belief_update(b, observation, action) for observation in
 		          all_sampled_observations}
 		max_alphas = {
 			observation: argmax(obs_alphas[observation], lambda alpha: self.alpha_dot_b(alpha, obs_bs[observation])) for
@@ -102,10 +205,11 @@ class PBVI():
 		target_states = [self.pomdp.transition_func(state, action) for state in states]
 		new_alpha = {
 			"values": {
-			states[i]: alpha["values"][target_states[i]] * self.pomdp.observation_func(observation, target_states[i],
-			                                                                           action) for i
-			in
-			range(len(states))}, "action": action}
+				states[i]: alpha["values"][target_states[i]] * self.pomdp.observation_func(observation,
+				                                                                           target_states[i],
+				                                                                           action) for i
+				in
+				range(len(states))}, "action": action}
 		return new_alpha
 
 	def get_pick_alpha(self, des_id):
@@ -116,6 +220,24 @@ class PBVI():
 			alpha["values"].update({state: self.pomdp.wrong_pick_cost for state in self.pomdp.states_by_des[i]})
 		return alpha
 
+	def get_horizon_0_alpha_from_action(self, action):
+		alpha = {"values": {}, "action": action}
+		alpha["values"].update({state: self.pomdp.reward_func(state, action) for state in self.pomdp.states})
+		return alpha
+
+	def get_lower_bound_alpha_from_action(self, action, conservative_lower_bounds=False):
+		# Custom for Fetch
+		alpha = {"values": {}, "action": action}
+		if conservative_lower_bounds:
+			values = {state: self.pomdp.reward_func(state, action) + self.pomdp.gamma * self.pomdp.wrong_pick_cost for
+			          state in self.pomdp.states}
+		else:
+			values = {state: self.pomdp.reward_func(state, action) + self.pomdp.wait_cost / (1 - self.pomdp.gamma) for
+			          state in self.pomdp.states}
+
+		alpha["values"] = values
+		return alpha
+
 	def initialize_v(self):
 		# currently custom designed for Fetch
 		new_alphas = []
@@ -124,25 +246,113 @@ class PBVI():
 			alpha = self.get_pick_alpha(des_id)
 			new_alphas.append(alpha)
 		return new_alphas
-# def initialize_v_default_dict(self):
-# 	# currently custom designed for Fetch
-# 	new_alphas = []
-# 	# For each desired item, create an alpha with correct_pick_reward for any state with that desred item
-# 	for des_id in range(self.pomdp.num_items):
-# 		alpha = {"values": defaultdict(lambda: self.pomdp.min_value), "action": "pick " + str(des_id)}
-# 		states = []
-# 		states.append(FetchPOMDPState(des_id))
-# 		for ref_id in range(self.pomdp.num_items):
-# 			for ref__type in ["point", "look"]:
-# 				states.append(FetchPOMDPState(des_id, ref_id, ref__type))
-# 		for state in states:
-# 			alpha[state] = self.pomdp.correct_pick_reward
-# 		new_alphas.append(alpha)
-# 	return new_alphas
+
+	def pickle_beliefs_and_alphas(self, name=None):
+		if name is None:
+			name = self.name + " pickle " + str(len(self.v)) + " alphas " + str(len(self.beliefs)) + "beliefs " + str(
+				datetime.now()).replace(":", ".")[:22]
+		p = {"alphas": self.v, "beliefs": self.beliefs, "pomdp config": self.pomdp.config}
+		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"))
+
+	def load_from_pickle(self, p):
+		self.beliefs = p["beliefs"]
+		self.v = p["alphas"]
+
+	def run(self, num_episodes=5):
+		# Differes from run by getting reward from mdp state in simulation
+		# TODO: Save entire history (not simulation)
+		num_correct = 0
+		num_wrong = 0
+		start_time = time()
+		final_scores = []
+		counter_plan_from_state = 1
+		histories = []
+		for episode in range(num_episodes):
+			discounted_sum_rewards = 0.0
+			num_iter = 0
+			if not self.muted:
+				print(" ")
+				print('Episode {}: '.format(episode))
+			self.pomdp.reset()
+			curr_belief_state = copy.deepcopy(self.pomdp.get_curr_belief())
+			# old_belief = copy.deepcopy(cur_belief)
+			if curr_belief_state["reference_type"] in ["point", "look"]:
+				raise ValueError("Belief is messed up: " + str(curr_belief_state[0]))
+			alpha, value = self.get_best_alpha(self.pomdp.cur_belief)
+			action = alpha["action"]
+			counter_plan_from_state += 1
+			history = []
+			running = True
+			while running:
+				if self.pomdp.is_terminal(curr_belief_state, action):
+					running = False
+				split_action = action.split(" ")
+				if split_action[0] == "pick":
+					if split_action[1] == str(self.pomdp.cur_state["desired_item"]):
+						num_correct += 1
+					else:
+						num_wrong += 1
+				# True state used for record keeping and is NOT used during planning
+				true_state = self.pomdp.get_cur_state()
+				ret = self.pomdp.execute_action(action)
+				# Consider moving belief management to solver
+				reward = ret[0]
+				next_belief_state = ret[1]
+				observation = ret[2]
+				print("Action: " + str(action))
+				print("Expected Reward: " + str(value))
+				print("Actual Reward: " + str(reward))
+				print("Observation: " + str(observation))
+				if type(curr_belief_state) is list:
+					raise TypeError(
+						"cur_belief has type list on iteration " + str(num_iter) + " of episode " + str(
+							episode) + ": " + str(curr_belief_state))
+
+				history.append({"belief": curr_belief_state.data, "action": action,
+				                "observation": make_observation_serializable(observation),
+				                "reward": reward, "true state": true_state.data})
+				discounted_sum_rewards += ((self.pomdp.gamma ** num_iter) * reward)
+				if not self.muted:
+					print('({}, {}, {}) -> {} | {}'.format(curr_belief_state, action, next_belief_state, reward,
+					                                       discounted_sum_rewards))
+					print("")
+				curr_belief_state = copy.deepcopy(next_belief_state)
+				if type(curr_belief_state) is list:
+					raise TypeError(
+						"cur_belief has type list on iteration " + str(num_iter) + " of episode " + str(
+							episode) + ": " + str(curr_belief_state))
+				if running:
+					alpha, value = self.get_best_alpha(self.pomdp.cur_belief)
+					action = alpha["action"]
+
+				# current_history["action"] = action
+				num_iter += 1
+			histories.append(history)
+			final_scores.append(discounted_sum_rewards)
+			if not self.muted:
+				print("Number of steps in this episode = " + str(num_iter))
+				print("counter_plan_from_state = " + str(counter_plan_from_state))
+		# print_times()
+		total_time = time() - start_time
+		ctimes = cstuff.get_times()
+		if not self.muted:
+			print("Total time: " + str(total_time))
+			print("Observation sampling time: " + str(ctimes["obs_sampling_time"]))
+			print("sample_gesture_total_time: " + str(ctimes["sample_gesture_total_time"]))
+			print("belief update time: " + str(ctimes["belief_update_total_time"]))
+			print("observation_func_total_time: " + str(ctimes["observation_func_total_time"]))
+			print("gesture_func_total_time: " + str(ctimes["gesture_func_total_time"]))
+			print("Total time: " + str(total_time))
+			print("Observation sampling time: " + str(ctimes["obs_sampling_time"]))
+			print("sample_gesture_total_time: " + str(ctimes["sample_gesture_total_time"]))
+			print("belief update time: " + str(ctimes["belief_update_total_time"]))
+			print("observation_func_total_time: " + str(ctimes["observation_func_total_time"]))
+			print("gesture_func_total_time: " + str(ctimes["gesture_func_total_time"]))
+		return {"final_scores": final_scores, "counter_plan_from_state": counter_plan_from_state,
+		        "num_correct": num_correct, "num_wrong": num_wrong, "histories": histories}
 
 
 class PBVIClassic(PBVI):
-	# Implementing alphas as (default) dicts may be problematic. I currently assume I know all states on which an alpha may be called, but if this is not the case I will need to adjust.
 	def __init__(self, pomdp, observations_sample_size=3):
 		self.pomdp = pomdp
 		self.reward_func = self.pomdp.reward_func
@@ -150,6 +360,7 @@ class PBVIClassic(PBVI):
 		self.beliefs = [pomdp.cur_belief]
 		self.observations_sample_size = observations_sample_size
 		self.belief_branching = 1
+		self.name = "Classic PBVI"
 
 	# def get_value(self, belief):
 	# 	values = [self.alpha_dot_b(alpha, belief) for alpha in self.v]
@@ -196,16 +407,34 @@ class PBVIClassic(PBVI):
 
 
 class Perseus(PBVI):
-	def __init__(self, pomdp, num_beliefs=100, belief_depth=3, observations_sample_size=3):
+	def __init__(self, pomdp, num_beliefs=100, belief_depth=3, observations_sample_size=3, beliefs=None, alphas=None,
+	             convergence_threshold=1, conservative_lower_bounds=False):
 		PBVI.__init__(self, pomdp=pomdp, observations_sample_size=observations_sample_size)
-		self.beliefs = []
-		self.beliefs = self.initialize_beliefs(num_beliefs, depth=belief_depth)
-		self.v = self.initialize_v()
-		self.update_v()
+		self.conservative_lower_bounds = conservative_lower_bounds
+		if beliefs is None:
+			self.beliefs = []
+			self.v = []
+			self.beliefs = self.initialize_beliefs(num_beliefs, depth=belief_depth)
+			self.pickle_beliefs_and_alphas()
+		else:
+			self.beliefs = beliefs
+		if alphas is None:
+			self.v = self.initialize_v()
+			self.update_v(convergence_threshold=convergence_threshold)
+		else:
+			self.v = alphas
+		self.name = "Perseus"
+		self.pickle_beliefs_and_alphas()
+		# else:
+		# 	self.beliefs = data["beliefs"]
+		# 	self.v = data["alphas"]
+		# 	if data["pomdp_config"] != self.pomdp.config:
+		# 		print("WARNING: Loaded beliefs and alphas come from pomdp with different configuration.")
 		print("Perseus constructed!")
 
 	def initialize_beliefs(self, num_beliefs, depth=3, single_run=False, b0=None):
 		# TODO Investigate other methods of generation. Ex. branching
+		impossible_configs = []
 		self.beliefs = []
 		if b0 is None:
 			b0 = self.pomdp.cur_belief
@@ -220,34 +449,105 @@ class Perseus(PBVI):
 			for d in range(depth):
 				# Sample a non terminal action since terminal actions do not provide useful belief states
 				a = random.sample(self.pomdp.non_terminal_actions, 1)[0]
+				b = self.pomdp.belief_transition_func(b, a)
 				o = self.pomdp.sample_observation_from_belief_action(b, a)
+				imposs = cstuff.is_observation_impossible(b, o)
+				if imposs == 1:
+					impossible_configs.append((b, o))
+					while imposs == 1:
+						o = self.pomdp.sample_observation_from_belief_action(b, a)
+						imposs = cstuff.is_observation_impossible(b, o)
 				b = self.pomdp.belief_update(b, o)
 				self.beliefs.append(b)
 		return self.beliefs
 
-	def update_v(self):
+	def update_v(self, convergence_threshold=1):
 		'''
 		Taken from algorithm 4 from Shani et al
 		:return:
 		'''
-		beliefs_to_update = copy.deepcopy(self.beliefs)
-		v_prime = []
-		max_improvement = 0
-		while len(beliefs_to_update) > 0:
-			b = random.sample(beliefs_to_update, 1)[0]
-			alpha = self.backup(b, self.v)
-			best_alpha, current_value = self.get_best_alpha(b)
-			new_value = self.alpha_dot_b(alpha, b)
-			if new_value >= current_value:
-				beliefs_to_update = [belief for belief in beliefs_to_update if
-				                     self.alpha_dot_b(alpha, belief) < self.get_value(belief)]
-				alpha_b = alpha
-				max_improvement = max(max_improvement, new_value - current_value)
-			else:
-				beliefs_to_update.remove(b)
-				alpha_b = best_alpha
-			self.v.append(alpha_b)
+		# for i in range(depth):
+		max_improvement = convergence_threshold + 0.1
+		iterations = 0
+		num_updated = 0
+		while max_improvement > convergence_threshold:
+			beliefs_to_update = copy.deepcopy(self.beliefs)
+			v_prime = []
+			max_improvement = 0
+			while len(beliefs_to_update) > 0:
+				b = random.sample(beliefs_to_update, 1)[0]
+				new_alpha = self.backup(b, self.v)
+				current_best_alpha, current_value = self.get_best_alpha(b)
+				new_value = self.alpha_dot_b(new_alpha, b)
+				# Changed from >= to >
+				if new_value > current_value:
+					# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
+					beliefs_to_update.remove(b)
+					alpha_b = new_alpha
+					max_improvement = max(max_improvement, new_value - current_value)
+				else:
+					beliefs_to_update.remove(b)
+					alpha_b = current_best_alpha
+				self.add_alpha(alpha_b)
+				num_updated += 1
+				if num_updated % 10 == 0:
+					self.pickle_beliefs_and_alphas(
+						name="value iteration " + str(num_updated) + " beliefs updated time " + str(
+							datetime.now()).replace(":", ".")[:22])
+			iterations += 1
+			self.pickle_beliefs_and_alphas(
+				name="value iteration " + str(iterations) + "time " + str(datetime.now()).replace(":", ".")[:22])
 		return self.v
+
+	def update_v_shani(self, convergence_threshold=1):
+		'''
+		Taken from algorithm 4 from Shani et al
+		:return:
+		'''
+		# for i in range(depth):
+		max_improvement = convergence_threshold + 0.1
+		iterations = 0
+		while max_improvement > convergence_threshold:
+			beliefs_to_update = copy.deepcopy(self.beliefs)
+			v_prime = []
+			max_improvement = 0
+			while len(beliefs_to_update) > 0:
+				b = random.sample(beliefs_to_update, 1)[0]
+				alpha = self.backup(b, self.v)
+				best_alpha, current_value = self.get_best_alpha(b)
+				new_value = self.alpha_dot_b(alpha, b)
+				# Changed from >= to >
+				if new_value > current_value:
+					# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
+					# TODO incorporate side-effect improvements into max_improvement
+					beliefs_to_update = [belief for belief in beliefs_to_update if
+					                     self.alpha_dot_b(alpha, belief) < self.get_value(
+						                     belief) + convergence_threshold]
+					alpha_b = alpha
+					max_improvement = max(max_improvement, new_value - current_value)
+				else:
+					beliefs_to_update.remove(b)
+					alpha_b = best_alpha
+				self.v.append(alpha_b)
+			iterations += 1
+			self.pickle_beliefs_and_alphas(
+				name="value iteration " + str(iterations) + "time " + str(datetime.now()).replace(":", ".")[:22])
+		return self.v
+
+	def initialize_v(self):
+		# currently custom designed for Fetch
+		new_alphas = []
+		# For each desired item, create an alpha with correct_pick_reward for any state with that desred item
+		for des_id in range(self.pomdp.num_items):
+			alpha = self.get_pick_alpha(des_id)
+			new_alphas.append(alpha)
+		# For non terminal actions, a lower bound value is the cost of the action + discounted wrong pick next turn.
+		# TODO Consider better lower bounds as well
+		non_terminal_actions = self.pomdp.get_non_terminal_actions()
+		for action in non_terminal_actions:
+			alpha = self.get_lower_bound_alpha_from_action(action, self.conservative_lower_bounds)
+			new_alphas.append(alpha)
+		return new_alphas
 
 
 def argmax(args, fn):
@@ -423,10 +723,10 @@ def pomdp_to_defaultdict(pomdp):
 	return defaultdict(lambda: pomdp.min_value)
 
 
-def test_perseus(n=1):
+def run_perseus(n=1):
 	# Check each each function in PBVI/Perseus from the bottom up
 	pomdp = FetchPOMDP()
-	pb = Perseus(pomdp, num_beliefs=1000)
+	pb = Perseus(pomdp, num_beliefs=100)
 	for i in range(n):
 		alpha, value = pb.get_best_alpha(pomdp.cur_belief)
 		action = alpha["action"]
@@ -434,6 +734,7 @@ def test_perseus(n=1):
 		num_iter = 0
 		running = True
 		while running:
+			print("step " + str(num_iter))
 			if pomdp.is_terminal(pomdp.cur_belief, action):
 				running = False
 			print(pomdp.cur_belief)
@@ -449,6 +750,8 @@ def test_perseus(n=1):
 				alpha, value = pb.get_best_alpha(pomdp.cur_belief)
 				action = alpha["action"]
 			num_iter += 1
+
+		print("Took " + str(num_iter) + " steps to get reward " + str(discounted_sum_rewards))
 		pomdp.reset()
 
 
@@ -465,8 +768,10 @@ def test_add_dict():
 	b = {ss[i]: i ^ 2 for i in range(4)}
 	c = add_dict(a, b)
 	print(c[ss[2]])
+
+
 def test_get_best_alpha():
-	#pass 4:24 pm 8/17/2018
+	# pass 4:24 pm 8/17/2018
 	pomdp = FetchPOMDP()
 	pb = Perseus(pomdp)
 	alpha = pb.get_pick_alpha(1)
@@ -479,15 +784,29 @@ def test_get_best_alpha():
 	if best_alpha == alpha:
 		print("Correct")
 	print(pb.get_value(b))
-	print(pb.alpha_dot_b(best_alpha,b))
-	print(pb.alpha_dot_b(alpha,b))
+	print(pb.alpha_dot_b(best_alpha, b))
+	print(pb.alpha_dot_b(alpha, b))
+
+
+def make_observation_serializable(o):
+	o2 = {"language": list(o["language"]), "gesture": o["gesture"]}
+
 
 # print(pb.v)
 # print(pb.get_value(pomdp.cur_belief))
-
-test_perseus(10)
+def pickle_test():
+	pomdp = FetchPOMDP()
+	b = pomdp.init_belief
+	o = pomdp.sample_observation_from_belief(b)
+	alpha = {"values": {state: 12 for state in pomdp.states}, "action": "wait"}
+	p = {"b": b, "o": o, "alpha": alpha, "pomdp_config": pomdp.get_config()}
+	current_time = str(datetime.now()).replace(":", ".")[:22]
+	pickle.dump(p, open("pickled thing " + current_time, "wb"))
+	p2 = pickle.load(open("pickled thing " + current_time, "rb"))
+	print(p2)
 # test_alpha_a_o()
 # test_alpha_a_b()
 # test_get_pick_alpha()
 # test_add_dict()
 # test_get_best_alpha()
+# pickle_test()

@@ -67,6 +67,8 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 
 	def get_all_possible_states(self):
 		return [self.to_state(i) for i in range(len(self["desired_item"]))]
+	def get_all_plausible_states(self, threshold = 10**(-320)):
+		return [self.to_state(i) for i in range(len(self["desired_item"])) if self["desired_item"][i] > threshold]
 	def get_explicit_distribution(self):
 		'''
 		:return: distribution as defaultdict where impossible states return 0 by default
@@ -90,6 +92,7 @@ class FetchPOMDPBeliefState(FlatDiscreteBeliefState):
 	def __str__(self):
 		ret = str(self.data)
 		return ret
+
 class FetchPOMDPObservation(object):
 	def __init__(self, language = None, gesture = None):
 		self.data = {"language":language, "gesture":gesture}

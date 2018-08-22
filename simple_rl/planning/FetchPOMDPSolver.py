@@ -14,7 +14,7 @@ random.seed(0)
 class FetchPOMDPSolver(object):
 	# Trades off between point and wait, but not point and look when adjusting std_dev
 	# TODO Try a small example and check that this works as expected
-	def __init__(self, pomdp, horizon=2, qvalue_method="state based", kl_weight=0,
+	def __init__(self, pomdp, horizon=2, qvalue_method="state based", kl_weight=0, observation_branching=1,
 	             planner="q estimation", muted=False):
 		self.pomdp = pomdp
 		self.num_state_samples = pomdp.num_items
@@ -35,13 +35,20 @@ class FetchPOMDPSolver(object):
 			self.plan = self.plan_from_belief
 		elif planner == "heuristic":
 			self.plan = self.plan_from_belief_heuristically
-		self.get_qvalues = self.get_qvalues_kl
-		# self.get_qvalues = self.get_qvalues_many_trials
+		# self.get_qvalues = self.get_qvalues_kl
+		self.get_qvalues = self.get_qvalues_many_trials
+		self.observation_branching = observation_branching
 
-	def plan_from_belief(self, belief_state):
+	def plan_from_belief(self, belief_state, num_samples = None):
+		if num_samples is None:
+			num_samples = self.pomdp.num_items
+		#Sampling extraordinarily unlikely states leads to impossible observations (probably)
 		# sampled_states = cstuff.sample_distinct_states(belief_state[1], self.num_state_samples)
-		sampled_states = [belief_state.to_state(i) for i in range(self.pomdp.num_items)]
+		# sampled_states = [belief_state.to_state(i) for i in range(self.pomdp.num_items)]
+		# sampled_states = [belief_state.sample() for i in range(self.pomdp.num_items)]
+		sampled_states = belief_state.get_all_plausible_states()
 		list_of_q_lists = [self.get_qvalues(belief_state, state, self.horizon) for state in sampled_states]
+		#If states are actually sampled, consider replacing weights
 		weights = cstuff.unit_vectorn([belief_state["desired_item"][state["desired_item"]] for state in sampled_states])
 		average_q_values = []
 		max_q = -10000
@@ -106,13 +113,23 @@ class FetchPOMDPSolver(object):
 		if horizon == 0:
 			return rewards
 		average_next_values = [0 for a in actions]
-		#transitions are deterministic, so we can pull the next two lines out of the loop
+		# transitions are deterministic, so we can pull the next two lines out of the loop
 		next_states = [self.pomdp.transition_func(true_state, a) for a in actions]
 		next_beliefs = [copy.deepcopy(belief_state).update_from_state(next_state) for next_state in next_states]
-		for trial in range(num_trials):
+		for trial in range(self.observation_branching):
 			# Generalize for general BSS
 			terminal_states = [i for i in range(len(actions)) if actions[i].split(" ")[0] == "pick"]
 			observations = [self.sample_observation(next_states[i]) for i in range(len(next_states))]
+			#Check for impossible observations. Remove to increase speed significantly
+			# possible_configs = []
+			# impossible_configs = []
+			# for i in range(len(observations)):
+			# 	imposs = cstuff.is_observation_impossible(next_beliefs[i],observations[i])
+			# 	if imposs == 1:
+			# 		impossible_configs.append((next_beliefs[i],observations[i],next_states[i]))
+			# 	else:
+			# 		possible_configs.append((next_beliefs[i],observations[i],next_states[i]))
+			# num_impossible = len(impossible_configs)
 			next_beliefs = [self.belief_update(next_beliefs[i], observations[i]) for i in range(len(next_states))]
 			for b in next_beliefs:
 				for i in range(len(b["desired_item"])):
@@ -124,7 +141,7 @@ class FetchPOMDPSolver(object):
 			                range(len(next_states))]
 			next_values = [cstuff.maxish(next_qvalues[i]) for i in range(len(next_states))]
 			average_next_values = cstuff.add(average_next_values, next_values)
-		average_next_values = [average_next_values[i]/num_trials for i in range(len(average_next_values))]
+		average_next_values = [average_next_values[i] /self.observation_branching for i in range(len(average_next_values))]
 		return [
 			rewards[i] + self.pomdp.gamma * average_next_values[i] for i in range(len(next_states))]
 
@@ -234,6 +251,8 @@ class FetchPOMDPSolver(object):
 				reward = ret[0]
 				next_belief_state = ret[1]
 				observation = ret[2]
+				print("Reward: " + str(reward))
+				print("Observation: "  +str(observation))
 				if type(curr_belief_state) is list:
 					raise TypeError(
 						"cur_belief has type list on iteration " + str(num_iter) + " of episode " + str(

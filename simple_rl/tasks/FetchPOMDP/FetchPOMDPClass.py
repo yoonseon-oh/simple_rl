@@ -48,11 +48,12 @@ class FetchPOMDP(POMDP):
 				self.actions.append("look " + str(i))
 		self.actions.append("wait")
 		self.non_terminal_actions = [a for a in self.actions if a.split(" ")[0] != "pick"]
+		self.terminal_actions = [a for a in self.actions if a.split(" ")[0] == "pick"]
 		config = fr.load_json("config.json")
 		self.config = config
 		self.bag_of_words = config["bag_of_words"]
 		self.p_g = config["p_g"]
-		self.p_l = config["p_l"]
+		self.p_l = config["p_l_b"]
 		self.p_r_match = config["p_r_match"]
 		self.p_r_match_look = config["p_r_match_look"]
 		# self.alpha = .2
@@ -111,6 +112,14 @@ class FetchPOMDP(POMDP):
 	def sample_observation_from_belief(self,belief):
 		state = belief.sample()
 		return self.sample_observation(state)
+	def observation_from_belief_prob(self,observation, belief, action = None):
+		if action != None:
+			belief = self.belief_transition_func(belief,action)
+		states = belief.get_all_plausible_states()
+		state_probs = [belief.belief(s) for s in states]
+		conditional_probs = [cstuff.observation_func(observation,s) for s in states]
+		total_prob = cstuff.dot(state_probs,conditional_probs)
+		return total_prob
 	def reward_func(self, state, action):
 		vals = action.split(" ")
 		if vals[0] == "point":
@@ -262,5 +271,20 @@ class FetchPOMDP(POMDP):
 		return self.in_goal_state
 	def get_num_belief_updates_and_impossible_observations(self):
 		return cstuff.get_num_belief_updates_and_impossible_observations()
-def test_cstuff():
+	def get_config(self):
+		return self.config
+	def belief_to_array_of_probs(self,belief):
+		return [belief.belief(s) for s in self.states]
+def cstuff_test():
 	print(cstuff.get_items())
+def observation_from_belief_test(n = 10000):
+	pomdp = FetchPOMDP()
+	pomdp.execute_action("point 1")
+	b = pomdp.cur_belief
+	observations = [pomdp.sample_observation_from_belief(b) for i in range(n)]
+	observation_probs = [pomdp.observation_from_belief_prob(o,b) for o in observations]
+	min_prob = min(observation_probs)
+	zeros = [i for i in observation_probs if i == 0]
+	print("num_zeros: " + str(len(zeros)))
+	print(min_prob)
+# observation_from_belief_test()
