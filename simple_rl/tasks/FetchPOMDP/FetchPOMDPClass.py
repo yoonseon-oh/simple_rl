@@ -198,8 +198,8 @@ class FetchPOMDP(POMDP):
 	def execute_action(self, action):
 		if type(self.cur_belief) is list:
 			raise TypeError("cur_belief has type list")
-		self.cur_state = self.transition_func(self.cur_state, action)
 		reward = self.reward_func(self.cur_state, action)
+		self.cur_state = self.transition_func(self.cur_state, action)
 		observation = self.sample_observation(self.cur_state)
 		self.update_cur_belief(observation)
 		if action.split(" ")[0] == "pick":
@@ -207,15 +207,16 @@ class FetchPOMDP(POMDP):
 		if type(self.cur_belief) is list:
 			raise TypeError("cur_belief has type list")
 		return (reward, self.cur_belief, observation)
-	def execute_action_robot(self, action):
+	def execute_action_robot(self, action, observation):
 		'''
 		Same as execute action, but doesn't sample observations since the real world provides observations
 		:param action:
 		:return: reward, new belief state
 		'''
-		self.cur_state = self.transition_func(self.cur_state, action)
 		reward = self.reward_func(self.cur_state, action)
-		self.cur_belief.update_from_state(self.cur_state)
+		self.cur_state = self.transition_func(self.cur_state, action)
+		# self.cur_belief.update_from_state(self.cur_state)
+		self.update_cur_belief(observation)
 		return (reward, self.cur_belief)
 
 	def reset(self):

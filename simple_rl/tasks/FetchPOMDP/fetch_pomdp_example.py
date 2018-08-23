@@ -260,4 +260,4 @@ def bss(pomdp1_args, num_episodes=5):
 # 	           {"horizon": 2, "qvalue_method": "belief based", "observation_branching": 1, "muted": False}, n = 10)
 
 perseus_run({"use_look": True},
-            {"num_beliefs":500, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.5}, n = 100)
+            {"num_beliefs":1000, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.2}, n = 100)

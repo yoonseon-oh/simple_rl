@@ -2,7 +2,7 @@ from collections import defaultdict
 import copy
 import math
 import random
-import pickle
+import pickle, json
 from time import time
 from datetime import datetime
 import numpy as np
@@ -38,7 +38,7 @@ class PBVI2():
 		return self.reward_vectors
 
 	def get_best_action(self, belief):
-		alpha = self.get_best_alpha(belief)
+		alpha, value = self.get_best_alpha(belief)
 		return alpha[1]
 
 	def get_value(self, belief):
@@ -361,7 +361,7 @@ class PBVI2():
 		return {"final_scores": final_scores, "counter_plan_from_state": counter_plan_from_state,
 		        "num_correct": num_correct, "num_wrong": num_wrong, "histories": histories}
 	def act(self, raw_observation):
-		curr_belief_state = copy.deepcopy(self.pomdp.pomdp.cur_belief)
+		cur_belief = copy.deepcopy(self.pomdp.cur_belief)
 		gesture = raw_observation[0]
 		if gesture is not None:
 			gesture = [gesture[0], gesture[1], gesture[2], gesture[3], gesture[4], gesture[5]]
@@ -371,11 +371,16 @@ class PBVI2():
 		else:
 			language = set()
 		observation = FetchPOMDPObservation(**{"language": language, "gesture": gesture})
-		self.pomdp.curr_belief_state = cstuff.belief_update_robot(self.pomdp.curr_belief_state, observation)
-		next_action = self.get_best_action(self.pomdp.curr_belief_state)
+		self.pomdp.cur_belief = FetchPOMDPBeliefState(**cstuff.belief_update_robot(self.pomdp.cur_belief, observation))
+		next_action = self.get_best_action(self.pomdp.cur_belief)
 		self.pomdp.execute_action_robot(next_action)
-		self.history.append({"belief": curr_belief_state.data, "action": next_action,
+		self.history.append({"belief": cur_belief.data, "action": next_action,
 		                "observation": make_observation_serializable(observation)})
+		if next_action in self.pomdp.terminal_actions:
+			results = self.history
+			with open("RoboFetch history " + str(datetime.now()).replace(":",".")[:22] + ".json","w") as fp:
+				json.dump(results, fp, indent=4)
+		self.pomdp.reset()
 		return next_action
 
 
@@ -603,30 +608,30 @@ def make_observation_serializable(o):
 
 # print(pb.v)
 # print(pb.get_value(pomdp.cur_belief))
-def pickle_test():
-	pomdp = FetchPOMDP()
-	b = pomdp.init_belief
-	o = pomdp.sample_observation_from_belief(b)
-	alpha = [[12 for state in pomdp.states], "wait"]
-	p = {"b": b, "o": o, "alpha": alpha, "pomdp_config": pomdp.get_config()}
-	current_time = str(datetime.now()).replace(":", ".")[:22]
-	pickle.dump(p, open("pickled thing " + current_time, "wb"))
-	p2 = pickle.load(open("pickled thing " + current_time, "rb"))
-	print(p2)
-# test_alpha_a_o()
-# test_alpha_a_b()
-# test_get_pick_alpha()
-# test_add_dict()
-# test_get_best_alpha()
-# pickle_test()
-def backup_test():
-	pomdp = FetchPOMDP(use_look=True)
-	p = pickle.load(open(pickle_location + "value iteration 40 beliefs updated time 2018-08-21 15.36.31.85.pickle", "rb"))
-	beliefs = p["beliefs"]
-	pbvi = Perseus2(pomdp,**{"num_beliefs":100, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.5}, conservative_lower_bounds=True, beliefs = beliefs)
-	# pbvi.update_v()
-	alpha = pbvi.backup(pomdp.cur_belief,pbvi.v)
-	print("done")
-def pullback_test():
-	pass
-# backup_test()
+# def pickle_test():
+# 	pomdp = FetchPOMDP()
+# 	b = pomdp.init_belief
+# 	o = pomdp.sample_observation_from_belief(b)
+# 	alpha = [[12 for state in pomdp.states], "wait"]
+# 	p = {"b": b, "o": o, "alpha": alpha, "pomdp_config": pomdp.get_config()}
+# 	current_time = str(datetime.now()).replace(":", ".")[:22]
+# 	pickle.dump(p, open("pickled thing " + current_time, "wb"))
+# 	p2 = pickle.load(open("pickled thing " + current_time, "rb"))
+# 	print(p2)
+# # test_alpha_a_o()
+# # test_alpha_a_b()
+# # test_get_pick_alpha()
+# # test_add_dict()
+# # test_get_best_alpha()
+# # pickle_test()
+# def backup_test():
+# 	pomdp = FetchPOMDP(use_look=True)
+# 	p = pickle.load(open(pickle_location + "value iteration 40 beliefs updated time 2018-08-21 15.36.31.85.pickle", "rb"))
+# 	beliefs = p["beliefs"]
+# 	pbvi = Perseus2(pomdp,**{"num_beliefs":100, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.5}, conservative_lower_bounds=True, beliefs = beliefs)
+# 	# pbvi.update_v()
+# 	alpha = pbvi.backup(pomdp.cur_belief,pbvi.v)
+# 	print("done")
+# def pullback_test():
+# 	pass
+# # backup_test()

@@ -80,13 +80,15 @@ import os
 cdef list point_confusion_matrix = calculate_confusion_matrix(items, std_theta_point, -math.pi / 2, math.pi / 2)
 cdef list look_confusion_matrix = calculate_confusion_matrix(items, std_theta_look, -math.pi / 2, math.pi / 2)
 cpdef dict response_confusion_matrices = {"look": look_confusion_matrix, "point": point_confusion_matrix}
-
+cdef dummy_function():
+	return "dummy function"
 #Needs to be proper matrix: it matters which item the human incorrectly thinks the agent is pointing at.
 cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double max_angle):
 	#Indices seem off by one
 	#convert item locations to angles (ignore height for now for simplicity)
 	item_angles = {i: math.atan2(items[i]["location"][1], items[i]["location"][0]) for i in range(len(items))}
-	sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
+	# sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
+	sorted_angles = dict_to_items_sorted_by_value(item_angles)
 	midpoints = [(sorted_angles[i][1] + sorted_angles[i + 1][1]) / 2 for i in range(len(sorted_angles) - 1)]
 	print(midpoints)
 	#Get intervals over which each item is the nearest item (voronoi circle)
@@ -148,6 +150,20 @@ cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double 
 			confusion_row.append(prob_match)
 		confusion_matrix.append(confusion_row)
 	return confusion_matrix
+cdef dict_to_items_sorted_by_value(d):
+	items = list(copy.deepcopy(d).items())
+	sorted_items = []
+	num_items = len(items)
+	for i in range(num_items):
+		min_value = 99999999999999999999999
+		min_item = None
+		for j in items:
+			if j[1] < min_value:
+				min_value = j[1]
+				min_item = j
+		sorted_items.append(j)
+		items.remove(j)
+	return sorted_items
 cpdef sample_interpreted_reference(state):
 	#TODO rename
 	last_referenced_item = state["last_referenced_item"]
