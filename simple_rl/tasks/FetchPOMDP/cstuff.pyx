@@ -77,7 +77,9 @@ cdef double gamma = config["gamma"]
 cdef error = 1
 import os
 
-cdef list point_confusion_matrix = calculate_confusion_matrix(items, std_theta_point, -math.pi / 2, math.pi / 2)
+# cdef list point_confusion_matrix = calculate_confusion_matrix(items, std_theta_point, -math.pi / 2, math.pi / 2)
+cdef list point_confusion_matrix = [[1 if i == j else 0 for i in range(len(items))] for j in range(len(items))]
+# cdef list look_confusion_matrix = [[1.0 / len(items) for i in range(len(items))] for j in range(len(items))]
 cdef list look_confusion_matrix = calculate_confusion_matrix(items, std_theta_look, -math.pi / 2, math.pi / 2)
 cpdef dict response_confusion_matrices = {"look": look_confusion_matrix, "point": point_confusion_matrix}
 cdef dummy_function():

@@ -19,7 +19,7 @@ pickle_location = ".\\PBVIPickles\\"
 
 
 class PBVI2():
-	def __init__(self, pomdp, observations_sample_size=3):
+	def __init__(self, pomdp, observations_sample_size=3, conservative_lower_bounds = False):
 		self.pomdp = pomdp
 		self.reward_func = self.pomdp.reward_func
 		self.states = self.pomdp.states
@@ -30,6 +30,7 @@ class PBVI2():
 		self.name = "Generic PBVI2"
 		self.initialize_reward_vectors()
 		self.history = []
+		self.conservative_lower_bounds = conservative_lower_bounds
 	def initialize_reward_vectors(self):
 		self.reward_vectors = {}
 		for a in self.actions:
@@ -54,7 +55,7 @@ class PBVI2():
 	def get_best_alpha(self, belief, v=None):
 		'''
 		:param belief:
-		:return: (alpha,belief . alpha)
+		:return: best_alpha, value
 		'''
 		if v is None:
 			v = self.v
@@ -267,7 +268,18 @@ class PBVI2():
 	def load_from_pickle(self, p):
 		self.beliefs = p["beliefs"]
 		self.v = p["alphas"]
-
+	def initialize_v(self):
+		# currently custom designed for Fetch
+		new_alphas = []
+		actions = self.pomdp.actions
+		self.terminal_action_alphas = {}
+		for action in actions:
+			alpha = self.get_lower_bound_alpha_from_action(action, self.conservative_lower_bounds)
+			new_alphas.append(alpha)
+			if action in self.pomdp.terminal_actions:
+				self.terminal_action_alphas[action] = alpha
+		self.v = new_alphas
+		return new_alphas
 	def run(self, num_episodes=5):
 		# Differes from run by getting reward from mdp state in simulation
 		# TODO: Save entire history (not simulation)
@@ -452,18 +464,85 @@ class Perseus2(PBVI2):
 				self.beliefs.append(b)
 		return self.beliefs
 
-	def initialize_v(self):
-		# currently custom designed for Fetch
-		new_alphas = []
-		actions = self.pomdp.actions
-		self.terminal_action_alphas = {}
-		for action in actions:
-			alpha = self.get_lower_bound_alpha_from_action(action, self.conservative_lower_bounds)
-			new_alphas.append(alpha)
-			if action in self.pomdp.terminal_actions:
-				self.terminal_action_alphas[action] = alpha
-		self.v = new_alphas
-		return new_alphas
+
+
+class PBVIClassic2(PBVI2):
+	def __init__(self, pomdp, observations_sample_size=3, name = "Classic PBVI2", convergence_threshold = .2):
+		PBVI2.__init__(self,pomdp,observations_sample_size)
+		self.v = self.initialize_v()
+		self.name = name
+		self.backup = cstuff.backup
+		self.get_alpha_a_os = cstuff.get_alpha_a_os
+		self.beliefs = [pomdp.cur_belief]
+		self.observations_sample_size = observations_sample_size
+		self.belief_branching = 1
+		self.convergence_threshold = convergence_threshold
+		self.num_update_iterations = 0
+		self.update(convergence_threshold)
+	def update(self, convergence_threshold):
+		converged = False
+		while not converged:
+			self.num_update_iterations += 1
+			self.collect_beliefs()
+			new_vs, max_improvement = self.update_v()
+			if max_improvement < convergence_threshold:
+				converged = True
+			print("max_improvement")
+			self.pickle_data()
+
+
+	def collect_beliefs(self):
+		# TODO: FetchPOMDP.observation_func is a function of state only. Generalize.
+		new_beliefs = []
+		for belief in self.beliefs:
+			successor_beliefs = []
+			actions = self.pomdp.get_potential_actions(belief)
+			for action in actions:
+				for i in range(self.observations_sample_size):
+					# Can be made faster for large observation number by sampling a number of observations for each state
+					# proportional to the state's probability, see alpha_a_b
+					observation = self.pomdp.sample_observation_from_belief_action(belief, action)
+					new_belief = self.pomdp.belief_update(belief, observation)
+					successor_beliefs.append(new_belief)
+			# TODO consider using symmetric kl_divergence as metric instead
+			farthest_belief = max(successor_beliefs, key = lambda b: cstuff.distance(belief["desired_item"], b["desired_item"]))
+			new_beliefs.append(farthest_belief)
+		self.beliefs.extend(new_beliefs)
+		return self.beliefs
+
+	def update_v(self, convergence_threshold  = .2):
+		# converged = False
+		# TODO: write convergence test
+		# while not converged:
+		max_max_improvement = 0
+		converged = False
+		total_deltas = [0 for b in self.beliefs]
+		while not converged:
+			max_improvement = 0
+			v_prime = []
+			cur_deltas = []
+			for belief in self.beliefs:
+				#TODO refactor backup to return value as well
+				old_alpha, old_value = self.get_best_alpha(belief)
+				new_alpha = self.backup(self, belief, self.v)
+				new_value = self.alpha_dot_b(new_alpha,belief)
+				improvement = new_value - old_value
+				if improvement < 0:
+					# print("Negative improvement: " + str(improvement) + ". Keeping old alpha")
+					new_alpha = old_alpha
+					improvement = 0
+				cur_deltas.append(improvement)
+				max_improvement = max(max_improvement,improvement)
+				append_if_new(v_prime,new_alpha)
+			self.v = v_prime
+			total_deltas = [total_deltas[i] + cur_deltas[i] for i in range(len(self.beliefs))]
+			print("max_improvement_in update_v: " + str(max_improvement))
+			if max_improvement < convergence_threshold:
+				converged = False
+			#TODO this only accounts for single change. Update to calculate the actual max by storing list of improvements
+		max_max_improvement = max(total_deltas)
+		print("max_max_improvement in update_v: " + str(max_max_improvement))
+		return self.v, max_max_improvement
 
 
 def argmax(args, fn):
@@ -475,7 +554,10 @@ def argmax(args, fn):
 			maxarg = args[i]
 			max_value = cur_v
 	return maxarg
-
+def append_if_new(l,a):
+	if a not in l:
+		l.append(a)
+	return l
 
 def argmax2(args, fn):
 	'''

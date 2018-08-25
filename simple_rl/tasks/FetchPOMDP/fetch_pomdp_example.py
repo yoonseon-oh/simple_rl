@@ -13,7 +13,7 @@ from simple_rl.tasks.FetchPOMDP import file_reader as fr
 from simple_rl.planning.BeliefSparseSamplingClass import BeliefSparseSampling
 from simple_rl.pomdp.BeliefMDPClass import BeliefMDP
 from simple_rl.tasks.FetchPOMDP.PBVIClass import Perseus
-from simple_rl.tasks.FetchPOMDP.PBVIClassVectorized import Perseus2
+from simple_rl.tasks.FetchPOMDP.PBVIClassVectorized import Perseus2, PBVIClassic2
 # TODO try bss
 # TODO: Surprisingly long time between FetchPOMDPClass printing cstuff.get_items() and trials starting. Why?
 # Running solvers with horizon 2 had poor (60%) results for 6 items (100 trials). Horizon 3 gave 90% without gestures, 70% with (10 trials)
@@ -187,8 +187,31 @@ def perseus_run(pomdp1_args,solver1_args, n = 10):
 	# p = pickle.load(open(pickle_directory + "value iteration 1time 2018-08-21 21.00.15.60.pickle", "rb"))
 	# p = pickle.load(open(pickle_directory + "Perseus lab items value iteration 4 time 2018-08-22 09.39.27.67.pickle", "rb"))
 	# solver1 = Perseus2(pomdp1, **solver1_args, pickle = p)
-	solver1 = Perseus2(pomdp1, **solver1_args, name="Perseus lab items")
+	solver1 = Perseus2(pomdp1, **solver1_args, name="Perseus useless look")
 	solver1.update_v()
+	# values1 = solver1.evaluate_alphas_at_beliefs(solver1.v,solver1.beliefs)
+	# values2 = [solver1.get_value(b) for b in solver1.beliefs]
+	# print("cat")
+	results1 = solver1.run(num_episodes=n)
+	num_belief_updates, num_impossible_observations = pomdp1.get_num_belief_updates_and_impossible_observations()
+	impossible_observations_rate = float(num_impossible_observations) / float(num_belief_updates)
+	results1.update({"args": {"pomdp": pomdp1_args, "solver": solver1_args}, "config": pomdp1.config,
+	                 "action_counts": get_count_each_action(results1["histories"]),
+	                 "impossible_observation_rate": impossible_observations_rate})
+	results = {"1": results1}
+	print("solver1 %" + str(100 * float(results1["num_correct"]) / n))
+	print("solver1 action counts: " + str(results1["action_counts"]))
+	print("impossible_observations_rate: " + str(impossible_observations_rate))
+	with open(get_full_path("Perseus test "), 'w') as fp:
+		json.dump(results, fp, indent=4)
+	return results
+def pbvi_run(pomdp1_args,solver1_args, n = 10):
+	pomdp1 = FetchPOMDP(**pomdp1_args)
+	# p = pickle.load(open(pickle_directory + "value iteration 1time 2018-08-21 21.00.15.60.pickle", "rb"))
+	# p = pickle.load(open(pickle_directory + "Perseus lab items value iteration 4 time 2018-08-22 09.39.27.67.pickle", "rb"))
+	# solver1 = Perseus2(pomdp1, **solver1_args, pickle = p)
+	solver1 = PBVIClassic2(pomdp1, **solver1_args, name="PBVI useless look")
+	# solver1.update_v()
 	# values1 = solver1.evaluate_alphas_at_beliefs(solver1.v,solver1.beliefs)
 	# values2 = [solver1.get_value(b) for b in solver1.beliefs]
 	# print("cat")
@@ -261,3 +284,5 @@ def bss(pomdp1_args, num_episodes=5):
 
 perseus_run({"use_look": True},
             {"num_beliefs":1000, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.2}, n = 100)
+# pbvi_run({"use_look": True},
+#             {"observations_sample_size":3, "convergence_threshold":.2}, n = 100)

@@ -4,8 +4,8 @@
       "shape": "cylinder",
       "color": "blue",
       "location": [
-        0.5085,
-        -0.66,
+        -5,
+        1,
         -0.116
       ]
     },
@@ -13,35 +13,8 @@
       "shape": "ball",
       "color": "red",
       "location": [
-        0.48,
-        -0.398,
-        -0.118
-      ]
-    },
-    {
-      "shape": "marker",
-      "color": "purple",
-      "location": [
-        0.469,
-        -0.152,
-        -0.118
-      ]
-    },
-    {
-      "shape": "ball",
-      "color": "blue",
-      "location": [
-        0.43,
-        0.189,
-        -0.12
-      ]
-    },
-    {
-      "shape": "block",
-      "color": "yellow",
-      "location": [
-        0.405,
-        0.423,
+        -5.01,
+        1,
         -0.118
       ]
     },
@@ -49,7 +22,7 @@
       "shape": "marker",
       "color": "green",
       "location": [
-        0.36,
+        2,
         0.71,
         -0.12
       ]
@@ -133,7 +106,7 @@
   "alpha": 0.2,
   "std_theta": 0.15,
   "std_theta_point": 0.02,
-  "std_theta_look": 0.04,
+  "std_theta_look": 0.5,
   "point_cost": -1.8,
   "look_cost": -1.3,
   "wait_cost": -1.0,
