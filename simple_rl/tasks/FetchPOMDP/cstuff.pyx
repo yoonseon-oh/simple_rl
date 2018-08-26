@@ -91,6 +91,10 @@ cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double 
 	item_angles = {i: math.atan2(items[i]["location"][1], items[i]["location"][0]) for i in range(len(items))}
 	# sorted_angles = sorted(item_angles.items(), key=lambda kv: kv[1])
 	sorted_angles = dict_to_items_sorted_by_value(item_angles)
+	for i in range(len(sorted_angles) - 1):
+		if sorted_angles[i] > sorted_angles[i+1]:
+			print("sorted_angles not sorted")
+			raise ValueError("dict_to_items_sorted_by_value is broken")
 	midpoints = [(sorted_angles[i][1] + sorted_angles[i + 1][1]) / 2 for i in range(len(sorted_angles) - 1)]
 	print(midpoints)
 	#Get intervals over which each item is the nearest item (voronoi circle)
@@ -149,8 +153,19 @@ cdef calculate_confusion_matrix(items, double std_dev, double min_angle, double 
 			# 	          'w') as fp:
 			# 		json.dump(data, fp, indent=4)
 			# raise ValueError("Probability 0 while calculating confusion matrix")
+			if prob_match < 0:
+				print("Negative prob in confusion matrix")
+				print("left end: " + str(left_trunc))
+				print("right end: " + str(right_trunc))
+				print("center: " + str(center))
+				print("cdf_left: " + str(cdf_left))
+				print("cdf_right: " + str(cdf_right))
 			confusion_row.append(prob_match)
 		confusion_matrix.append(confusion_row)
+	# negative_entries = [(i,j) for i in range(num_items) for j in range(num_items) if confusion_matrix[i][j] < 0]
+	# if len(negative_entries) > 0:
+	# 	print("Negative probs in confusion matrix")
+	# 	print(str(confusion_matrix))
 	return confusion_matrix
 cdef dict_to_items_sorted_by_value(d):
 	items = list(copy.deepcopy(d).items())
@@ -163,8 +178,8 @@ cdef dict_to_items_sorted_by_value(d):
 			if j[1] < min_value:
 				min_value = j[1]
 				min_item = j
-		sorted_items.append(j)
-		items.remove(j)
+		sorted_items.append(min_item)
+		items.remove(min_item)
 	return sorted_items
 cpdef sample_interpreted_reference(state):
 	#TODO rename
@@ -714,7 +729,13 @@ cpdef double observation_func_response_only(observation, state):
 cpdef double observation_func(observation, state):
 	global observation_func_total_time
 	start_time = time()
-	prob = language_func(observation["language"], state) * gesture_func(observation["gesture"], state)
+	lang_prob = language_func(observation["language"], state)
+	gest_prob = gesture_func(observation["gesture"], state)
+	prob =  lang_prob * gest_prob
+	# if prob < 0:
+	# 	print("Observation has negative probability: "  + str(prob))
+	# 	print("Gesture prob: " + str(gest_prob))
+	# 	print("language prob: " + str(lang_prob))
 	# prob = language_func(observation["language"], state) * gesture_func(observation["gesture"], state)
 	observation_func_total_time += time() - start_time
 	return prob
@@ -753,6 +774,16 @@ cpdef double language_func(observation, state):
 	# Need to change the way we handle BoW data. Store items with attributes, get descriptors from attributes
 	cdef double base_utterance_prob = base_probability(observation, state)
 	cdef double response_utterance_prob = response_probability(observation, state)
+	# if base_utterance_prob < 0:
+	# 	print("Base utterance has negative probability: " + str(base_utterance_prob))
+	# 	er = True
+	# if response_utterance_prob < 0:
+	# 	print("Response utterance has negative probability: " + str(response_utterance_prob))
+	# 	er = True
+	# if er:
+	# 	print("Observation: " + str(observation))
+	# 	print("State: " + str(state))
+
 	return base_utterance_prob * response_utterance_prob
 cpdef double response_probability(language, state):
 	"""
@@ -1331,6 +1362,10 @@ cpdef update_v(self, double convergence_threshold=1):
 		v_prime = []
 		while len(beliefs_to_update) > 0:
 			b = random.sample(beliefs_to_update, 1)[0]
+			normalization_tolerance = 0.1
+			total_prob = sum(b["desired_item"])
+			if total_prob > 1 + normalization_tolerance:
+				print("Impossible belief: " + str(b["desired_item"]))
 			new_alpha = backup(self, b, self.v)
 			current_best_alpha, current_value = self.get_best_alpha(b)
 			new_value = self.alpha_dot_b(new_alpha, b)
@@ -1370,6 +1405,7 @@ cpdef update_v_shani(self, double convergence_threshold=1):
 	cdef list beliefs_to_update
 	cdef list v_prime
 	while max_improvement > convergence_threshold:
+		#TODO Deepcopy is unnecessary, replace with shallow copy
 		beliefs_to_update = copy.deepcopy(self.beliefs)
 		if iterations > 0:
 			print("max_improvement: " + str(max_improvement))
@@ -1377,23 +1413,37 @@ cpdef update_v_shani(self, double convergence_threshold=1):
 		v_prime = []
 		while len(beliefs_to_update) > 0:
 			b = random.sample(beliefs_to_update, 1)[0]
+			normalization_tolerance = 0.1
+			total_prob = sum(b["desired_item"])
+			if total_prob > 1 + normalization_tolerance:
+				print("Impossible belief: " + str(b["desired_item"]))
+
+			beliefs_to_update.remove(b)
 			new_alpha = backup(self, b, self.v)
 			current_best_alpha, current_value = self.get_best_alpha(b)
+			#TODO refactor backup to return alpha, value
 			new_value = self.alpha_dot_b(new_alpha, b)
 			# Changed from >= to >
 			if new_value > current_value:
 				#Consider
-				beliefs_to_update.remove(b)
-				if len(beliefs_to_update) > 0:# and iterations > 0: #TODO Iteration restriction is hacky, find the correct solution
+				if len(beliefs_to_update) > 0:# and iterations > 0:
 					beliefs_to_update, max_delta = self.remove_improved_beliefs(beliefs_to_update,new_alpha,self.v,convergence_threshold)
+					max_delta = max(new_value - current_value, max_delta)
 				else:
 					max_delta = new_value - current_value
-				# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
 				alpha_b = new_alpha
 				max_improvement = max(max_improvement, max_delta)
 			else:
-				beliefs_to_update.remove(b)
 				alpha_b = current_best_alpha
+			confident_belief = [i for i in range(self.pomdp.num_items) if b["desired_item"][i] > 0.99]
+			if len(confident_belief) > 0:
+				believed_id = confident_belief[0]
+				believed_prob = b["desired_item"][believed_id]
+				if alpha_b[1] != "pick " + str(believed_id):
+					print("Human desired " + str(believed_id) + " with probability " + str(believed_prob))
+					print("b: " + str(b["desired_item"]))
+					print("Value of picking: " + str(believed_prob * self.pomdp.correct_pick_reward + (1 - believed_prob) * self.pomdp.wrong_pick_cost))
+					print("Value of " + str(alpha_b[1]) + ": " + str(self.alpha_dot_b(alpha_b,b)))
 			# self.add_alpha(alpha_b)
 			v_prime.append(alpha_b)
 			num_updated += 1
@@ -1425,7 +1475,7 @@ cpdef check_for_actions_in_alphas(actions,alphas):
 		s = ""
 		for a in missing_actions:
 			s += a + "; "
-		raise ValueError("Missing alphas for actions :" + s)
+		raise ValueError("Missing alphas for actions: " + s)
 cpdef backup(self, belief, v, num_observations=3):
 	# TODO check if it is can be more efficient to compute observation prob and/or new belief while sampling observation
 	#TODO PROBLEM! I am taking alphas that maximize next belief to represent the value of the next belief, but I need to evaluate the alphas against the current belief.
@@ -1453,10 +1503,9 @@ cpdef backup(self, belief, v, num_observations=3):
 			alpha_a_b_vals = linear_combination_of_lists(best_alpha_a_os_values, norm_observation_probs)
 			a_val = add(self.reward_vectors[a], times_list(alpha_a_b_vals, self.pomdp.gamma))
 			new_alpha = [a_val, a]
-			alphas.append(new_alpha)
 		else:
-			#TODO replace with dictionary lookup for speed
 			new_alpha = self.terminal_action_alphas[a]
+		alphas.append(new_alpha)
 	best_alpha, best_value = self.get_best_alpha(belief, alphas)
 	return best_alpha
 cpdef get_alpha_a_os(self,a,observations):
@@ -1507,3 +1556,17 @@ cpdef get_count_each_action_precise(histories):
 	for key in keys:
 		a[key] = counts[key]
 	return a
+
+cpdef debug_belief(b):
+	dist = b["desired_item"]
+	#Check for total probability above 1
+	normalization_tolerance = 0.1
+	total_prob = sum(b["desired_item"])
+	if total_prob > 1 + normalization_tolerance:
+		print("Impossible belief: " + str(b["desired_item"]))
+	#Check for negative belief
+	#Check for individual probability above 1
+	max_id = 0
+	for i in range(len(dist)):
+		if dist[i] < 0:
+			print("Belief with negative probability: " + str(dist[i]))

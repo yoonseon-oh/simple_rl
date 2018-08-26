@@ -362,21 +362,6 @@ class PBVIClassic(PBVI):
 		self.belief_branching = 1
 		self.name = "Classic PBVI"
 
-	# def get_value(self, belief):
-	# 	values = [self.alpha_dot_b(alpha, belief) for alpha in self.v]
-	# 	max_value = max(values)
-	# 	return max_value
-	# def get_best_alpha(self,belief):
-	# 	'''
-	# 	:param belief:
-	# 	:return: (alpha,belief . alpha)
-	# 	'''
-	# 	alpha, value = argmax2(self.v, lambda a: self.alpha_dot_b(a,belief))
-	# 	return alpha,value
-	# def alpha_dot_b(self, alpha, belief_state):
-	# 	# TODONE? Fixed by putting alpha as second argument since dot_dict iterates over keys in first argument
-	# 	return cstuff.dot_dict(belief_state.get_explicit_distribution(), alpha["values"])
-
 	def collect_beliefs(self):
 		# TODO: FetchPOMDP.observation_func is a function of state only. Generalize.
 		new_beliefs = []
@@ -461,79 +446,6 @@ class Perseus(PBVI):
 				self.beliefs.append(b)
 		return self.beliefs
 
-	def update_v(self, convergence_threshold=1):
-		'''
-		Taken from algorithm 4 from Shani et al
-		:return:
-		'''
-		# for i in range(depth):
-		max_improvement = convergence_threshold + 0.1
-		iterations = 0
-		num_updated = 0
-		while max_improvement > convergence_threshold:
-			beliefs_to_update = copy.deepcopy(self.beliefs)
-			v_prime = []
-			max_improvement = 0
-			while len(beliefs_to_update) > 0:
-				b = random.sample(beliefs_to_update, 1)[0]
-				new_alpha = self.backup(b, self.v)
-				current_best_alpha, current_value = self.get_best_alpha(b)
-				new_value = self.alpha_dot_b(new_alpha, b)
-				# Changed from >= to >
-				if new_value > current_value:
-					# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
-					beliefs_to_update.remove(b)
-					alpha_b = new_alpha
-					max_improvement = max(max_improvement, new_value - current_value)
-				else:
-					beliefs_to_update.remove(b)
-					alpha_b = current_best_alpha
-				self.add_alpha(alpha_b)
-				num_updated += 1
-				if num_updated % 10 == 0:
-					self.pickle_beliefs_and_alphas(
-						name="value iteration " + str(num_updated) + " beliefs updated time " + str(
-							datetime.now()).replace(":", ".")[:22])
-			iterations += 1
-			self.pickle_beliefs_and_alphas(
-				name="value iteration " + str(iterations) + "time " + str(datetime.now()).replace(":", ".")[:22])
-		return self.v
-
-	def update_v_shani(self, convergence_threshold=1):
-		'''
-		Taken from algorithm 4 from Shani et al
-		:return:
-		'''
-		# for i in range(depth):
-		max_improvement = convergence_threshold + 0.1
-		iterations = 0
-		while max_improvement > convergence_threshold:
-			beliefs_to_update = copy.deepcopy(self.beliefs)
-			v_prime = []
-			max_improvement = 0
-			while len(beliefs_to_update) > 0:
-				b = random.sample(beliefs_to_update, 1)[0]
-				alpha = self.backup(b, self.v)
-				best_alpha, current_value = self.get_best_alpha(b)
-				new_value = self.alpha_dot_b(alpha, b)
-				# Changed from >= to >
-				if new_value > current_value:
-					# TODO vectorize! This is currently a bottleneck and seems easy to parallelize
-					# TODO incorporate side-effect improvements into max_improvement
-					beliefs_to_update = [belief for belief in beliefs_to_update if
-					                     self.alpha_dot_b(alpha, belief) < self.get_value(
-						                     belief) + convergence_threshold]
-					alpha_b = alpha
-					max_improvement = max(max_improvement, new_value - current_value)
-				else:
-					beliefs_to_update.remove(b)
-					alpha_b = best_alpha
-				self.v.append(alpha_b)
-			iterations += 1
-			self.pickle_beliefs_and_alphas(
-				name="value iteration " + str(iterations) + "time " + str(datetime.now()).replace(":", ".")[:22])
-		return self.v
-
 	def initialize_v(self):
 		# currently custom designed for Fetch
 		new_alphas = []
@@ -547,6 +459,7 @@ class Perseus(PBVI):
 		for action in non_terminal_actions:
 			alpha = self.get_lower_bound_alpha_from_action(action, self.conservative_lower_bounds)
 			new_alphas.append(alpha)
+		self.v = new_alphas
 		return new_alphas
 
 

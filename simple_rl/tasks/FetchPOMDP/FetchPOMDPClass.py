@@ -44,7 +44,7 @@ class FetchPOMDP(POMDP):
 		for i in range(self.num_items):
 			self.actions.append("pick " + str(i))
 			self.actions.append("point " + str(i))
-			if use_look:
+			if use_look == True:
 				self.actions.append("look " + str(i))
 		self.actions.append("wait")
 		self.non_terminal_actions = [a for a in self.actions if a.split(" ")[0] != "pick"]
@@ -172,17 +172,17 @@ class FetchPOMDP(POMDP):
 		:param action:
 		:return: The resulting state from taking action from state
 		'''
+		s1 = copy.deepcopy(state)
 		vals = action.split(" ")
 		if vals[0] in ["look", "point"]:
-			s1 = copy.deepcopy(state)
 			s1["last_referenced_item"] = int(vals[1])
 			s1["reference_type"] = vals[0]
 			return s1
 		return state
 	def belief_transition_func(self,belief,action):
+		b1 = copy.deepcopy(belief)
 		vals = action.split(" ")
 		if vals[0] in ["look", "point"]:
-			b1 = copy.deepcopy(belief)
 			b1["last_referenced_item"] = int(vals[1])
 			b1["reference_type"] = vals[0]
 			return b1

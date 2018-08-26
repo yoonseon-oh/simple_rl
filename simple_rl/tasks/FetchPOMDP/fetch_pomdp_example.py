@@ -187,7 +187,7 @@ def perseus_run(pomdp1_args,solver1_args, n = 10):
 	# p = pickle.load(open(pickle_directory + "value iteration 1time 2018-08-21 21.00.15.60.pickle", "rb"))
 	# p = pickle.load(open(pickle_directory + "Perseus lab items value iteration 4 time 2018-08-22 09.39.27.67.pickle", "rb"))
 	# solver1 = Perseus2(pomdp1, **solver1_args, pickle = p)
-	solver1 = Perseus2(pomdp1, **solver1_args, name="Perseus useless look")
+	solver1 = Perseus2(pomdp1, **solver1_args, name="Perseus new lab 1")
 	solver1.update_v()
 	# values1 = solver1.evaluate_alphas_at_beliefs(solver1.v,solver1.beliefs)
 	# values2 = [solver1.get_value(b) for b in solver1.beliefs]
@@ -283,6 +283,6 @@ def bss(pomdp1_args, num_episodes=5):
 # 	           {"horizon": 2, "qvalue_method": "belief based", "observation_branching": 1, "muted": False}, n = 10)
 
 perseus_run({"use_look": True},
-            {"num_beliefs":1000, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.2}, n = 100)
+            {"num_beliefs":500, "belief_depth":3, "observations_sample_size":3, "convergence_threshold":.2}, n = 100)
 # pbvi_run({"use_look": True},
 #             {"observations_sample_size":3, "convergence_threshold":.2}, n = 100)

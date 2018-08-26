@@ -1,35 +1,53 @@
 {
   "items": [
     {
-      "shape": "cylinder",
+      "shape": "marker",
       "color": "blue",
       "location": [
-        -5,
-        1,
-        -0.116
+        0.955,
+        -0.278,
+        -0.172
+      ]
+    },
+    {
+      "shape": "marker",
+      "color": "purple",
+      "location": [
+        0.952,
+        -0.118,
+        -0.172
       ]
     },
     {
       "shape": "ball",
+      "color": "white",
+      "location": [
+        0.951,
+        0.04,
+        -0.172
+      ]
+    },
+    {
+      "shape": "marker",
       "color": "red",
       "location": [
-        -5.01,
-        1,
-        -0.118
+        0.969,
+        0.178,
+        -0.172
       ]
     },
     {
       "shape": "marker",
       "color": "green",
       "location": [
-        2,
-        0.71,
-        -0.12
+        0.964,
+        0.348,
+        -0.172
       ]
     }
   ],
   "desired_item": 0,
-  "num_items": 3,
+  "num_items": 5,
   "bag_of_words": {
     "spoon": [
       "spoon",
@@ -106,8 +124,8 @@
   "alpha": 0.2,
   "std_theta": 0.15,
   "std_theta_point": 0.02,
-  "std_theta_look": 0.5,
-  "point_cost": -1.8,
+  "std_theta_look": 0.162,
+  "point_cost": -2.5,
   "look_cost": -1.3,
   "wait_cost": -1.0,
   "wrong_pick_cost": -900,

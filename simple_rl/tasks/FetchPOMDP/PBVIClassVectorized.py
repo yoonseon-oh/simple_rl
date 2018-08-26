@@ -461,6 +461,9 @@ class Perseus2(PBVI2):
 						o = self.pomdp.sample_observation_from_belief_action(b, a)
 						imposs = cstuff.is_observation_impossible(b, o)
 				b = self.pomdp.belief_update(b, o)
+				negs = [i for i in b["desired_item"] if i < 0]
+				if len(negs) > 0:
+					print("Initialized impossible belief: " + str(b["desired_item"]))
 				self.beliefs.append(b)
 		return self.beliefs
 

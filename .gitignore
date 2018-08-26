@@ -16,4 +16,10 @@ simple_rl/tasks/FetchPOMDP/.idea
 simple_rl/tasks/FetchPOMDP/FetchPOMDP trials
 simple_rl/tasks/FetchPOMDP/FetchPOMDP*
 simple_rl/tasks/FetchPOMDP/PBVIPickles
+simple_rl/tasks/FetchPOMDP/tests.py
+simple_rl/tasks/FetchPOMDP/tests_csv.py
+simple_rl/tasks/FetchPOMDP/value iteration*
+simple_rl/PBVIPickles
+
+
 venv

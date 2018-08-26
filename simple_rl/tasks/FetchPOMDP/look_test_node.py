@@ -2,7 +2,7 @@ import math, random, json
 import datetime as datetime
 from std_msgs.msg import String
 import rospy
-
+from simple_rl.tasks.FetchPOMDP.file_reader import write_csv
 eyes = rospy.Publisher('/baxter_eyes', String, queue_size=10)
 rate = rospy.Rate(1)
 
@@ -41,6 +41,7 @@ def look_precision_test_circle(min_angle=-math.pi / 2, max_angle=math.pi / 2, ra
 	"""
 	# TODO test on baxter
 	true_angles = []
+	true_locations = []
 	interpreted_angles = []
 	num_samples = 0
 	while num_samples < n and rospy.is_shutdown():
@@ -49,14 +50,19 @@ def look_precision_test_circle(min_angle=-math.pi / 2, max_angle=math.pi / 2, ra
 		print("Looking at angle: " + str(angle))
 		true_angles.append(angle)
 		loc = cylindrical_to_cartesian_coordinates(angle, radius, height)
+		true_locations.append(loc)
 		print("Looking at point: " + str(loc))
 		msg = str(loc[0]) + " " + str(loc[1]) + " " + str(loc[2])
 		eyes.publish(msg)
+		num_samples +=1
 		rate.sleep()
-	data = {"true_angles": true_angles, "min_angle": min_angle, "max_angle": max_angle, "radius": radius,
+	data = {"true_angles": true_angles, "true_locations":true_locations,"min_angle": min_angle, "max_angle": max_angle, "radius": radius,
 	        "height": height, "geometry": "circle"}
-	logname = output_directory + "look precision test circle" + str(datetime.now()).replace(":", ".")[:22] + ".json"
-	json.dump(data, open(logname, "w"))
+	# logname = output_directory + "look precision test circle" + str(datetime.now()).replace(":", ".")[:22] + ".json"
+	logname = output_directory + "look precision tests circle.csv"
+	data_as_list = [true_locations]
+	write_csv(true_locations,logname)
+	# json.dump(data, open(logname, "w"))
 
 
 def look_precision_test_line(start, end, n=10):
@@ -73,13 +79,14 @@ def look_precision_test_line(start, end, n=10):
 	true_locations = []
 	interpreted_angles = []
 	num_samples = 0
-	while num_samples < n and rospy.is_shutdown():
+	while num_samples < n and not rospy.is_shutdown():
 		# Sample a point on the line
 		loc = sample_from_line(start, end)
 		true_locations.append(loc)
 		print("Looking at point: " + str(loc))
 		msg = str(loc[0]) + " " + str(loc[1]) + " " + str(loc[2])
 		eyes.publish(msg)
+		num_samples +=1
 		rate.sleep()
 	data = {"true_locations": true_locations, "start": start, "end": end, "geometry": "line"}
 	logname = output_directory + "look precision test line" + str(datetime.now()).replace(":", ".")[:22] + ".json"

@@ -1,5 +1,5 @@
 import os, sys
-import json
+import json, pickle
 import csv
 
 
@@ -57,10 +57,13 @@ def write_csv(data_as_list, file_name = None, directory =None):
 	return data_as_csv
 
 
-def write_csv_test():
-	data_as_list = [1,2,3,4,5]
-	data_as_csv = write_csv(data_as_list)
-	print(data_as_csv)
-#
-# data_as_csv = write_csv([1,2,3,4,5])
-# print(data_as_csv)
+def get_json_from_PBVI_pickle(file_name):
+	directory = os.path.dirname(os.path.realpath(__file__)) + "/"
+	file_name = directory + file_name
+	output_name = file_name + ".json"
+	p = pickle.load(open(file_name,"rb"))
+	results = p["results"]
+	results["pomdp"] = p["pomdp config"]
+	with open(output_name, 'w') as fp:
+		json.dump(results, fp, indent=4)
+	return results
