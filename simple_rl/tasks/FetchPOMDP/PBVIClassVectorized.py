@@ -248,13 +248,13 @@ class PBVI2():
 			name = self.name + " partial update " + str(len(alphas)) + " alphas " + str(len(self.beliefs)) + "beliefs " + str(
 				datetime.now()).replace(":", ".")[:22]
 		p = {"alphas": alphas, "beliefs": self.beliefs, "pomdp config": self.pomdp.config, "num_update_iterations":self.num_update_iterations, "name":self.name, "terminal_action_alphas":self.terminal_action_alphas}
-		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"))
+		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"), protocol = 2)
 	def pickle_data(self, name=None, n = 100):
 		if name is None:
 			name = self.name + " pickle " + str(len(self.v)) + " alphas " + str(len(self.beliefs)) + "beliefs " + str(
 				datetime.now()).replace(":", ".")[:22]
 		p = {"alphas": self.v, "beliefs": self.beliefs, "pomdp config": self.pomdp.config, "num_update_iterations":self.num_update_iterations, "name":self.name, "terminal_action_alphas":self.terminal_action_alphas}
-		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"))
+		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"), protocol = 2)
 		if len(self.v) > 0 and self.num_update_iterations > 2:
 			results1 = self.run(n)
 			results1.update({"action_counts": cstuff.get_count_each_action(results1["histories"]), "action_counts_precise":cstuff.get_count_each_action_precise(results1["histories"])})
@@ -263,7 +263,7 @@ class PBVI2():
 			print("solver1 %" + str(100 * float(results1["num_correct"]) / n))
 			print("solver1 action counts: " + str(results1["action_counts"]))
 			print("solver1 precise action counts: " + str(results1["action_counts_precise"]))
-		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"))
+		pickle.dump(p, open(pickle_location + name + ".pickle", "wb"), protocol = 2)
 
 	def load_from_pickle(self, p):
 		self.beliefs = p["beliefs"]
