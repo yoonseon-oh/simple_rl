@@ -26,6 +26,9 @@ class Option(object):
 		else:
 			self.policy = policy
 
+	def __hash__(self):
+		return hash(self.name)
+
 	def is_init_true(self, ground_state):
 		return self.init_predicate.is_true(ground_state)
 
