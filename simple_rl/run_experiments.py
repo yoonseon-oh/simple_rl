@@ -29,6 +29,7 @@ from simple_rl.planning import ValueIteration
 from simple_rl.experiments import Experiment
 from simple_rl.mdp import MarkovGameMDP
 from simple_rl.agents import FixedPolicyAgent
+from simple_rl.abstraction.action_abs.OptionClass import Option
 
 def play_markov_game(agent_ls, markov_game_mdp, instances=10, episodes=100, steps=30, verbose=False, open_plot=True):
     '''
@@ -338,8 +339,25 @@ def run_single_agent_on_mdp(agent, mdp, episodes, steps, experiment=None, verbos
                     continue
                 break
 
+            option_reward = 0
+
+            if isinstance(action, Option):
+                option = action # type: Option
+                if option.is_init_true(state):
+                    if verbose:
+                        print("From state {}, taking option {}".format(state, option))
+                    option_reward, state = mdp.execute_agent_action(option.act(state))
+                    while not option.is_term_true(state):
+                        if verbose:
+                            print("from state {}, taking action {}".format(state, option.act(state)))
+                        r2, state = mdp.execute_agent_action(option.act(state))
+                        option_reward += r2
+
             # Execute in MDP.
             reward, next_state = mdp.execute_agent_action(action)
+
+            # Add the reward achieved if we took any option
+            reward += option_reward
 
             # Track value.
             value += reward * gamma ** step
