@@ -10,10 +10,13 @@ from simple_rl.planning import ValueIteration
 from simple_rl.agents import QLearningAgent
 
 def main():
-    ap_map = {'a': (2,2),'b': (6,3), 'c': (5,3)}
-    ltlformula = 'F (b & Fa) & ~c'
+    ap_map = {'a': (2,2),'b': (6,3), 'c': (5,3), 'd': (4,2)}
+    ltlformula = 'F (b & Fa)'
     # Setup MDP, Agents.
     mdp = LTLGridWorldMDP(ltltask=ltlformula, ap_map=ap_map, width=6, height=6, goal_locs=[(6, 6)], slip_prob=0.2)
+    mdp.automata.subproblem_flag = 0
+    mdp.automata.subproblem_stay = 1
+    mdp.automata.subproblem_goal = 0
     value_iter = ValueIteration(mdp, sample_rate=5)
     value_iter.run_vi()
 
