@@ -27,10 +27,14 @@ class LTLAMDP():
         self.automata = LTLautomata(ltlformula) # Translate LTL into the automata
         self.ap_maps = ap_maps
         self.cube_env = build_cube_env() #define environment
+        self._generate_AP_tree() # relationship between atomic propositions
+        # simplify automata
+        self.automata._simplify_dict(self.relation_TF)
+
 
     def solve_debug(self):
-        constraints = {'goal': 'a', 'stay': '~b'}
-        sub_ap_maps = {'a': (1, 'state', 3), 'b': (1, 'state', 2), 'c': (0, 'state', (1, 4, 1))}
+        constraints={'goal': 'a', 'stay': '~a'}
+        sub_ap_maps={'a': (2, 'state', 3), 'b': (1, 'state', 2), 'c': (0, 'state', (1, 4, 1))}
 
         # 2. Parse: Which level corresponds to the current sub - problem
         sub_level = 2
@@ -47,8 +51,11 @@ class LTLAMDP():
         elif sub_level == 1:
             # solve
             self._solve_subproblem_L1(constraints=constraints, ap_maps=sub_ap_maps)
+        elif sub_level == 2:
+            # solve
+            self._solve_subproblem_L2(constraints=constraints, ap_maps=sub_ap_maps)
 
-    def solve(self, init_loc=(1,1,1)):
+    def solve(self, init_loc=(1, 1, 1)):
         Q_init = self.automata.init_state
         Q_goal = self.automata.get_accepting_states()
 
@@ -57,13 +64,14 @@ class LTLAMDP():
         n_path = len(q_paths) # the number of paths
 
         # Find a path in the environment
-        for np in [3]:#range(1,n_path):
+        for np in range(0, n_path):
             cur_path = q_paths[np] # current q path
             cur_words = q_words[np] # current q words
             cur_loc = init_loc
 
             action_seq = []
             state_seq = []
+
             for tt in range(0, len(cur_words)):
                 trans_fcn = self.automata.trans_dict[cur_path[tt]]
                 # 1. extract constraints
@@ -78,7 +86,7 @@ class LTLAMDP():
                     if ap in constraints['goal'] or ap in constraints['stay']:
                         sub_ap_maps[ap] = ap_maps[ap]
                         sub_level = min(sub_level, sub_ap_maps[ap][0])
-
+                print("----- Solve in level {} MDP -----".format(sub_level))
                 # 3. Solve AMDP
                 if sub_level == 0:
                     action_seq_sub, state_seq_sub = self._solve_subproblem_L0(init_locs=cur_loc, constraints=constraints, ap_maps =sub_ap_maps)
@@ -172,8 +180,8 @@ class LTLAMDP():
                                ap_maps=ap_maps)
 
         # define l1 domain
-        start_room = l0Domain.get_room_numbers(init_locs)
-        start_floor = l0Domain.get_floor_numbers(init_locs)
+        start_room = l0Domain.get_room_numbers(init_locs)[0]
+        start_floor = l0Domain.get_floor_numbers(init_locs)[0]
 
         l1Domain = CubeL1MDP(start_room, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps)
         l2Domain = CubeL2MDP(start_floor, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps)
@@ -183,7 +191,7 @@ class LTLAMDP():
         l1_policy_generator = CubeL1PolicyGenerator(l0Domain, AbstractCubeL1StateMapper(l0Domain),
                                                     env_file=[self.cube_env], constraints=constraints,
                                                     ap_maps=ap_maps)
-        l2_policy_generator = CubeL1PolicyGenerator(l1Domain, AbstractCubeL2StateMapper(l1Domain),
+        l2_policy_generator = CubeL2PolicyGenerator(l1Domain, AbstractCubeL2StateMapper(l1Domain),
                                                     env_file=[self.cube_env], constraints=constraints,
                                                     ap_maps=ap_maps)
 
@@ -193,31 +201,105 @@ class LTLAMDP():
 
         # 2 levels
         l1Subtasks = [PrimitiveAbstractTask(action) for action in l0Domain.ACTIONS]
-        l2Subtasks = [NonPrimitiveAbstractTask(action) for action in l1Domain.ACTIONS]
         a2rt = [CubeL1GroundedAction(a, l1Subtasks, l0Domain) for a in l1Domain.ACTIONS]
-        a2rt2 = [CubeL2GroundedAction(a, l2Subtasks, l1Domain) for a in l2Domain.ACTIONS]
+        a2rt2 = [CubeL2GroundedAction(a, a2rt, l1Domain) for a in l2Domain.ACTIONS]
 
-        l1Root = CubeRootL1GroundedAction(l1Domain.action_for_room_number(0), a2rt, l1Domain,
-                                          l1Domain.terminal_func, l1Domain.reward_func, constraints=constraints,
-                                          ap_maps=ap_maps)
-        l2Root = CubeRootL2GroundedAction(l2Domain.action_for_floor_number(0), a2rt2, l2Domain,
-                                          l1Domain.terminal_func, l1Domain.reward_func, constraints=constraints,
+        l2Root = CubeRootL2GroundedAction(l2Domain.action_for_floor_number(1), a2rt2, l2Domain,
+                                          l2Domain.terminal_func, l2Domain.reward_func, constraints=constraints,
                                           ap_maps=ap_maps)
 
-        agent = AMDPAgent(l1Root, policy_generators, l0Domain)
+        agent = AMDPAgent(l2Root, policy_generators, l0Domain)
+
+        # Test - base, l1 domain
+        l2Subtasks = [PrimitiveAbstractTask(action) for action in l1Domain.ACTIONS]
+
         agent.solve()
 
         return True
         #return action_seq, state_seq
 
+    def _generate_AP_tree(self): # return the relationship between atomic propositions
+        # TODO: WRONG CHECK!
+        relation_TF = {}
+        for key in self.ap_maps.keys():
+            level = ap_maps[key][0]  # current level
+            lower_list = []
+            notlower_list = []
+            samelevel_list = []
+            higher_list = []
+            nothigher_list = []
+
+            ap = self.ap_maps[key]
+
+            if level == 0:   # the current level
+                for key2 in self.ap_maps.keys():
+                    ap2 = self.ap_maps[key2]
+                    if ap2[0] == 0:  # level 0
+                        samelevel_list.append(key2)
+                    if ap2[0] == 1:  # level 1
+                        if ap2[1] == 'state' and ap[2] in self.cube_env['room_to_locs'][ap2[2]]:
+                            higher_list.append(key2)
+                        else:
+                            nothigher_list.append(key2)
+                    if ap2[0] == 2:  # level 2
+                        if ap2[1] == 'state' and ap[2] in self.cube_env['floor_to_locs'][ap2[2]]:
+                            higher_list.append(key2)
+                        else:
+                            nothigher_list.append(key2)
+
+            if level == 1:
+                for key2 in self.ap_maps.keys():
+                    ap2 = self.ap_maps[key2]
+                    if ap2[0] == 0 and ap2[1] == 'state':  # lower
+                        if ap2[2] in self.cube_env['room_to_locs'][ap[2]]:
+                            lower_list.append(key2)
+                        else:
+                            notlower_list.append(key2)
+
+                    if self.ap_maps[key2][0] == 1: # same level
+                        samelevel_list.append(key2)
+
+                    if ap2[0] == 2 and ap2[1] == 'state': # higher level
+                        if ap[2] in self.cube_env['floor_to_rooms'][ap2[2]]:
+                            higher_list.append(key2)
+                        else:
+                            nothigher_list.append(key2)
+
+            if level == 2:
+                for key2 in self.ap_maps.keys():
+                    ap2 = self.ap_maps[key2]
+                    if ap2[0] == 0 and ap2[1] == 'state':  # lower
+                        if ap2[2] in self.cube_env['floor_to_locs'][ap[2]]:
+                            lower_list.append(key2)
+                        else:
+                            notlower_list.append(key2)
+
+                    if ap2[0] == 1 and ap2[2] in self.cube_env['floor_to_rooms'][self.ap_maps[key][2]]:
+                        lower_list.append(key2)
+                    elif self.ap_maps[key2][0] == 1:
+                        notlower_list.append(key2)
+
+                    if ap2[0] == 2:
+                        samelevel_list.append(key2)
+
+            relation_TF[key] = {'lower': lower_list, 'same': samelevel_list, 'lower_not': notlower_list,
+                                'higher': higher_list, 'higher_not': nothigher_list}
+
+        self.relation_TF = relation_TF
+
 
 
 
 if __name__ == '__main__':
-    ltl_formula = 'F (d & F (a & F b))'
-    ap_maps = {'a': [1, 'state', 3], 'b': [1, 'state', 5], 'c': [1, 'state', 2], 'd': [0, 'action', 'north']}
+    ltl_formula = 'F (a & F ( b & F c))'
+    ap_maps = {'a': [1, 'state', 3], 'b': [1, 'state', 5], 'c': [1, 'state', 10], 'd': [0, 'state', (6,1,1)], 'e': [2, 'state', 1],
+               'f':[2, 'state', 2], 'g':[0, 'state', (1, 4, 3)]}
     ltl_amdp = LTLAMDP(ltl_formula , ap_maps)
+
+    ltl_amdp._generate_AP_tree()
+    #ltl_amdp.solve_debug()
     ltl_amdp.solve()
+    print("End")
 
 
 

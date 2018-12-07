@@ -48,6 +48,7 @@ class RoomCubeMDP(CubeMDP):
             len_z = cube_env['len_z']
             walls = cube_env['walls']
             self.num_room = cube_env['num_room']
+            self.num_floor = cube_env['num_floor']
             self.room_to_locs = cube_env['room_to_locs']
             self.floor_to_rooms = cube_env['floor_to_rooms']
             self.floor_to_locs = cube_env['floor_to_locs']
@@ -75,7 +76,9 @@ class RoomCubeMDP(CubeMDP):
         #print('{}: {}, {}, {}, {}'.format(action, next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q))
         next_state = RoomCubeState(next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q)
 
-        next_state._is_terminal = (next_q == 1)
+        if next_q == 1:
+            next_state.set_terminal(True)
+            next_state._is_terminal = (next_q == 1)
 
         return next_state
 
@@ -98,7 +101,7 @@ class RoomCubeMDP(CubeMDP):
     def get_floor_numbers(self, loc):
         room_number = self.get_room_numbers(loc)[0]
         floor_numbers = []
-        for i in range(1, self.num_room+1):
+        for i in range(1, self.num_floor):
             if room_number in self.floor_to_rooms[i]:
                 floor_numbers.append(i)
         return floor_numbers
@@ -113,7 +116,7 @@ class RoomCubeMDP(CubeMDP):
         #print(state, action, reward)
         return reward
 
-    def _transition_q(self, loc, action ):
+    def _transition_q(self, loc, action):
         # evaluate APs
         evaluated_APs = self._evaluate_APs(loc, action)
 
@@ -143,7 +146,6 @@ class RoomCubeMDP(CubeMDP):
 
             elif self.ap_maps[ap][0] == 1 and (self.ap_maps[ap][1] == 'state'):  # level 1
                 evaluated_APs[ap] = self.is_loc_in_room(loc, self.ap_maps[ap][2])
-
 
             elif self.ap_maps[ap][0] == 1 and (self.ap_maps[ap][1] == 'action'):  # level 1
                 evaluated_APs[ap] = self.ap_maps[ap][2] in action

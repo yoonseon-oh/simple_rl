@@ -5,7 +5,7 @@ def build_cube_env():
     cube_env = {} # Define settings as a dictionary
     cube_env['len_x'] = 6  # the number of grids (x-axis)
     cube_env['len_y'] = 4  # the number of grids (y-axis)
-    cube_env['len_z'] = 3  # the number of grids (z-axis)
+    cube_env['len_z'] = 6  # the number of grids (z-axis)
     cube_env['num_floor']= 3 # the number of floors
     cube_env['num_room'] = 18 # the number of rooms
 
@@ -15,15 +15,27 @@ def build_cube_env():
                 [int(np.ceil(ii / 2)) for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+3 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+3 for ii in range(1, 7)]])  # the first floor
+    map.append([['w' for ii in range(1, 7)],
+                ['w' for ii in range(1, 7)],
+                ['w','w','w','w', 6, 6],
+                ['w','w','w','w', 6, 6]])    # Wall
     map.append([[int(np.ceil(ii / 2))+6 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+6 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+9 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+9 for ii in range(1, 7)]])  # the second floor
+    map.append([['w' for ii in range(1, 7)],
+                ['w' for ii in range(1, 7)],
+                ['w', 'w', 'w', 'w', 12, 12],
+                ['w', 'w', 'w', 'w', 12, 12]])  # Wall
     map.append([[int(np.ceil(ii / 2))+12 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+12 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+15 for ii in range(1, 7)],
                 [int(np.ceil(ii / 2))+15 for ii in range(1, 7)]])  # the third floor
-
+    map.append([[int(np.ceil(ii / 2)) + 12 for ii in range(1, 7)],
+                [int(np.ceil(ii / 2)) + 12 for ii in range(1, 7)],
+                [int(np.ceil(ii / 2)) + 15 for ii in range(1, 7)],
+                [int(np.ceil(ii / 2)) + 15 for ii in range(1, 7)]])  # Wall
+    z_to_floor = [1, 1, 2, 2, 3, 3]
     cube_env['map'] = map
 
     # extract (x,y,z) in each room
@@ -52,17 +64,20 @@ def build_cube_env():
     # Extract room numbers and locations in each floor
     floor_to_room = defaultdict()
     floor_to_locs = defaultdict()
-    for f in range(0, cube_env['num_floor']):
+    for f in range(1, cube_env['num_floor']+1):
         rooms = []
         locs = []
         for x in range(1, cube_env['len_x'] + 1):
             for y in range(1, cube_env['len_y'] + 1):
-                if cube_env['map'][f][y-1][x-1] not in rooms:
-                    rooms.append(cube_env['map'][f][y-1][x-1])
-                locs.append((x, y, f+1))
+                for z in range(1, cube_env['len_z'] + 1):
+                    room_number = cube_env['map'][z-1][y-1][x-1]
+                    if  room_number not in rooms and z_to_floor[z-1] == f and room_number !='w':
+                        rooms.append(room_number)
+                    if z_to_floor[z - 1] == f and room_number != 'w':
+                        locs.append((x, y, z))
 
-        floor_to_room[f+1] = rooms
-        floor_to_locs[f+1] = locs
+        floor_to_room[f] = rooms
+        floor_to_locs[f] = locs
 
     cube_env['floor_to_rooms'] = floor_to_room
     cube_env['floor_to_locs'] = floor_to_locs
@@ -95,7 +110,7 @@ def build_cube_env():
                                    }
 
     # Define Actions
-    cube_env['L2ACTIONS'] = ["toFloor%d" %ii for ii in range(1, cube_env['num_floor']+1)]
+    cube_env['L2ACTIONS'] = ["toFloor%d" % ii for ii in range(1, cube_env['num_floor']+1)]
     cube_env['L1ACTIONS'] = ["toRoom%d" % ii for ii in range(1, cube_env['num_room'] + 1)]
     cube_env['L0ACTIONS'] = ["north", "south", "east", "west", "up", "down"]
 

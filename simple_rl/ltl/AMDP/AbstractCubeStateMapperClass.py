@@ -31,6 +31,6 @@ class AbstractCubeL2StateMapper(AMDPStateMapper): # TODO: Modify
         '''
 
         floor = self.lower_domain.get_floor_numbers(l1_state.agent_in_room_number)[0]
-        return CubeL2State(floor)
+        return CubeL2State(floor, l1_state.q)
 
 

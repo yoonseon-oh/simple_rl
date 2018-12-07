@@ -11,7 +11,7 @@ from simple_rl.ltl.AMDP.AbstractCubeMDPClass import CubeL1MDP, CubeL2MDP
 from simple_rl.ltl.AMDP.AbstractCubeStateMapperClass import AbstractCubeL1StateMapper, AbstractCubeL2StateMapper
 
 class CubeL2PolicyGenerator(AMDPPolicyGenerator):
-    def __init__(self, l1MDP, state_mapper, verbose=False, env_file =[]):
+    def __init__(self, l1MDP, state_mapper, verbose=False, env_file =[], constraints = {}, ap_maps = {}):
         '''
         Args:
             l1MDP (FourRoomMDP): lower domain
@@ -29,7 +29,9 @@ class CubeL2PolicyGenerator(AMDPPolicyGenerator):
             l1_state (FourRoomL1State): generate policy in l1 domain starting from l1_state
             grounded_action (FourRoomRootGroundedAction): TaskNode above defining the subgoal for current MDP
         '''
-        mdp = CubeL2MDP(l2_state.agent_on_floor_number, grounded_action.goal_state.agent_on_floor_number, env_file = self.env_file)
+        mdp = CubeL2MDP(l2_state.agent_on_floor_number, env_file=self.env_file,
+                        constraints=grounded_action.goal_constraints,
+                        ap_maps=grounded_action.ap_maps)
         return self.get_policy(mdp, verbose=True)
 
     def generate_abstract_state(self, l1_state):
@@ -58,7 +60,7 @@ class CubeL1PolicyGenerator(AMDPPolicyGenerator):
         '''
         #destination_locations = self.grounded_action.l1_domain.
         #.floor_to_rooms[grounded_action.goal_state.agent_on_floor_number]
-        mdp = CubeL1MDP(l1_state.agent_in_room_number, env_file = self.env_file,
+        mdp = CubeL1MDP(l1_state.agent_in_room_number, env_file=self.env_file,
                         constraints=grounded_action.goal_constraints,
                         ap_maps=grounded_action.ap_maps)
         return self.get_policy(mdp, verbose=True)
