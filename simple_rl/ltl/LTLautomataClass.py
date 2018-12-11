@@ -70,9 +70,9 @@ class LTLautomata():
             else:
                 return self.reward['others'] # cost of actions
         else:  # subproblem mode
-            if q==self.subproblem_goal:
+            if q == self.subproblem_goal:
                 return self.reward['goal']
-            elif q==self.subproblem_stay:
+            elif q == self.subproblem_stay:
                 return self.reward['others']
             else: return self.reward['fail']
 
@@ -161,7 +161,7 @@ class LTLautomata():
         Flag_contradiction = False
 
         TF_table  = list(itertools.product([True, False], repeat=num_ap))  # true false table
-        del_list = []
+        #del_list = []
         for ii in range(0, len(TF_table)):
             cur_comb = TF_table[ii]
             flag_remove = False
@@ -174,20 +174,20 @@ class LTLautomata():
 
                     if cur_comb[jj]:  # True
                         if ap2 in AP_tree[ap]['same'] and cur_comb[i_ap]:
-                            del_list.append(ii)
+                            #del_list.append(ii)
                             flag_remove = True
                         elif ap2 in AP_tree[ap]['lower_not'] and cur_comb[i_ap]:
-                            del_list.append(ii)
+                            #del_list.append(ii)
                             flag_remove = True
-                        elif ap2 in AP_tree[ap]['higher'] and cur_comb[i_ap]:
-                            del_list.append(ii)
+                        elif ap2 in AP_tree[ap]['higher'] and not cur_comb[i_ap]:
+                            #del_list.append(ii)
                             flag_remove = True
-                        elif ap2 in AP_tree[ap]['higher_not'] and not cur_comb[i_ap]:
-                            del_list.append(ii)
+                        elif ap2 in AP_tree[ap]['higher_not'] and cur_comb[i_ap]:
+                            #del_list.append(ii)
                             flag_remove = True
                     else:
                         if ap2 in AP_tree[ap]['lower'] and cur_comb[i_ap]:
-                            del_list.append(ii)
+                            #del_list.append(ii)
                             flag_remove = True
 
                     if flag_remove:
@@ -195,7 +195,7 @@ class LTLautomata():
                 if flag_remove:
                     break
 
-            if not flag_remove:  #  check true or false
+            if not flag_remove:   # check true or false
                 evaluated_APs = {}
                 for jj in range(0, num_ap):
                     evaluated_APs[ap_set[jj]] = cur_comb[jj]

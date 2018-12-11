@@ -94,6 +94,9 @@ class LTLAMDP():
                 elif sub_level == 1:
                     # solve
                     action_seq_sub, state_seq_sub = self._solve_subproblem_L1(init_locs=cur_loc, constraints=constraints, ap_maps=sub_ap_maps)
+                elif sub_level == 2:
+                    # solve
+                    action_seq_sub, state_seq_sub = self._solve_subproblem_L2(init_locs=cur_loc, constraints=constraints, ap_maps=sub_ap_maps)
 
                 # update
                 state_seq.append(state_seq_sub)
@@ -103,10 +106,12 @@ class LTLAMDP():
             print('Plan')
             for k in range(len(action_seq)):
                 for i in range(len(action_seq[k])):
-                    room_number = self._get_room_number(state_seq[k][i])
+                    room_number, floor_number = self._get_abstract_number(state_seq[k][i])
 
-                    print("\t {} in room {}, {}".format(state_seq[k][i], room_number, action_seq[k][i]))
-            print("\t {} in room {}".format(state_seq[k][-1], self._get_room_number(state_seq[k][-1])))
+                    print("\t {} in room {} on the floor {}, {}".format(state_seq[k][i], room_number, floor_number, action_seq[k][i]))
+                print('\t----------------------------------------')
+            room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
+            print("\t {} in room {} on the floor {}".format(state_seq[k][-1], room_number, floor_number))
 
     def _get_room_number(self, state):
         room_number = 0
@@ -115,6 +120,21 @@ class LTLAMDP():
                 room_number = r
 
         return room_number
+
+    def _get_abstract_number(self, state):
+        room_number = 0
+        floor_number = 0
+        for r in range(1, self.cube_env['num_room'] + 1):
+            if (state.x, state.y, state.z) in self.cube_env['room_to_locs'][r]:
+                room_number = r
+                break
+
+        for f in range(1, self.cube_env['num_floor'] + 1):
+            if room_number in self.cube_env['floor_to_rooms'][f]:
+                floor_number = f
+                break
+
+        return room_number, floor_number
 
 
     def _solve_subproblem_L0(self, init_locs=(1, 1, 1), constraints={}, ap_maps={}): #TODO
@@ -215,8 +235,23 @@ class LTLAMDP():
 
         agent.solve()
 
-        return True
-        #return action_seq, state_seq
+        # Extract action seq, state_seq
+        state = RoomCubeState(init_locs[0], init_locs[1], init_locs[2], 0)
+        action_seq = []
+        state_seq = [state]
+        while state in agent.policy_stack[0].keys():
+            action = agent.policy_stack[0][state]
+            state = l0Domain._transition_func(state, action)
+
+            action_seq.append(action)
+            state_seq.append(state)
+
+        print("Plan")
+        for i in range(len(action_seq)):
+            print("\t", state_seq[i], action_seq[i])
+        print("\t", state_seq[-1])
+        return action_seq, state_seq
+
 
     def _generate_AP_tree(self): # return the relationship between atomic propositions
         # TODO: WRONG CHECK!
@@ -292,9 +327,9 @@ class LTLAMDP():
 
 if __name__ == '__main__':
     ltl_formula = 'F (a & F ( b & F c))'
-    ap_maps = {'a': [1, 'state', 3], 'b': [1, 'state', 5], 'c': [1, 'state', 10], 'd': [0, 'state', (6,1,1)], 'e': [2, 'state', 1],
-               'f':[2, 'state', 2], 'g':[0, 'state', (1, 4, 3)]}
-    ltl_amdp = LTLAMDP(ltl_formula , ap_maps)
+    ap_maps = {'a': [2, 'state', 1], 'b': [1, 'state', 15], 'c': [2, 'state', 3], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+               'f': [2, 'state', 2], 'g': [0, 'state', (1, 4, 3)]}
+    ltl_amdp = LTLAMDP(ltl_formula, ap_maps)
 
     ltl_amdp._generate_AP_tree()
     #ltl_amdp.solve_debug()

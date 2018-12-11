@@ -101,7 +101,7 @@ class RoomCubeMDP(CubeMDP):
     def get_floor_numbers(self, loc):
         room_number = self.get_room_numbers(loc)[0]
         floor_numbers = []
-        for i in range(1, self.num_floor):
+        for i in range(1, self.num_floor+1):
             if room_number in self.floor_to_rooms[i]:
                 floor_numbers.append(i)
         return floor_numbers
