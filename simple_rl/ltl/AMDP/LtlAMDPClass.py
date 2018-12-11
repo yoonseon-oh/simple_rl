@@ -326,8 +326,8 @@ class LTLAMDP():
 
 
 if __name__ == '__main__':
-    ltl_formula = 'F (a & F ( b & F c))'
-    ap_maps = {'a': [2, 'state', 1], 'b': [1, 'state', 15], 'c': [2, 'state', 3], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+    ltl_formula = '~b U a'
+    ap_maps = {'a': [2, 'state', 2], 'b': [1, 'state', 2], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
                'f': [2, 'state', 2], 'g': [0, 'state', (1, 4, 3)]}
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps)
 
