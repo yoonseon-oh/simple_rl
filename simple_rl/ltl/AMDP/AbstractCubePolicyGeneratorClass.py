@@ -59,7 +59,7 @@ class CubeL1PolicyGenerator(AMDPPolicyGenerator):
             grounded_action (FourRoomRootGroundedAction): TaskNode above defining the subgoal for current MDP
         '''
         #destination_locations = self.grounded_action.l1_domain.
-        #.floor_to_rooms[grounded_action.goal_state.ag/ent_on_floor_number]
+        #.floor_to_rooms[grounded_action.goal_state.agent_on_floor_number]
         mdp = CubeL1MDP(l1_state.agent_in_room_number, env_file=self.env_file,
                         constraints=grounded_action.goal_constraints,
                         ap_maps=grounded_action.ap_maps)

@@ -181,7 +181,7 @@ class LTLAMDP():
         # 2 levels
         l1Subtasks = [PrimitiveAbstractTask(action) for action in l0Domain.ACTIONS]
         a2rt = [CubeL1GroundedAction(a, l1Subtasks, l0Domain) for a in l1Domain.ACTIONS]
-        l1Root = CubeRootL1GroundedAction(l1Domain.action_for_room_number(0), a2rt, l1Domain,
+        l1Root = CubeRootL1GroundedAction(constraints['goal'], a2rt, l1Domain,
                                           l1Domain.terminal_func, l1Domain.reward_func, constraints=constraints, ap_maps=ap_maps)
 
         agent = AMDPAgent(l1Root, policy_generators, l0Domain)
@@ -337,7 +337,7 @@ class LTLAMDP():
 if __name__ == '__main__':
     ltl_formula = 'F (b & (F a))'
 #    ltl_formula = 'F (a&b)'
-    ap_maps = {'a': [1, 'state', 13], 'b': [2, 'state', 3], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+    ap_maps = {'a': [1, 'state', 7], 'b': [2, 'state', 2], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
                'f': [2, 'state', 2], 'g': [0, 'state', (1, 4, 3)]}
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, slip_prob=0.0)
 

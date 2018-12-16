@@ -61,7 +61,7 @@ class RoomCubeMDP(CubeMDP):
         self.constraints = constraints  # constraints for LTL
         self.ap_maps = ap_maps  # AP --> real world
 
-        init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], self._transition_q(init_loc, ""))
+        init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], 0) # self._transition_q(init_loc, ""))
         MDP.__init__(self, RoomCubeMDP.ACTIONS, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
 
@@ -70,15 +70,15 @@ class RoomCubeMDP(CubeMDP):
     def _transition_func(self, state, action):
         next_state_xyz = super()._transition_func(state, action)
 
-        next_q = self._transition_q((next_state_xyz.x, next_state_xyz.y, next_state_xyz.z), action)
-
+        next_q = 0
 
         #print('{}: {}, {}, {}, {}'.format(action, next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q))
         next_state = RoomCubeState(next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q)
 
-        if next_q == 1:
+        flag_terminal = self._evaluate_qstate((next_state_xyz.x, next_state_xyz.y, next_state_xyz.z), action)
+
+        if flag_terminal == 1:
             next_state.set_terminal(True)
-            next_state._is_terminal = (next_q == 1)
 
         return next_state
 
@@ -107,16 +107,18 @@ class RoomCubeMDP(CubeMDP):
         return floor_numbers
 
     def _reward_func(self, state, action): # TODO: Complete
-        if state.q == 0: # stay
+        flag_terminal = self._evaluate_qstate((state.x, state.y, state.z), action)
+
+        if flag_terminal == 0: # stay
             reward = -1
-        elif state.q == 1:  # success
+        elif flag_terminal == 1:  # success
             reward = 100
-        elif state.q == -1:  # fail
+        elif flag_terminal == -1:  # fail
             reward = -100
-        #print(state, action, reward)
+
         return reward
 
-    def _transition_q(self, loc, action):
+    def _evaluate_qstate(self, loc, action):
         # evaluate APs
         evaluated_APs = self._evaluate_APs(loc, action)
 
