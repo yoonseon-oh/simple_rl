@@ -335,9 +335,14 @@ class LTLAMDP():
 
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     ltl_formula = 'F (b & (F a))'
 #    ltl_formula = 'F (a&b)'
     ap_maps = {'a': [1, 'state', 7], 'b': [2, 'state', 2], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+=======
+    ltl_formula = 'F (a & F ( b & F c))'
+    ap_maps = {'a': [2, 'state', 1], 'b': [1, 'state', 15], 'c': [2, 'state', 3], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+>>>>>>> parent of 52ac462... fix bugs
                'f': [2, 'state', 2], 'g': [0, 'state', (1, 4, 3)]}
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, slip_prob=0.0)
 

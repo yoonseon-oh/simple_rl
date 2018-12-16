@@ -61,7 +61,11 @@ class RoomCubeMDP(CubeMDP):
         self.constraints = constraints  # constraints for LTL
         self.ap_maps = ap_maps  # AP --> real world
 
+<<<<<<< HEAD
         init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], 0) # self._transition_q(init_loc, ""))
+=======
+        init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], 0)
+>>>>>>> parent of 52ac462... fix bugs
         MDP.__init__(self, RoomCubeMDP.ACTIONS, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
 
