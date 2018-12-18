@@ -68,13 +68,14 @@ class LTLAMDP():
 
         # Find a path in the environment
         for np in range(0, n_path):
-            flag_success = 1
+            flag_success = True
             cur_path = q_paths[np] # current q path
             cur_words = q_words[np] # current q words
             cur_loc = init_loc
 
             action_seq = []
             state_seq = []
+            cur_stay= []
 
             for tt in range(0, len(cur_words)):
                 trans_fcn = self.automata.trans_dict[cur_path[tt]]
@@ -82,7 +83,7 @@ class LTLAMDP():
                 constraints = {}
                 constraints['goal'] = cur_words[tt]
                 constraints['stay'] = [s for s in trans_fcn.keys() if trans_fcn[s] == cur_path[tt]][0]
-
+                cur_stay.append(constraints['stay'])
                 # 2. Parse: Which level corresponds to the current sub - problem
                 sub_ap_maps = {}
                 sub_level = 2
@@ -108,13 +109,17 @@ class LTLAMDP():
                 action_seq.append(action_seq_sub)
                 cur_loc = (state_seq_sub[-1].x, state_seq_sub[-1].y, state_seq_sub[-1].z)
 
-                if state_seq_sub[-1].q == -1:
-                    flag_success = 0
+                if state_seq_sub[-1].q != 1:
+                    flag_success = False
                     break
 
             print("=====================================================")
-            print("Plan for a path {} in DBA".format(np))
+            if flag_success:
+                print("[Success] Plan for a path {} in DBA".format(np))
+            else:
+                print("[Fail] Plan for a path {} in DBA".format(np))
             for k in range(len(action_seq)):
+                print("Goal: {}, Stay: {}".format(cur_words[k],cur_stay[k]))
                 for i in range(len(action_seq[k])):
                     room_number, floor_number = self._get_abstract_number(state_seq[k][i])
 
@@ -172,7 +177,7 @@ class LTLAMDP():
                                slip_prob=self.slip_prob)
 
         # define l1 domain
-        start_room = l0Domain.get_room_numbers(init_locs)
+        start_room = l0Domain.get_room_numbers(init_locs)[0]
         l1Domain = CubeL1MDP(start_room, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps,
                              slip_prob=self.slip_prob)
 
@@ -340,10 +345,10 @@ class LTLAMDP():
 
 
 if __name__ == '__main__':
-    ltl_formula = 'F (b & (F (a & F c)))'
+    ltl_formula = 'F(b & F a)'
 #    ltl_formula = 'F (a&b)'
-    ap_maps = {'a': [1, 'state', 13], 'b': [2, 'state', 3], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
-               'f': [2, 'state', 2], 'g': [0, 'state', (1, 4, 3)]}
+    ap_maps = {'a': [1, 'state', 8], 'b': [2, 'state', 2], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+               'f': [2, 'state', 3], 'g': [0, 'state', (1, 4, 3)]}
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, slip_prob=0.0)
 
     ltl_amdp._generate_AP_tree()

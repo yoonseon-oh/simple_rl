@@ -28,6 +28,7 @@ class AMDPAgent(object):
         self.max_level = len(self.policy_generators) - 1
         self.action_to_task_map = defaultdict()
         self._construct_action_to_node_map(root_grounded_task)
+        self.max_iterate = 100 # YS
 
     def solve(self):
         base_state = self.base_mdp.init_state
@@ -56,18 +57,27 @@ class AMDPAgent(object):
 
         policy = self.policy_generators[level].generate_policy(state, grounded_task)
         if level > 0:
+            num_iterate = 0   # YS
             while not grounded_task.is_terminal(state):
                 action = policy[state]
                 self.policy_stack[level][state] = action
                 self._decompose(self.action_to_task_map[action], level-1)
                 state = self.state_stack[level]
+                num_iterate = num_iterate + 1   # YS
+                if num_iterate > self.max_iterate:   # YS
+                    break
         else:
+            num_iterate = 0
             while not grounded_task.is_terminal(state):
                 action = policy[state]
                 self.policy_stack[level][state] = action
                 if verbose: print('({}, {})'.format(state, action))
                 reward, state = self.base_mdp.execute_agent_action(action)
                 self.state_stack[level] = state
+                num_iterate = num_iterate + 1  # YS
+                if num_iterate > self.max_iterate:  # YS
+                    break
+
         if level < self.max_level:
             projected_state = self.policy_generators[level+1].generate_abstract_state(self.state_stack[level])
             self.state_stack[level+1] = projected_state

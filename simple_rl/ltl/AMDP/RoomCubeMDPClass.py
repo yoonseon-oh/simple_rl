@@ -62,6 +62,9 @@ class RoomCubeMDP(CubeMDP):
         self.ap_maps = ap_maps  # AP --> real world
 
         init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], self._transition_q(init_loc, ""))
+        if init_state.q != 0:
+            init_state.set_terminal(True)
+
         MDP.__init__(self, RoomCubeMDP.ACTIONS, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
 
@@ -76,9 +79,9 @@ class RoomCubeMDP(CubeMDP):
         #print('{}: {}, {}, {}, {}'.format(action, next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q))
         next_state = RoomCubeState(next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q)
 
-        if next_q == 1:
+        if next_q != 0:
             next_state.set_terminal(True)
-            next_state._is_terminal = (next_q == 1)
+            #next_state._is_terminal = (next_q == 1)
 
         return next_state
 
