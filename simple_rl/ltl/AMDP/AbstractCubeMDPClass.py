@@ -51,7 +51,9 @@ class CubeL2GroundedAction(NonPrimitiveAbstractTask):
 
     def _terminal_function(self, state):
 
-        return self.l1_domain.get_floor_numbers(state.agent_in_room_number)[0] == self.goal_floor
+        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number] == self.goal_floor
+
+        #return self.l1_domain.get_floor_numbers(state.agent_in_room_number)[0] == self.goal_floor
 
     def _reward_function(self, state):
         if state.q == 1:
@@ -62,7 +64,8 @@ class CubeL2GroundedAction(NonPrimitiveAbstractTask):
             return -100
 
     def _floor_number(self, state):
-        return self.l1_domain.get_floor_numbers(state.room_number)[0]
+        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number]
+        #return self.l1_domain.get_floor_numbers(state.room_number)[0]
 
 class CubeL1State(State):
     def __init__(self, room_number, q, is_terminal=False):
@@ -221,10 +224,11 @@ class CubeL2MDP(MDP):
     def _evaluate_APs(self, floor_num):
         evaluated_APs = {}
         for ap in self.ap_maps.keys():
-            if (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == floor_num):
-                evaluated_APs[ap] = True
-            else:
-                evaluated_APs[ap] = False
+            if self.ap_maps[ap][0] == 2:
+                if self.ap_maps[ap][2] == floor_num:
+                    evaluated_APs[ap] = True
+                else:
+                    evaluated_APs[ap] = False
         return evaluated_APs
 
     def __str__(self):
@@ -332,19 +336,20 @@ class CubeL1MDP(MDP):
         for ap in self.ap_maps.keys():
             if (self.ap_maps[ap][0] == 1) and (self.ap_maps[ap][2] == room_number):
                 evaluated_APs[ap] = True
-            elif (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == self.get_floor_numbers(room_number)[0]):
+            elif (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == self.cube_env['room_to_floor'][room_number]): #%self.get_floor_numbers(room_number)[0]):
                 evaluated_APs[ap] = True
-            else:
+            elif self.ap_maps[ap][0] >= 1:
                 evaluated_APs[ap] = False
         return evaluated_APs
 
 
     def get_floor_numbers(self, room_number):
-        floor_numbers = []
-        for i in range(1,self.cube_env['num_floor']+1):
-            if room_number in self.cube_env['floor_to_rooms'][i]:
-                floor_numbers.append(i)
-        return floor_numbers
+        #floor_numbers = []
+        #for i in range(1,self.cube_env['num_floor']+1):
+        #    if room_number in self.cube_env['floor_to_rooms'][i]:
+        #        floor_numbers.append(i)
+        #return floor_numbers
+        return [self.cube_env['room_to_floor'][room_number]]
 
 
     def __str__(self):

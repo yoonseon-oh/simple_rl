@@ -7,14 +7,14 @@ class LTLautomata():
         #self.APs = ap_dict # atomic propositions, dictionary = {'x': 'L1_1', 'y': 'L1_2'}, 'x': level1, room1
         self.formula = ltlformula # ltl formula ex. Always(x)
         self._ltl2automaton() # table
-        self.reward={'goal':100, 'fail':-100, 'others':-1}
+        self.reward={'goal': 100, 'fail': -100, 'others': -1}
         self.subproblem_flag = 0 # if the flag is on, solve the problem to change from stay to goal
         self.subproblem_goal = -1
         self.subproblem_stay = -1
 
     def _ltl2automaton(self): # automata={state s: transition(s)}, transition(s)={ltl: next state(s')}
         # translate LTL formula to automata
-        A = spot.translate(self.formula,'BA','complete')
+        A = spot.translate(self.formula, 'BA', 'complete')
 
         self.aut_spot = A
         self.num_sets = A.num_sets()

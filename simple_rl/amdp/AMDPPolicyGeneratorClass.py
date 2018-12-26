@@ -33,21 +33,24 @@ class AMDPPolicyGenerator(object):
         '''
         pass
 
-    def get_policy(self, mdp, verbose=False):
+    def get_policy(self, mdp, verbose=False, max_iterations=500, horizon=100):
         '''
         Args:
             mdp (MDP): MDP (same level as the current Policy Generator)
         Returns:
             policy (defaultdict): optimal policy in mdp
         '''
-        vi = ValueIteration(mdp, sample_rate=1)
+        vi = ValueIteration(mdp, sample_rate=1, max_iterations=max_iterations)
         vi.run_vi()
 
         policy = defaultdict()
-        action_seq, state_seq = vi.plan(mdp.init_state)
+        action_seq, state_seq = vi.plan(mdp.init_state, horizon=horizon)
 
-        if verbose: print('Plan for {}:'.format(mdp))
+        if verbose:
+            print('Plan for {}:'.format(mdp))
         for i in range(len(action_seq)):
-            if verbose: print("\tpi[{}] -> {}".format(state_seq[i], action_seq[i]))
+            if verbose:
+                print("\tpi[{}] -> {}".format(state_seq[i], action_seq[i]))
             policy[state_seq[i]] = action_seq[i]
+
         return policy

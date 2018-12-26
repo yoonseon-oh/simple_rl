@@ -1,43 +1,45 @@
 import numpy as np
 from collections import defaultdict
 
+def insert_value(ii, jj, z, room_up_down):
+    r_number = int(np.ceil(jj / 5) + 6 * np.floor(ii / 5)+ 24 * np.floor(z / 2))
+    if r_number in room_up_down:
+        return r_number
+    else:
+        return 'w'
+
 def build_cube_env():
+    # Large
     cube_env = {} # Define settings as a dictionary
-    cube_env['len_x'] = 6  # the number of grids (x-axis)
-    cube_env['len_y'] = 4  # the number of grids (y-axis)
-    cube_env['len_z'] = 6  # the number of grids (z-axis)
-    cube_env['num_floor']= 3 # the number of floors
-    cube_env['num_room'] = 18 # the number of rooms
+    cube_env['len_x'] = 30  # the number of grids (x-axis)
+    cube_env['len_y'] = 20  # the number of grids (y-axis)
+    cube_env['len_z'] = 12  # the number of grids (z-axis)
+    cube_env['num_floor'] = 6 # the number of floors
+    cube_env['num_room'] = 6*4*6 # the number of rooms
+    room_height = 2
 
     # Define a map : room number, w (wall)
+    room_up_down = [24 * ii - 11 for ii in range(1, 7)]
+
     map = [] # map[z][y][x]
-    map.append([[int(np.ceil(ii / 2)) for ii in range(1, 7)],
-                [int(np.ceil(ii / 2)) for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+3 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+3 for ii in range(1, 7)]])  # the first floor
-    map.append([['w' for ii in range(1, 7)],
-                ['w' for ii in range(1, 7)],
-                ['w','w','w','w', 6, 6],
-                ['w','w','w','w', 6, 6]])    # Wall
-    map.append([[int(np.ceil(ii / 2))+6 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+6 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+9 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+9 for ii in range(1, 7)]])  # the second floor
-    map.append([['w' for ii in range(1, 7)],
-                ['w' for ii in range(1, 7)],
-                ['w', 'w', 'w', 'w', 12, 12],
-                ['w', 'w', 'w', 'w', 12, 12]])  # Wall
-    map.append([[int(np.ceil(ii / 2))+12 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+12 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+15 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2))+15 for ii in range(1, 7)]])  # the third floor
-    map.append([[int(np.ceil(ii / 2)) + 12 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2)) + 12 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2)) + 15 for ii in range(1, 7)],
-                [int(np.ceil(ii / 2)) + 15 for ii in range(1, 7)]])  # Wall
-    z_to_floor = [1, 1, 2, 2, 3, 3]
+    for z in range(0, cube_env['len_z']):
+        room_num_array = []
+        for ii in range(0, cube_env['len_y']):
+            room_num_array.append([int(np.ceil(jj / 5) + 6 * np.floor(ii/ 5)) for jj in range(1, cube_env['len_x']+1)])
+
+        wall_array = []
+        for ii in range(0, cube_env['len_y']):
+            wall_array.append([insert_value(ii, jj, z, room_up_down) for jj in range(1, cube_env['len_x']+1)])
+
+        if z in [room_height*ii-1 for ii in range(1, 7)]:
+            map.append(wall_array)
+        else:
+            map.append(room_num_array + 24 * np.floor(z / room_height))
+
+    z_to_floor = [int(np.floor(z/room_height)+1.0) for z in range(0, cube_env['len_z'])]
     cube_env['map'] = map
 
+    # --------------------- Automatically computed --------- #
     # extract (x,y,z) in each room
     room_to_locs = defaultdict()
     loc_to_room = {}
@@ -96,7 +98,7 @@ def build_cube_env():
     # Define transition table (connectivity between rooms)
     cube_env['transition_table'] = {}
 
-    for r in range(1,cube_env['num_room']+1):
+    for r in range(1, cube_env['num_room']+1):
         connected_rooms = []
         for x,y,z in cube_env['room_to_locs'][r]:
             near = [(max(x-2,0), y-1, z-1), (min(x, cube_env['len_x']-1), y-1, z-1),
@@ -106,13 +108,14 @@ def build_cube_env():
                 if next_r not in connected_rooms and next_r != r:
                     connected_rooms.append(next_r)
 
-        if r==6:
-            connected_rooms.append(12)
-        elif r==12:
-            connected_rooms.append(6)
-            connected_rooms.append(18)
-        elif r==18:
-            connected_rooms.append(12)
+        if r in room_up_down:
+            idx = room_up_down.index(r)
+            if (idx-1) >= 0:
+                connected_rooms.append(room_up_down[idx-1])
+            if (idx+1) <= len(connected_rooms):
+                connected_rooms.append(room_up_down[idx+1])
+
+
 
         cube_env['transition_table'][r] = connected_rooms
 

@@ -1,5 +1,6 @@
 import sympy
 import spot
+import time
 from simple_rl.ltl.LTLautomataClass import LTLautomata
 
 # Generic AMDP imports.
@@ -19,7 +20,7 @@ from simple_rl.run_experiments import run_agents_on_mdp
 
 
 class LTLAMDP():
-    def __init__(self, ltlformula, ap_maps, slip_prob=0.01):
+    def __init__(self, ltlformula, ap_maps, env_file=[], slip_prob=0.01, verbose=False):
         '''
 
         :param ltlformula: string, ltl formulation ex) a & b
@@ -28,11 +29,12 @@ class LTLAMDP():
         '''
         self.automata = LTLautomata(ltlformula) # Translate LTL into the automata
         self.ap_maps = ap_maps
-        self.cube_env = build_cube_env() #define environment
+        self.cube_env = env_file[0] #build_cube_env() #define environment
         self._generate_AP_tree() # relationship between atomic propositions
         # simplify automata
         self.automata._simplify_dict(self.relation_TF)
         self.slip_prob = slip_prob
+        self.verbose = verbose
 
 
     def solve_debug(self):
@@ -66,6 +68,9 @@ class LTLAMDP():
 
         n_path = len(q_paths) # the number of paths
 
+        len_action_opt = 100
+        state_seq_opt = []
+        action_seq_opt = []
         # Find a path in the environment
         for np in range(0, n_path):
             flag_success = True
@@ -77,6 +82,7 @@ class LTLAMDP():
             state_seq = []
             cur_stay= []
 
+            len_action = 0
             for tt in range(0, len(cur_words)):
                 trans_fcn = self.automata.trans_dict[cur_path[tt]]
                 # 1. extract constraints
@@ -89,9 +95,10 @@ class LTLAMDP():
                 sub_level = 2
                 for ap in self.ap_maps.keys():
                     if ap in constraints['goal'] or ap in constraints['stay']:
-                        sub_ap_maps[ap] = ap_maps[ap]
+                        sub_ap_maps[ap] = self.ap_maps[ap]
                         sub_level = min(sub_level, sub_ap_maps[ap][0])
-                print("----- Solve in level {} MDP -----".format(sub_level))
+                if self.verbose:
+                    print("----- Solve in level {} MDP -----".format(sub_level))
                 # 3. Solve AMDP
                 if sub_level == 0:
                     action_seq_sub, state_seq_sub = self._solve_subproblem_L0(init_locs=cur_loc, constraints=constraints, ap_maps =sub_ap_maps)
@@ -108,27 +115,36 @@ class LTLAMDP():
                 state_seq.append(state_seq_sub)
                 action_seq.append(action_seq_sub)
                 cur_loc = (state_seq_sub[-1].x, state_seq_sub[-1].y, state_seq_sub[-1].z)
-
+                len_action = len_action + len(action_seq_sub)
                 if state_seq_sub[-1].q != 1:
                     flag_success = False
                     break
 
-            print("=====================================================")
             if flag_success:
-                print("[Success] Plan for a path {} in DBA".format(np))
-            else:
-                print("[Fail] Plan for a path {} in DBA".format(np))
-            for k in range(len(action_seq)):
-                print("Goal: {}, Stay: {}".format(cur_words[k],cur_stay[k]))
-                for i in range(len(action_seq[k])):
-                    room_number, floor_number = self._get_abstract_number(state_seq[k][i])
+                if len_action_opt > len_action:
+                    state_seq_opt = state_seq
+                    action_seq_opt = action_seq
+                    len_action_opt = len_action
+                if self.verbose:
+                    print("=====================================================")
+                    if flag_success:
+                        print("[Success] Plan for a path {} in DBA".format(np))
+                    else:
+                        print("[Fail] Plan for a path {} in DBA".format(np))
+                    for k in range(len(action_seq)):
+                        print("Goal: {}, Stay: {}".format(cur_words[k], cur_stay[k]))
+                        for i in range(len(action_seq[k])):
+                            room_number, floor_number = self._get_abstract_number(state_seq[k][i])
 
-                    print("\t {} in room {} on the floor {}, {}".format(state_seq[k][i], room_number, floor_number, action_seq[k][i]))
-                print('\t----------------------------------------')
-            room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
-            print("\t {} in room {} on the floor {}".format(state_seq[k][-1], room_number, floor_number))
+                            print("\t {} in room {} on the floor {}, {}".format(state_seq[k][i], room_number, floor_number, action_seq[k][i]))
+                        print('\t----------------------------------------')
+                    room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
+                    print("\t {} in room {} on the floor {}".format(state_seq[k][-1], room_number, floor_number))
 
-            print("=====================================================")
+                    print("=====================================================")
+
+        return state_seq_opt, action_seq_opt, len_action_opt
+
     def _get_room_number(self, state):
         room_number = 0
         for r in range(1, self.cube_env['num_room'] + 1):
@@ -153,24 +169,27 @@ class LTLAMDP():
         return room_number, floor_number
 
 
-    def _solve_subproblem_L0(self, init_locs=(1, 1, 1), constraints={}, ap_maps={}): #TODO
-        mdp = RoomCubeMDP(init_loc=init_locs, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps, slip_prob=self.slip_prob)
+    def _solve_subproblem_L0(self, init_locs=(1, 1, 1), constraints={},
+                             ap_maps={}, verbose=False): #TODO
+        mdp = RoomCubeMDP(init_loc=init_locs, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps,
+                          slip_prob=self.slip_prob)
         value_iter = ValueIteration(mdp, sample_rate = 5)
         value_iter.run_vi()
 
         # Value Iteration.
         action_seq, state_seq = value_iter.plan(mdp.get_init_state())
 
-        # TODO: Extract policy by value_iter.policy(state)... What about returning value_iter?
-        print("Plan for", mdp)
-        for i in range(len(action_seq)):
-            print("\t", state_seq[i], action_seq[i])
-        print("\t", state_seq[-1])
+        if verbose:
+            print("Plan for", mdp)
+            for i in range(len(action_seq)):
+                print("\t", state_seq[i], action_seq[i])
+            print("\t", state_seq[-1])
 
         return action_seq, state_seq
 
 
-    def _solve_subproblem_L1(self, init_locs=(1, 1, 1), constraints={}, ap_maps={}):
+    def _solve_subproblem_L1(self, init_locs=(1, 1, 1), constraints={}, ap_maps={},
+                             verbose=False):
 
         # define l0 domain
         l0Domain = RoomCubeMDP(init_loc=init_locs, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps,
@@ -206,14 +225,16 @@ class LTLAMDP():
 
             action_seq.append(action)
             state_seq.append(state)
+        if verbose:
+            print("Plan")
+            for i in range(len(action_seq)):
+                print("\t", state_seq[i], action_seq[i])
+            print("\t", state_seq[-1])
 
-        print("Plan")
-        for i in range(len(action_seq)):
-            print("\t", state_seq[i], action_seq[i])
-        print("\t", state_seq[-1])
         return action_seq, state_seq
 
-    def _solve_subproblem_L2(self, init_locs=(1, 1, 1), constraints={}, ap_maps={}):
+    def _solve_subproblem_L2(self, init_locs=(1, 1, 1), constraints={},
+                             ap_maps={}, verbose=False):
         # define l0 domain
         l0Domain = RoomCubeMDP(init_loc=init_locs, env_file=[self.cube_env], constraints=constraints,
                                ap_maps=ap_maps, slip_prob= self.slip_prob)
@@ -265,10 +286,13 @@ class LTLAMDP():
             action_seq.append(action)
             state_seq.append(state)
 
-        print("Plan")
-        for i in range(len(action_seq)):
-            print("\t", state_seq[i], action_seq[i])
-        print("\t", state_seq[-1])
+        # Debuging
+        if verbose:
+            print("Plan")
+            for i in range(len(action_seq)):
+                print("\t", state_seq[i], action_seq[i])
+            print("\t", state_seq[-1])
+
         return action_seq, state_seq
 
 
@@ -276,7 +300,7 @@ class LTLAMDP():
         # TODO: WRONG CHECK!
         relation_TF = {}
         for key in self.ap_maps.keys():
-            level = ap_maps[key][0]  # current level
+            level = self.ap_maps[key][0]  # current level
             lower_list = []
             notlower_list = []
             samelevel_list = []
@@ -345,16 +369,25 @@ class LTLAMDP():
 
 
 if __name__ == '__main__':
-    ltl_formula = 'F(b & F a)'
-#    ltl_formula = 'F (a&b)'
-    ap_maps = {'a': [1, 'state', 8], 'b': [2, 'state', 2], 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
-               'f': [2, 'state', 3], 'g': [0, 'state', (1, 4, 3)]}
-    ltl_amdp = LTLAMDP(ltl_formula, ap_maps, slip_prob=0.0)
 
-    ltl_amdp._generate_AP_tree()
+    ltl_formula = 'F(b & Fa)'
+    ap_maps = {'a': [1, 'state', 7], 'b': [2, 'state', 3]}
+    #, 'c': [2, 'state', 1], 'd': [0, 'state', (6, 1, 1)], 'e': [2, 'state', 1],
+    #           'f': [2, 'state', 3], 'g': [0, 'state', (1, 4, 3)]}
+    start_time = time.time()
+    ltl_amdp = LTLAMDP(ltl_formula, ap_maps, slip_prob=0.0, verbose=False)
+
+    #ltl_amdp._generate_AP_tree()
     #ltl_amdp.solve_debug()
-    ltl_amdp.solve()
-    print("End")
+    sseq, aseq, len_actions = ltl_amdp.solve()
+
+    computing_time = time.time()-start_time
+
+    print("Summary")
+    print("\t Time: {} seconds, the number of actions: {}"
+          .format(round(computing_time, 3), len_actions))
+
+
 
 
 
