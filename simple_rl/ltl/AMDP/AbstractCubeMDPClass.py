@@ -36,7 +36,7 @@ class CubeL2GroundedAction(NonPrimitiveAbstractTask):
         self.action = l2_action_string
         self.goal_floor = self.extract_goal_floor(self.action)
 
-        self.goal_constraints = {'goal': 'a', 'stay': '~a'}
+        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}
         self.ap_maps = {'a': (2, 'state', self.goal_floor)}
         tf, rf = self._terminal_function, self._reward_function
         self.l1_domain = lowerDomain
@@ -91,7 +91,7 @@ class CubeL1GroundedAction(NonPrimitiveAbstractTask):
         self.goal_room = self.extract_goal_room(self.action)
         #self.goal_state = CubeL1State(goal_room, 0, is_terminal=True)
 
-        self.goal_constraints = {'goal': 'a', 'stay': '~a'}
+        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}
         self.ap_maps = {'a': (1, 'state', self.goal_room)}
         tf, rf = self._terminal_function, self._reward_function
         self.l0_domain = lowerDomain
@@ -286,9 +286,9 @@ class CubeL1MDP(MDP):
         action_room_number = int(action.split('toRoom')[1])
         if current_room in self.cube_env['transition_table'].keys():
             if action_room_number in self.cube_env['transition_table'][current_room]:
-
+                floor_num = self.cube_env['room_to_floor'][action_room_number]
                 # evaluation
-                evaluated_APs = self._evaluate_APs(action_room_number)
+                evaluated_APs = self._evaluate_APs(action_room_number, floor_num)
 
                 for ap in evaluated_APs.keys():
                     exec('%s = symbols(\'%s\')' % (ap, ap))
@@ -314,7 +314,8 @@ class CubeL1MDP(MDP):
 
     def _transition_q(self, room_num, action):
         # evaluate APs
-        evaluated_APs = self._evaluate_APs(room_num)
+        floor_num = self.cube_env['room_to_floor'][room_num]
+        evaluated_APs = self._evaluate_APs(room_num, floor_num)
 
         # q state transition
         # define symbols
@@ -330,13 +331,13 @@ class CubeL1MDP(MDP):
 
         return next_q
 
-    def _evaluate_APs(self, room_number):
+    def _evaluate_APs(self, room_number, floor_num):
         evaluated_APs = {}
 
         for ap in self.ap_maps.keys():
             if (self.ap_maps[ap][0] == 1) and (self.ap_maps[ap][2] == room_number):
                 evaluated_APs[ap] = True
-            elif (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == self.cube_env['room_to_floor'][room_number]): #%self.get_floor_numbers(room_number)[0]):
+            elif (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == floor_num): #%self.get_floor_numbers(room_number)[0]):
                 evaluated_APs[ap] = True
             elif self.ap_maps[ap][0] >= 1:
                 evaluated_APs[ap] = False
@@ -344,11 +345,6 @@ class CubeL1MDP(MDP):
 
 
     def get_floor_numbers(self, room_number):
-        #floor_numbers = []
-        #for i in range(1,self.cube_env['num_floor']+1):
-        #    if room_number in self.cube_env['floor_to_rooms'][i]:
-        #        floor_numbers.append(i)
-        #return floor_numbers
         return [self.cube_env['room_to_floor'][room_number]]
 
 

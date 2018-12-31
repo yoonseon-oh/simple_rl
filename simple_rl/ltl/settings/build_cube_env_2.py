@@ -1,8 +1,8 @@
 import numpy as np
 from collections import defaultdict
 
-def insert_value(ii, jj, z, room_up_down):
-    r_number = int(np.ceil(jj / 5) + 6 * np.floor(ii / 5)+ 24 * np.floor(z / 2))
+def insert_value(ii, jj, z, room_up_down, room_len, num_x, num_y):
+    r_number = int(np.ceil(jj / room_len) + num_x * np.floor(ii / room_len)+ (num_x*num_y) * np.floor(z / 2))
     if r_number in room_up_down:
         return r_number
     else:
@@ -15,26 +15,30 @@ def build_cube_env():
     cube_env['len_y'] = 20  # the number of grids (y-axis)
     cube_env['len_z'] = 12  # the number of grids (z-axis)
     cube_env['num_floor'] = 6 # the number of floors
-    cube_env['num_room'] = 6*4*6 # the number of rooms
+    cube_env['num_room'] = 3*2*6 # the number of rooms
+    num_x = 3
+    num_y = 2
     room_height = 2
+    room_len = 10
+    num_rooms_on_floor = num_x*num_y
 
     # Define a map : room number, w (wall)
-    room_up_down = [24 * ii - 11 for ii in range(1, 7)]
+    room_up_down = [num_rooms_on_floor * ii - 2 for ii in range(1, cube_env['num_floor']+1)]
 
     map = [] # map[z][y][x]
     for z in range(0, cube_env['len_z']):
         room_num_array = []
         for ii in range(0, cube_env['len_y']):
-            room_num_array.append([int(np.ceil(jj / 5) + 6 * np.floor(ii/ 5)) for jj in range(1, cube_env['len_x']+1)])
+            room_num_array.append([int(np.ceil(jj / room_len) + num_x * np.floor(ii/ room_len)) for jj in range(1, cube_env['len_x']+1)])
 
         wall_array = []
         for ii in range(0, cube_env['len_y']):
-            wall_array.append([insert_value(ii, jj, z, room_up_down) for jj in range(1, cube_env['len_x']+1)])
+            wall_array.append([insert_value(ii, jj, z, room_up_down, room_len, num_x, num_y) for jj in range(1, cube_env['len_x']+1)])
 
-        if z in [room_height*ii-1 for ii in range(1, 7)]:
+        if z in [room_height*ii-1 for ii in range(1, cube_env['num_floor']+1)]:
             map.append(wall_array)
         else:
-            map.append(room_num_array + 24 * np.floor(z / room_height))
+            map.append(room_num_array + num_rooms_on_floor * np.floor(z / room_height))
 
     z_to_floor = [int(np.floor(z/room_height)+1.0) for z in range(0, cube_env['len_z'])]
     cube_env['map'] = map

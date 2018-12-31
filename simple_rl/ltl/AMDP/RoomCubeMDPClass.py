@@ -52,16 +52,21 @@ class RoomCubeMDP(CubeMDP):
             self.room_to_locs = cube_env['room_to_locs']
             self.floor_to_rooms = cube_env['floor_to_rooms']
             self.floor_to_locs = cube_env['floor_to_locs']
+            self.room_to_floor = cube_env['room_to_floor']
 
         CubeMDP.__init__(self, len_x, len_y, len_z, init_loc,
                          goal_locs=goal_locs, walls=walls,
                          gamma=gamma, slip_prob=slip_prob, name=name,
                          is_goal_terminal=is_goal_terminal, rand_init=rand_init, step_cost=step_cost)
 
-        self.constraints = constraints  # constraints for LTL
-        self.ap_maps = ap_maps  # AP --> real world
+        if 'lowest' in constraints.keys():
+            self.constraints = {'goal': 'a', 'stay': 'b'}
+            self.ap_maps = {'a': ap_maps['a'], 'b': [1, 'state', self.get_room_numbers(init_loc)[0]]}  # AP --> real world
+        else:
+            self.constraints = constraints  # constraints for LTL
+            self.ap_maps = ap_maps
 
-        init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], self._transition_q(init_loc, ""))
+        init_state = RoomCubeState(init_loc[0], init_loc[1], init_loc[2], self._transition_q(init_loc, ""))
         if init_state.q != 0:
             init_state.set_terminal(True)
 
@@ -107,13 +112,15 @@ class RoomCubeMDP(CubeMDP):
         return floor_numbers
 
     def _reward_func(self, state, action): # TODO: Complete
-        if state.q == 0: # stay
+        next_state = self._transition_func(state, action)
+        #next_state = state
+        if next_state.q == 0: # stay
             reward = -1
-        elif state.q == 1:  # success
+        elif next_state.q == 1:  # success
             reward = 100
-        elif state.q == -1:  # fail
+        elif next_state.q == -1:  # fail
             reward = -100
-        #print(state, action, reward)
+
         return reward
 
     def _transition_q(self, loc, action):
@@ -124,6 +131,7 @@ class RoomCubeMDP(CubeMDP):
         # define symbols
         for ap in evaluated_APs.keys():
             exec('%s = symbols(\'%s\')' % (ap, ap))
+
         # evaluation
         if eval(self.constraints['goal']).subs(evaluated_APs):  # goal
             next_q = 1

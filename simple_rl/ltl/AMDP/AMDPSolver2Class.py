@@ -6,6 +6,7 @@ from collections import defaultdict
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask, RootTaskNode
+from simple_rl.ltl.AMDP.AbstractCubeMDPClass import CubeL2GroundedAction
 
 class AMDPAgent(object):
     ''' Generic solver for all abstr_domains that adhere to the AMDP framework (Gopalan et al). '''
@@ -43,7 +44,7 @@ class AMDPAgent(object):
         # Start decomposing the highest-level task in hierarchy
         self._decompose(self.root_grounded_task, self.max_level)
 
-    def _decompose(self, grounded_task, level, verbose=True):
+    def _decompose(self, grounded_task, level, verbose=False):
         '''
         Ground high level tasks into environment level actions and then execute
         in underlying environment MDP
@@ -60,7 +61,10 @@ class AMDPAgent(object):
         policy = self.policy_generators[level].generate_policy(state, grounded_task)
         if level > 0:
             num_iterate = 0   # YS
-            while not grounded_task.is_terminal(state):
+            # check if there is a solution
+            flag_feasible = self._check_feasibility(grounded_task, level, policy, state)
+
+            while (not grounded_task.is_terminal(state)) and flag_feasible:
                 action = policy[state]
                 self.policy_stack[level][state] = action
                 self._decompose(self.action_to_task_map[action], level-1)
@@ -95,3 +99,17 @@ class AMDPAgent(object):
                 self.action_to_task_map[root_node.action_name] = root_node
             for child_node in root_node.subtasks:
                 self._construct_action_to_node_map(child_node)
+
+    def _check_feasibility(self, grounded_task, level, policy, state):
+        for ii in range(0, self.max_iterate[level]):
+            action = policy[state]
+            if isinstance(grounded_task, CubeL2GroundedAction):
+                state = grounded_task.l1_domain._transition_func(state, action)
+            else:
+                state = grounded_task.domain._transition_func(state, action)
+
+            if grounded_task.is_terminal(state):
+
+                return True
+
+        return False

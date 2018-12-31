@@ -4,7 +4,7 @@ import time
 from simple_rl.ltl.LTLautomataClass import LTLautomata
 
 # Generic AMDP imports.
-from simple_rl.amdp.AMDPSolverClass import AMDPAgent
+from simple_rl.ltl.AMDP.AMDPSolver2Class import AMDPAgent
 from simple_rl.amdp.AMDPTaskNodesClass import PrimitiveAbstractTask
 
 # Abstract grid world imports.
@@ -60,7 +60,7 @@ class LTLAMDP():
             # solve
             self._solve_subproblem_L2(constraints=constraints, ap_maps=sub_ap_maps)
 
-    def solve(self, init_loc=(1, 1, 1)):
+    def solve(self, init_loc=(1, 1, 1), FLAG_LOWEST=False):
         Q_init = self.automata.init_state
         Q_goal = self.automata.get_accepting_states()
 
@@ -97,8 +97,12 @@ class LTLAMDP():
                     if ap in constraints['goal'] or ap in constraints['stay']:
                         sub_ap_maps[ap] = self.ap_maps[ap]
                         sub_level = min(sub_level, sub_ap_maps[ap][0])
+                # solve at the lowest level
+                if FLAG_LOWEST:
+                    sub_level = 0
+
                 if self.verbose:
-                    print("----- Solve in level {} MDP -----".format(sub_level))
+                    print("----- Solve in level {} MDP : goal {}, stay {} -----".format(sub_level,constraints['goal'], constraints['stay']))
                 # 3. Solve AMDP
                 if sub_level == 0:
                     action_seq_sub, state_seq_sub = self._solve_subproblem_L0(init_locs=cur_loc, constraints=constraints, ap_maps =sub_ap_maps)
@@ -173,7 +177,7 @@ class LTLAMDP():
                              ap_maps={}, verbose=False): #TODO
         mdp = RoomCubeMDP(init_loc=init_locs, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps,
                           slip_prob=self.slip_prob)
-        value_iter = ValueIteration(mdp, sample_rate = 5)
+        value_iter = ValueIteration(mdp, sample_rate = 1)
         value_iter.run_vi()
 
         # Value Iteration.

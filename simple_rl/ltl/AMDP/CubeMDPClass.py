@@ -169,8 +169,8 @@ class CubeMDP(MDP):
         else:
             next_state = CubeState(state.x, state.y, state.z)
 
-        if (next_state.x, next_state.y, next_state.z) in self.goal_locs and self.is_goal_terminal:
-            next_state.set_terminal(True)
+        #if (next_state.x, next_state.y, next_state.z) in self.goal_locs and self.is_goal_terminal:
+        #    next_state.set_terminal(True)
 
         return next_state
 

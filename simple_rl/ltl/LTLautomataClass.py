@@ -23,7 +23,7 @@ class LTLautomata():
 
         # read APs
         self.APs = []
-        for ii in range(0,len(A.ap())):
+        for ii in range(0, len(A.ap())):
             self.APs.append(A.ap()[ii].ap_name())
 
 
