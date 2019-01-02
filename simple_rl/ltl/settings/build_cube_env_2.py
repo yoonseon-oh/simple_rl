@@ -116,7 +116,7 @@ def build_cube_env():
             idx = room_up_down.index(r)
             if (idx-1) >= 0:
                 connected_rooms.append(room_up_down[idx-1])
-            if (idx+1) <= len(connected_rooms):
+            if (idx+1) <= len(connected_rooms)+1:
                 connected_rooms.append(room_up_down[idx+1])
 
 
