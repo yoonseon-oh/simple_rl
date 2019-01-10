@@ -33,7 +33,7 @@ class AMDPPolicyGenerator(object):
         '''
         pass
 
-    def get_policy(self, mdp, verbose=False, max_iterations=500, horizon=100):
+    def get_policy(self, mdp, verbose=False, max_iterations=500, horizon=100):  # max_iterations = 300
         '''
         Args:
             mdp (MDP): MDP (same level as the current Policy Generator)
@@ -53,4 +53,4 @@ class AMDPPolicyGenerator(object):
                 print("\tpi[{}] -> {}".format(state_seq[i], action_seq[i]))
             policy[state_seq[i]] = action_seq[i]
 
-        return policy
+        return policy, vi.get_num_backups_in_recent_run()

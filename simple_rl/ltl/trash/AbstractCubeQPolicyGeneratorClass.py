@@ -1,14 +1,10 @@
 # Other imports.
-#from simple_rl.tasks.four_room.FourRoomMDPClass import FourRoomMDP
-#from simple_rl.tasks.grid_world.GridWorldStateClass import GridWorldState
-#from simple_rl.amdp.abstr_domains.grid_world.AbstractGridWorldMDPClass import FourRoomL1MDP
-from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
-#from simple_rl.amdp.abstr_domains.grid_world.AbstractGridWorldStateMapperClass import AbstractGridWorldL1StateMapper
 
-from simple_rl.ltl.AMDP.RoomCubeMDPClass import RoomCubeMDP
-from simple_rl.ltl.AMDP.CubeStateClass import CubeState
-from simple_rl.ltl.AMDP.AbstractCubeMDPClass import CubeL1MDP, CubeL2MDP
-from simple_rl.ltl.AMDP.AbstractCubeStateMapperClass import AbstractCubeL1StateMapper, AbstractCubeL2StateMapper
+from simple_rl.amdp.AMDPPolicyGeneratorClass import AMDPPolicyGenerator
+
+from simple_rl.ltl.AMDP.RoomCubeQMDPClass import RoomCubeMDP
+from simple_rl.ltl.AMDP.AbstractCubeQMDPClass import CubeL1MDP, CubeL2MDP
+from simple_rl.ltl.AMDP.AbstractCubeQStateMapperClass import AbstractCubeL1StateMapper, AbstractCubeL2StateMapper
 
 class CubeL2PolicyGenerator(AMDPPolicyGenerator):
     def __init__(self, l1MDP, state_mapper, verbose=False, env_file =[], constraints = {}, ap_maps = {}):
@@ -23,6 +19,7 @@ class CubeL2PolicyGenerator(AMDPPolicyGenerator):
         self.state_mapper = state_mapper
         self.env_file = env_file
 
+
     def generate_policy(self, l2_state, grounded_action):
         '''
         Args:
@@ -31,8 +28,8 @@ class CubeL2PolicyGenerator(AMDPPolicyGenerator):
         '''
         mdp = CubeL2MDP(l2_state.agent_on_floor_number, env_file=self.env_file,
                         constraints=grounded_action.goal_constraints,
-                        ap_maps=grounded_action.ap_maps)
-        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100)
+                        ap_maps=grounded_action.ap_maps, automata=self.domain.automata, init_state=l2_state)
+        return self.get_policy(mdp, verbose=self.verbose, max_iterations=100, horizon=100)
 
     def generate_abstract_state(self, l1_state):
         return self.state_mapper.map_state(l1_state)
@@ -62,8 +59,8 @@ class CubeL1PolicyGenerator(AMDPPolicyGenerator):
         #.floor_to_rooms[grounded_action.goal_state.agent_on_floor_number]
         mdp = CubeL1MDP(l1_state.agent_in_room_number, env_file=self.env_file,
                         constraints=grounded_action.goal_constraints,
-                        ap_maps=grounded_action.ap_maps)
-        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100)
+                        ap_maps=grounded_action.ap_maps, automata=self.domain.automata, init_state=l1_state)
+        return self.get_policy(mdp, verbose=self.verbose, max_iterations=100, horizon=100)
 
     def generate_abstract_state(self, l0_state):
         return self.state_mapper.map_state(l0_state)
@@ -83,5 +80,6 @@ class CubeL0PolicyGenerator(AMDPPolicyGenerator):
 #        destination_locations = self.domain.room_to_locs[grounded_task.goal_state.agent_in_room_number]
         init_location = (state.x, state.y, state.z)
         mdp = RoomCubeMDP(init_loc=init_location, env_file=self.env_file,
-                          constraints=grounded_task.goal_constraints, ap_maps=grounded_task.ap_maps)
-        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100) # 500, 100
+                          constraints=grounded_task.goal_constraints, ap_maps=grounded_task.ap_maps,
+                          automata = self.domain.automata, init_state=state)
+        return self.get_policy(mdp, verbose=self.verbose, max_iterations=100, horizon=100) # 500, 100

@@ -6,7 +6,7 @@ from collections import defaultdict
 from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask, RootTaskNode
-from simple_rl.ltl.AMDP.AbstractCubeMDPClass import CubeL2GroundedAction
+from simple_rl.ltl.AMDP.AbstractCubeQMDPClass import CubeL2GroundedAction
 
 class AMDPAgent(object):
     ''' Generic solver for all abstr_domains that adhere to the AMDP framework (Gopalan et al). '''
@@ -45,7 +45,7 @@ class AMDPAgent(object):
         # Start decomposing the highest-level task in hierarchy
         self._decompose(self.root_grounded_task, self.max_level)
 
-    def _decompose(self, grounded_task, level, verbose=False):
+    def _decompose(self, grounded_task, level, verbose=True):
         '''
         Ground high level tasks into environment level actions and then execute
         in underlying environment MDP

@@ -54,10 +54,10 @@ class LTLautomata():
                 return self.trans_dict[q][key]
             flag = (eval(key)).subs(evaluated_APs)
 
-            if flag: # if ltl of the edge is true,
+            if flag == True: # if ltl of the edge is true,
                 return self.trans_dict[q][key]    # transition occurs
 
-        return q
+        return -1
 
     def reward_func(self, q):
         if self.subproblem_flag == 0:
@@ -76,7 +76,7 @@ class LTLautomata():
                 return self.reward['others']
             else: return self.reward['fail']
 
-    def terminal_func(self,q):
+    def terminal_func(self, q):
         if self.subproblem_flag == 0:
             if self.aut_spot.state_is_accepting(q): # get positive reward if it visits an accepting state
                 return True
@@ -130,6 +130,51 @@ class LTLautomata():
                     paths_result.append(Q_paths[ii])
                     words_result.append(Q_words[ii])
 
+        return paths_result, words_result
+
+    def findpath_simple(self, sq, gq, ap_maps): # sq: start state, gq: goal state
+
+        edge_level = {}  # assign level of all edges
+        for q1 in self.trans_dict.keys():
+            for formula in self.trans_dict[q1].keys():
+                if formula == '1':
+                    edge_level[(q1, self.trans_dict[q1][formula])] = -1
+                else:
+                    edge_level[(q1, self.trans_dict[q1][formula])] = min([ap_maps[ap][0] for ap in ap_maps.keys() if ap in formula])
+
+
+        paths = [[sq]] # save all path
+        words = [[]]
+
+        paths_result = []
+        words_result = []
+
+
+        while len(paths)!=0:
+            Q_paths = paths
+            Q_words = words
+            #Q_stays = stays # atomic proposition to stay at the current state
+            paths = []
+            words = []
+            #stays = []
+
+            for ii in range(0,len(Q_paths)):
+                s_cur = Q_paths[ii][-1]
+                if s_cur != gq:
+                    for alphabet in self.trans_dict[s_cur].keys():
+
+                        s_next = self.trans_dict[s_cur][alphabet]
+                        if s_next not in Q_paths[ii]: # append a path if s_next is not a visited state
+                            word_tmp = Q_words[ii].copy()
+                            word_tmp.append(alphabet)
+                            words.append(word_tmp)
+
+                            paths_tmp = Q_paths[ii].copy()
+                            paths_tmp.append(s_next)
+                            paths.append(paths_tmp)
+                else:
+                    paths_result.append(Q_paths[ii])
+                    words_result.append(Q_words[ii])
 
         return paths_result, words_result
 
