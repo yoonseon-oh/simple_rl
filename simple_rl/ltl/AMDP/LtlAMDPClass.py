@@ -14,7 +14,7 @@ from simple_rl.ltl.AMDP.AbstractCubeMDPClass import *
 from simple_rl.ltl.AMDP.AbstractCubePolicyGeneratorClass import *
 from simple_rl.ltl.AMDP.AbstractCubeStateMapperClass import *
 
-from simple_rl.ltl.settings.build_cube_env_3 import build_cube_env
+from simple_rl.ltl.settings.build_cube_env_1 import build_cube_env
 
 from simple_rl.run_experiments import run_agents_on_mdp
 
@@ -387,10 +387,7 @@ if __name__ == '__main__':
 
     init_loc = (1,1,1)
     ltl_formula = '~b U a'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
-    ap_maps = {'a':[1, 'state', 16],  'b':[1,'state',2] } #{atomic proposition: [level, 'state', value]}
-
-    #ap_maps = {'c': [0, 'state', (1, 4, 3)], 'a': [2, 'state', 1], 'b': [2, 'state', 2]}
-
+    ap_maps = {'a':[2, 'state', 3], 'b':[1,'state',2]}
     start_time = time.time()
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
 

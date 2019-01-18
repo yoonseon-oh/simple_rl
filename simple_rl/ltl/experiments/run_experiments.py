@@ -52,9 +52,11 @@ def run_aMDP(init_loc, ltl_formula, cube_env, ap_maps, verbose=False):
     computing_time = time.time() - start_time
 
     # success?
-    if len_actions == 0:# or len(sseq) == 0:
+    if len_actions == 0:
         flag_success = -1
-        #len_actions = 0
+    elif len(sseq) == 0:
+        flag_success = 0
+
     else:
         if sseq[-1][-1].q == 1:
             flag_success = 1
@@ -75,6 +77,8 @@ def run_aMDP_lowest(init_loc, ltl_formula, cube_env, ap_maps, verbose=False):
     # success?
     if len_actions == 0:
         flag_success = -1
+    elif len(sseq) == 0:
+        flag_success = 0
     else:
         if sseq[-1][-1].q == 1:
             flag_success = 1

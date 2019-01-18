@@ -12,6 +12,7 @@ NUM_SIMULATE = 150  # the number of random cases
 flag_verbose = False
 flag_save = True
 num_env = 2
+lowest_level = 0
 
 if __name__ == '__main__':
 
@@ -19,10 +20,11 @@ if __name__ == '__main__':
     cube_env = build_cube_env()
 
     # Define a set of LTL formulas
-    formula_set = ['Fa', 'F (a & F b)', 'F(a & F( b & Fc))'] #, '~a U b']
+    formula_set = ['Fa', 'F (a & F b)', 'F(a & F( b & Fc))', 'F a & F b', '~a U b']
     num_formula = len(formula_set)
     AP_keys = ['a', 'b', 'c', 'd', 'e']
-    AP_num = [1, 2, 3, 2]  # the number of atomic propositions in formula_set[i]
+    AP_num = [1, 2, 3, 2, 2, 2]  # the number of atomic propositions in formula_set[i]
+
     init_loc = (1,1,1)
     init_room = 1
     init_floor = 1
@@ -34,7 +36,7 @@ if __name__ == '__main__':
 
     if flag_save:
         file = open("{}/results/result_time_random.txt".format(os.getcwd()), "a")
-        file.write("=== Env {} ==============================================\n".format(num_env))
+        file.write("=== Env {}, lowest_level: {}, the number of formulas: {}====================================\n".format(num_env, lowest_level, num_formula))
         file.write("Run {} times\n".format(NUM_SIMULATE))
         file.write("time_AMDP, time_AMDP_level0, time_pMDP, len_AMDP, len_AMDP_level0,"
                    " len_pMDP, correct_AMDP, correct_AMDP_level0, correct_pMDP, backup_AMDP, backup_AMDP_level0, backup_pMDP"
@@ -50,7 +52,7 @@ if __name__ == '__main__':
         ap_maps = {}
         for iap in range(0, AP_num[ftype]):
 
-            level = random.randint(0, 2)  # select random level
+            level = random.randint(lowest_level, 2)  # select random level
             while True:
 
                 if level == 0:
@@ -69,7 +71,7 @@ if __name__ == '__main__':
             ap_maps[AP_keys[iap]] = [level, 'state', state]
 
         # Run
-        print("[Trial {}] {}, {}\n".format(i, ltl_formula, ap_maps))
+        print("[Trial {}] {}, {}".format(i, ltl_formula, ap_maps))
 
         # Experiment: AMDP
         print("[Trial {}] AP-MDP ----------------------------------------".format(i))
@@ -83,7 +85,7 @@ if __name__ == '__main__':
 
         # Experiment: decomposed LTL and solve it at the lowest level
         print("[Trial {}] AP-MDP at level 0 ----------------------------------------".format(i))
-        t, l, flag_success, _, _, backup_num = run_aMDP_lowest(init_loc, ltl_formula, cube_env, ap_maps, verbose=flag_verbose)
+        #t, l, flag_success, _, _, backup_num = run_aMDP_lowest(init_loc, ltl_formula, cube_env, ap_maps, verbose=flag_verbose)
         run_time_amdp_lowest.append(t)
         run_len_amdp_lowest.append(l)
         is_correct_amdp_lowest.append(flag_success)
@@ -98,7 +100,7 @@ if __name__ == '__main__':
         run_len_plain.append(l)
         is_correct_plain.append(flag_success)
         backup_plain.append(backup_num)
-        print("  [Plain] Time: {} seconds, the number of actions: {}, backup: {}"
+        print("  [Plain] Time: {} seconds, the number of actions: {}, backup: {}\n"
               .format(round(t, 3), l, backup_num))
 
         if flag_save:
