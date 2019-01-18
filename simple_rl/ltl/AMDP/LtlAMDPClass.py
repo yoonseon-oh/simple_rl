@@ -381,20 +381,49 @@ class LTLAMDP():
         self.relation_TF = relation_TF
 
 
+    def format_output(self, state_seq, action_seq):
+        sseq = []
+        aseq = []
+        room_seq = []
+        floor_seq = []
+        for k in range(len(action_seq)):
+
+            for i in range(len(action_seq[k])):
+                room_number, floor_number = self._get_abstract_number(state_seq[k][i])
+
+                sseq.append(state_seq[k][i].data[0:3])
+                aseq.append(action_seq[k][i])
+                room_seq.append(room_number)
+                floor_seq.append(floor_number)
+
+        room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
+
+        sseq.append(state_seq[k][-1].data[0:3])
+        room_seq.append(room_number)
+        floor_seq.append(floor_number)
+
+        return sseq, aseq, room_seq, floor_seq
+
 if __name__ == '__main__':
 
     cube_env = build_cube_env()
 
     init_loc = (1,1,1)
-    ltl_formula = '~b U a'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
+    ltl_formula = 'F(a & Fb)'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
     ap_maps = {'a':[2, 'state', 3], 'b':[1,'state',2]}
     start_time = time.time()
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
 
-
     sseq, aseq, len_actions, backup = ltl_amdp.solve(init_loc, FLAG_LOWEST=False)
 
-    computing_time = time.time()-start_time
+    computing_time = time.time() - start_time
+
+    # make the prettier output
+    s_seq, a_seq, r_seq, f_seq = ltl_amdp.format_output(sseq, aseq)
+
+#    for t in range(0, len(a_seq)):
+#        print("\t {} in room {} on the floor {}, {}".format(s_seq[t], r_seq[t], f_seq[t], a_seq[t]))
+#    print("\t {} in room {} on the floor {}".format(s_seq[-1], r_seq[-1], f_seq[-1]))
 
     print("Summary")
     print("\t Time: {} seconds, the number of actions: {}, backup: {}"
