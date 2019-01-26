@@ -8,6 +8,8 @@ def build_cube_env():
     cube_env['len_z'] = 6  # the number of grids (z-axis)
     cube_env['num_floor']= 3 # the number of floors
     cube_env['num_room'] = 18 # the number of rooms
+    room_height, cube_env['room_height'] = 2, 2
+    room_len, cube_env['room_len'] = 2, 2
 
     # Define a map : room number, w (wall)
     map = [] # map[z][y][x]

@@ -409,8 +409,8 @@ if __name__ == '__main__':
     cube_env = build_cube_env()
 
     init_loc = (1,1,1)
-    ltl_formula = 'F(a & Fb)'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
-    ap_maps = {'a':[2, 'state', 3], 'b':[1,'state',2]}
+    ltl_formula = 'F(a & F b)'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
+    ap_maps = {'a':[2, 'state', 2], 'b':[1,'state',8], 'c':[2, 'state', 1]}
     start_time = time.time()
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
 

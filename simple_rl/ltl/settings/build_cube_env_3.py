@@ -16,8 +16,8 @@ def build_cube_env():
     cube_env['num_room'] = 9*2*2 # the number of rooms
     num_x = 3
     num_y = 3
-    room_height = 1
-    room_len = 3
+    room_height, cube_env['room_height'] = 1, 1
+    room_len, cube_env['room_len'] = 3, 3
     num_rooms_on_floor = num_x*num_y
 
     # Define a map : save a room number of each cell, w (wall)
