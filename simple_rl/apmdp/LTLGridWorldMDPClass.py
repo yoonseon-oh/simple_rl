@@ -6,6 +6,7 @@ from simple_rl.mdp.MDPClass import MDP
 class LTLGridWorldMDP(GridWorldMDP):
     ''' Class for a Grid World MDP with the given LTL'''
 
+    # ap_map: key(name of atomic proposition): value(information)
     def __init__(self, ltltask='F a', ap_map={'a':(1,1)}, width=5,
                 height=3,
                 init_loc=(1,1),
