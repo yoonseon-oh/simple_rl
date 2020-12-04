@@ -3,17 +3,22 @@
 # Other imports.
 from simple_rl.mdp.StateClass import State
 
-class CleanupQStateClass(State):
+class CleanupQState(State):
     ''' Class for Grid World States '''
     # Object, Room List
-    # objlist = {pos:[[x,y],[x,y], ...], color: ['r','g','b',..]}
-    def __init__(self, x, y, obj_id, q, objlist, roomlist):
-        State.__init__(self, data=[x, y, obj_id, q, objlist, roomlist])
+    # obj_loc = [(1,3),(1,5),(5,6),(6,8)], color:{0: 'red', 1: 'blue', 2: 'green', 3: 'yellow'}}
+    def __init__(self, x, y, obj_id, q, obj_loc, obj_color, roomlist):
+
+        obj_loc_list = []
+        for ii in range(0, len(obj_loc)):
+            obj_loc_list.extend(obj_loc[ii])
+
+        State.__init__(self, data=[x, y, obj_id, q, objlist])
         self.x = x
         self.y = y
         self.obj_id = obj_id # ID of the object a robot is carrying
         self.q = q
-        self.objlist = objlist
+        self.objloc = objlist['pos']
         self.roomlist = roomlist
 
     def __hash__(self):

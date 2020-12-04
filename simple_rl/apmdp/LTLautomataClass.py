@@ -1,4 +1,6 @@
 from sympy import *
+import sys, os
+sys.path.append('/usr/local/lib/python3.7/site-packages')
 import spot
 import itertools
 
