@@ -69,7 +69,7 @@ def build_cube_env():
     return cube_env
 
 def draw_cleanup_env(env):
-    img = np.zeros((env['len_x'],env['len_y'],3))
+    img = np.zeros((env['len_y'],env['len_x'],3))
     # draw rooms
     color_set = [[1, 0, 0], [0, 0, 1], [0, 1, 0], [1, 1, 0.4] ]
     for x in range(0, env['len_x']):
@@ -78,21 +78,23 @@ def draw_cleanup_env(env):
                 color= [0,0,0]
             else:
                 color = color_set[env['map'][x][y]]
-            img[x][y][0] = color[0]
-            img[x][y][1] = color[1]
-            img[x][y][2] = color[2]
+            img[y][x][0] = color[0]
+            img[y][x][1] = color[1]
+            img[y][x][2] = color[2]
 
     plt.imshow(img)
 
     # draw objects
     for ii in range(0, env['num_obj']):
-        plt.plot(env['obj_to_locs'][ii][1],env['obj_to_locs'][ii][0],'^',mec='black',
+        plt.plot(env['obj_to_locs'][ii][0],env['obj_to_locs'][ii][1],'^',mec='black',
                  mfc= env['obj_color'][ii], ms=8.0)
 
     plt.draw()
-    plt.pause(10)
+
 
 if __name__ == '__main__':
     env = build_cube_env()
     draw_cleanup_env(env)
+    plt.pause(10)
+
     print("done")

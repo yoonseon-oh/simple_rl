@@ -26,15 +26,14 @@ class CleanupQState(State):
         return hash(tuple(self.data))
 
     def __str__(self):
-        return "s: (" + str(self.x) + "," + str(self.y) + "," + str(self.obj_id)+","+ str(obj_loc)+ ")"
+        return "s: (" + str(self.x) + "," + str(self.y) + "," + str(self.obj_id) + ","+ str(self.q)+","+ str(self.obj_loc)+ ")"
 
     def __repr__(self):
         return self.__str__()
 
     def __eq__(self, other):
-        return isinstance(other, State) and self.x == other.x and self.y == other.y and self.obj_id == other.obj_id
+        return isinstance(other, State) and self.x == other.x and self.y == other.y and self.q==other.q and self.obj_id == other.obj_id
 
     def update_data(self):
-
         self.data = [self.x, self.y, self.obj_id, self.q] + self.obj_loc
 

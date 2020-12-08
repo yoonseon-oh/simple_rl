@@ -5,15 +5,17 @@ import math
 import os
 from collections import defaultdict
 import numpy as np
+import copy
 
 # Other imports
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.apmdp.AP_MDP.cleanup.CleanupQStateClass import CleanupQState
 
 from simple_rl.apmdp.AP_MDP.CubeStateClass import CubeState
-from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
+from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env, draw_cleanup_env
 from simple_rl.planning import ValueIteration
 import random
+import matplotlib.pyplot as plt
 
 from sympy import *
 
@@ -84,12 +86,12 @@ class CleanupQMDP(MDP):
             #next_state._is_terminal = (next_q == 1)
 
         next_state.update_data()
-
+        print(state, action, next_state)
         return next_state
 
     def _transition_env(self, state, action):
 
-        next_state = state
+        next_state = copy.deepcopy(state)
 
         r = random.random() # probability of transition error
         if self.slip_prob > r:
@@ -134,7 +136,6 @@ class CleanupQMDP(MDP):
             next_state.obj_loc[next_state.obj_id] = (next_state.x, next_state.y)
 
         next_state.update_data()
-
         return next_state
 
     def is_loc_in_room(self, loc, room_number):
@@ -165,7 +166,7 @@ class CleanupQMDP(MDP):
 
     def _transition_q(self, state, action):
         # evaluate APs
-        evaluated_APs = self._evaluate_APs(state, action)
+        evaluated_APs = self._evaluate_APs(state)
 
         # q state transition
         # define symbols
@@ -179,10 +180,9 @@ class CleanupQMDP(MDP):
             next_q = 0
         else:  # fail
             next_q = -1
-
         return next_q
 
-    def _evaluate_APs(self, state, action): # TODO: Complete
+    def _evaluate_APs(self, state): # TODO: Complete
         evaluated_APs ={}
 
         #ap_maps: ex) {a: ('in', [obj_id, room_id]), b: ('on', obj_id), c: ('RobotIn', room_id),, d: ('RobotAt', obj_id)}
@@ -203,15 +203,26 @@ class CleanupQMDP(MDP):
 
 
 if __name__ == '__main__':
-    constraints = {'goal': 'c', 'stay': '~a'}
-    ap_maps = {'a': ('in', [1, 1]), 'b':('on',1), 'c':('RobotIn',2), 'd':('RobotAt',1)}
-    cube_env1 = build_cube_env()
-    mdp = CleanupQMDP(env_file=[cube_env1], constraints=constraints,ap_maps=ap_maps)
-    value_iter = ValueIteration(mdp, sample_rate=1, max_iterations=50)
+    constraints = {'goal': 'c', 'stay': '~c'}
+    ap_maps = {'a': ('in', [1, 1]), 'b':('on',1), 'c':('RobotIn',3), 'd':('RobotAt',1)}
+    env = build_cube_env()
+    mdp = CleanupQMDP(env_file=[env], constraints=constraints,ap_maps=ap_maps)
+    value_iter = ValueIteration(mdp, sample_rate=3, max_iterations=10)
     value_iter.run_vi()
 
+
     # run value interation
+    print(mdp.get_init_state())
     action_seq, state_seq = value_iter.plan(mdp.get_init_state())
+    print(mdp.get_init_state())
+
+    # draw the result
+    for tt in range(0,len(state_seq)):
+        draw_cleanup_env(env)
+        print(state_seq[tt].x, state_seq[tt].y)
+        plt.plot(state_seq[tt].x, state_seq[tt].y, mec='black',marker='o', mfc = 'r')
+        plt.draw()
+        plt.pause(1)
 
     print('end')
 
