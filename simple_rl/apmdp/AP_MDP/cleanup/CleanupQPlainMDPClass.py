@@ -5,89 +5,150 @@ import math
 import os
 from collections import defaultdict
 import numpy as np
-import time
-from simple_rl.apmdp.LTLautomataClass import LTLautomata
+import copy
 
 # Other imports
 from simple_rl.mdp.MDPClass import MDP
-from simple_rl.apmdp.AP_MDP.cleanup.CleanupQStateClass import CleanupQStateClass
-from simple_rl.planning import ValueIteration
+from simple_rl.apmdp.AP_MDP.cleanup.CleanupQStateClass import CleanupQState
 
-from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
+from simple_rl.apmdp.AP_MDP.CubeStateClass import CubeState
+from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env, draw_cleanup_env
+from simple_rl.planning import ValueIteration
+import random
+import matplotlib.pyplot as plt
+
 from sympy import *
 
+# Todo: add LTL parts
 class CleanupQPlainMDP(MDP):
     ''' Class for a Cube World with Rooms '''
 
-    def __init__(self, ltl_formula= 'Fa', len_x=9, len_y=9, len_z=5, init_loc=(1,1,1),
-                 goal_locs=[(9,9,3)], env_file = [],
-                 gamma=0.99, slip_prob=0.00, name="cube_room",
-                 is_goal_terminal=True, rand_init=False,
-                 step_cost=0.0, constraints={'goal':[],'stay':[]}, ap_maps = {}):
+    ACTIONS = ["north","south","east","west","pickup","place"]
+    def __init__(self, len_x=9, len_y=9, init_robot=(1,1,-1), q_init=0, env_file = [],
+                 gamma=0.99, name="cleanup",  slip_prob=0.0,
+                 is_goal_terminal=True, step_cost=0.0, constraints={'goal':[],'stay':[]}, ap_maps = {}):
         '''
         Args:
-            len_x, len_y, (int)
-            init_loc (tuple: (int, int,int))
-            goal_locs (list of tuples: [(int, int,int)...]
+            len_x, len_y, len_z (int)
+            init_robot (tuple: (int, int,int)): the state of a robot
             env_file: specify environment)
             constraints: logic formula of 'goal' and 'stay' for the reward function
                         - goal (large positive), stay (zero), otherwise (large negative)
-            ap_maps: dictionary {ap_symbol: (category, state), ...} ex) {a: ('r', [1]), b:('a',west)}
-                    category: floor(f), room(r), lowest level action(a), grid cells (c)
+            ap_maps: dictionary {ap_symbol: (predicate, argument), ...}
+                ex) {a: ('in', [obj_id, room_id]), b:('on',obj_id), c:('RobotIn',room_id),, d:('RobotAt',obj_id)}
         '''
 
         # Load environment file
+
         if len(env_file)==0:
             print('Fail to initialize RoomCubeMDP')
 
         else:
             cube_env = env_file[0]
-            len_x = cube_env['len_x']
-            len_y = cube_env['len_y']
-            walls = cube_env['walls']
+            self.len_x = cube_env['len_x']
+            self.len_y = cube_env['len_y']
+            self.walls = cube_env['walls']
             self.num_room = cube_env['num_room']
             self.room_to_locs = cube_env['room_to_locs']
+            self.obj_loc_init = cube_env['obj_to_locs']
+            self.num_obj = cube_env['num_obj']
+            self.obj_color = cube_env['obj_color']
+            self.slip_prob = slip_prob
 
-            self.cube_env = cube_env
+        if 'lowest' in constraints.keys(): # Todo
+            self.constraints = {'goal': 'a', 'stay': 'b'}
+            self.ap_maps = {'a': ap_maps['a'],
+                            'b': [1, 'state', self.get_room_numbers(init_loc)[0]]}  # AP --> real world
+        else:
+            self.constraints = constraints  # constraints for LTL
+            self.ap_maps = ap_maps
 
-        CubeMDP.__init__(self, len_x, len_y, len_z, init_loc,
-                         goal_locs=goal_locs, walls=walls,
-                         gamma=gamma, slip_prob=slip_prob, name=name,
-                         is_goal_terminal=is_goal_terminal, rand_init=rand_init, step_cost=step_cost)
+        # initialize the state
+        init_state = CleanupQState(init_robot, q=-1, obj_loc=self.obj_loc_init)
+        init_state.q = self._transition_q(init_state, "")
 
-        self.constraints = constraints  # constraints for LTL
-        self.ap_maps = ap_maps  # AP --> real world
-        self.automata = LTLautomata(ltl_formula)
-        self.init_q = self.automata.init_state
-
-        init_state = RoomCubeState(init_loc[0],init_loc[1],init_loc[2], self.init_q)
-        init_state = self.transition_func(init_state, "")
-        if self.automata.aut_spot.state_is_accepting(init_state.q):
+        if init_state.q != 0:
             init_state.set_terminal(True)
 
-        MDP.__init__(self, RoomCubePlainMDP.ACTIONS, self._transition_func, self._reward_func, init_state=init_state,
+        MDP.__init__(self, CleanupQMDP.ACTIONS, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
 
+        '''
+        if 'lowest' in constraints.keys():
+            self.constraints = {'goal': 'a', 'stay': 'b'}
+            self.ap_maps = {'a': ap_maps['a'], 'b': [1, 'state', self.get_room_numbers(init_loc)[0]]}  # AP --> real world
+        else:
+            self.constraints = constraints  # constraints for LTL
+            self.ap_maps = ap_maps
+        '''
 
     def _transition_func(self, state, action):
-        next_state_xyz = super()._transition_func(state, action)
+        next_state = self._transition_env(state, action) # compute the transition of the environment
+        next_state.set_terminal(is_term=False)
+        next_state.q = self._transition_q(next_state, action)
 
-        evaluated_APs = self._evaluate_APs((next_state_xyz.x, next_state_xyz.y, next_state_xyz.z), action)
-        next_q = self.automata.transition_func(state.q, evaluated_APs)
-
-        next_state = RoomCubeState(next_state_xyz.x, next_state_xyz.y, next_state_xyz.z, next_q)
-
-        if self.automata.aut_spot.state_is_accepting(next_q):
+        if next_state.q != 0:
             next_state.set_terminal(True)
+            #next_state._is_terminal = (next_q == 1)
 
+        next_state.update_data()
+
+        return next_state
+
+    def _transition_env(self, state, action):
+
+        next_state = copy.deepcopy(state)
+
+        r = random.random() # probability of transition error
+        if self.slip_prob > r:
+            # Flip dir.
+            if action == "north":
+                action = random.choice(["west", "east"])
+            elif action == "south":
+                action = random.choice(["west", "east"])
+            elif action == "west":
+                action = random.choice(["north", "south"])
+            elif action == "east":
+                action = random.choice(["north", "south"])
+            elif action == "pickup":
+                action = -1
+            elif action == "place":
+                action = -1
+
+        # Compute action
+        if action == "north" and state.y < self.len_y and not self.is_wall(state.x, state.y + 1):
+            next_state.y = state.y + 1
+        elif action == "south" and state.y > 1 and not self.is_wall(state.x, state.y - 1):
+            next_state.y = state.y - 1
+        elif action == "east" and state.x < self.len_x and not self.is_wall(state.x + 1, state.y):
+            next_state.x = state.x + 1
+        elif action == "west" and state.x > 1 and not self.is_wall(state.x - 1, state.y):
+            next_state.x = state.x - 1
+        elif action == "pickup":
+            try:
+                obj_id = state.obj_loc.index((state.x, state.y))
+                next_state.obj_id = obj_id
+            except ValueError:
+                pass
+
+        elif action == "place":
+            if state.obj_id !=- 1:
+                next_state.obj_id = -1
+                next_state.obj_loc[state.obj_id]=(state.x, state.y)
+
+        # if an object is on the robot, the robot and the object should be at the same location.
+        if next_state.obj_id !=-1:
+            next_state.obj_loc[next_state.obj_id] = (next_state.x, next_state.y)
+
+        next_state.update_data()
+        #print(state, action, next_state)
         return next_state
 
     def is_loc_in_room(self, loc, room_number):
         return loc in self.room_to_locs[room_number]
 
-
-    def is_loc_on_floor(self, loc, floor_number):
-        return loc in self.floor_to_locs[floor_number]
+    def is_wall(self,x,y):
+        return (x,y) in self.walls
 
     def get_room_numbers(self, loc):
         room_numbers = []
@@ -96,89 +157,82 @@ class CleanupQPlainMDP(MDP):
                 room_numbers.append(i)
         return room_numbers
 
-    def get_floor_numbers(self, loc):
-        room_number = self.get_room_numbers(loc)[0]
-        floor_numbers = []
-        for i in range(1, self.num_floor+1):
-            if room_number in self.floor_to_rooms[i]:
-                floor_numbers.append(i)
-        return floor_numbers
+    def is_goal_state(self, state):
+        return state.q == 1
 
     def _reward_func(self, state, action): # TODO: Complete
         next_state = self._transition_func(state, action)
-        return self.automata.reward_func(next_state.q)
+        #next_state = state
+        if next_state.q == 0: # stay
+            reward = -1
+        elif next_state.q == 1:  # success
+            reward = 100
+        elif next_state.q == -1:  # fail
+            reward = -100
+        print(reward)
+        return reward
 
-    def _evaluate_APs(self, loc, action): # TODO: Complete
+    def _transition_q(self, state, action):
+        # evaluate APs
+        evaluated_APs = self._evaluate_APs(state)
+
+        # q state transition
+        # define symbols
+        for ap in evaluated_APs.keys():
+            exec('%s = symbols(\'%s\')' % (ap, ap))
+
+        # evaluation
+        if eval(self.constraints['goal']).subs(evaluated_APs):  # goal
+            next_q = 1
+        elif eval(self.constraints['stay']).subs(evaluated_APs):  # keep planning
+            next_q = 0
+        else:  # fail
+            next_q = -1
+        return next_q
+
+    def _evaluate_APs(self, state): # TODO: Complete
         evaluated_APs ={}
 
+        #ap_maps: ex) {a: ('in', [obj_id, room_id]), b: ('on', obj_id), c: ('RobotIn', room_id),, d: ('RobotAt', obj_id)}
         for ap in self.ap_maps.keys():
-            if (self.ap_maps[ap][0] == 0) and (self.ap_maps[ap][1] == 'state'): # level 0
-                evaluated_APs[ap] = (loc[0] == self.ap_maps[ap][2][0]) & (loc[1] == self.ap_maps[ap][2][1]) & (loc[2] == self.ap_maps[ap][2][2])
+            if self.ap_maps[ap][0] == "in": # an object is in a room
+               evaluated_APs[ap] = state.obj_loc[self.ap_maps[ap][1][0]] in self.room_to_locs[self.ap_maps[ap][1][1]]
+            elif self.ap_maps[ap][0] == "on":
+               evaluated_APs[ap] = state.obj_id == self.ap_maps[ap][1]
 
-            elif (self.ap_maps[ap][0] == 0 ) and (self.ap_maps[ap][1] == 'action'):
-                evaluated_APs[ap] = self.ap_maps[ap][2] in action
+            elif self.ap_maps[ap][0] == "RobotIn": # a robot is in a room
+               evaluated_APs[ap] = (state.x, state.y) in self.room_to_locs[self.ap_maps[ap][1]]
 
-            elif self.ap_maps[ap][0] == 1 and (self.ap_maps[ap][1] == 'state'):  # level 1
-                evaluated_APs[ap] = self.is_loc_in_room(loc, self.ap_maps[ap][2])
-
-            elif self.ap_maps[ap][0] == 1 and (self.ap_maps[ap][1] == 'action'):  # level 1
-                evaluated_APs[ap] = self.ap_maps[ap][2] in action
-
-            elif self.ap_maps[ap][0] == 2 and (self.ap_maps[ap][1] == 'state'):  # level 2
-                evaluated_APs[ap] = self.is_loc_on_floor(loc, self.ap_maps[ap][2])
-
-            elif self.ap_maps[ap][0] == 2 and (self.ap_maps[ap][1] == 'action'):  # level 2
-                evaluated_APs[ap] = self.ap_maps[ap][2] in action
+            elif self.ap_maps[ap][0] == "RobotAt":
+                evaluated_APs[ap] = (state.x, state.y) == state.obj_loc[self.ap_maps[ap][1]]
 
         return evaluated_APs
 
-    def _get_abstract_number(self, state):
-        room_number = 0
-        floor_number = 0
-        for r in range(1, self.cube_env['num_room'] + 1):
-            if (state.x, state.y, state.z) in self.cube_env['room_to_locs'][r]:
-                room_number = r
-                break
-
-        for f in range(1, self.cube_env['num_floor'] + 1):
-            if room_number in self.cube_env['floor_to_rooms'][f]:
-                floor_number = f
-                break
-
-        return room_number, floor_number
-
 
 if __name__ == '__main__':
-    cube_env1 = build_cube_env()
-    ltl_formula = 'F( b & F a)'
-    #    ltl_formula = 'F (a&b)'
-    ap_maps = {'a': [1, 'state', 7], 'b': [2, 'state', 3]}
-    #'c': [1, 'state', 3], 'd': [0, 'state', (6, 1, 1)],
-    #           'e': [2, 'state', 1],
-    #           'f': [2, 'state', 3], 'g': [0, 'state', (3, 4, 1)]}
+    constraints = {'goal': 'a', 'stay': 'b'}
+    ap_maps = {'a': ('RobotIn', 1), 'b': ('RobotIn', 0)}
+    #ex) ap_maps = {'a': ('in', [1, 1]), 'b':('on',1), 'c':('RobotIn',1), 'd':('RobotAt',1),'e':('RobotIn',0)}
 
-    start_time = time.time()
-    mdp = RoomCubePlainMDP(ltl_formula=ltl_formula, env_file=[cube_env1],
-                           ap_maps = ap_maps)
-
-    value_iter = ValueIteration(mdp, sample_rate=1)
+    env = build_cube_env()
+    mdp = CleanupQMDP(env_file=[env], constraints=constraints,ap_maps=ap_maps)
+    value_iter = ValueIteration(mdp, sample_rate=1, max_iterations=20)
     value_iter.run_vi()
 
-    # Value Iteration
+
+    # run value interation
+    print("plan start")
     action_seq, state_seq = value_iter.plan(mdp.get_init_state())
+    print(mdp.get_init_state())
 
-    computing_time = time.time() - start_time
+    # draw the result
+    for tt in range(0,len(state_seq)):
+        draw_cleanup_env(env)
+        print(state_seq[tt].x, state_seq[tt].y)
+        plt.plot(state_seq[tt].x, state_seq[tt].y, mec='black',marker='o', mfc = 'r')
+        plt.draw()
+        plt.pause(1)
 
-    # print
-    print("Plan for", mdp)
-    for i in range(len(action_seq)):
-        room_number, floor_number = mdp._get_abstract_number(state_seq[i])
+    print('end')
 
-        print(
-            "\t {} in room {} on the floor {}, {}".format(state_seq[i], room_number, floor_number, action_seq[i]))
-    room_number, floor_number = mdp._get_abstract_number(state_seq[-1])
-    print("\t {} in room {} on the floor {}".format(state_seq[-1], room_number, floor_number))
 
-    print("Summary")
-    print("\t Time: {} seconds, The number of actions: {}"
-          .format(round(computing_time, 3), len(action_seq)))

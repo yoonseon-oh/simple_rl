@@ -98,6 +98,8 @@ class ValueIteration(Planner):
         expected_future_val = 0
         for s_prime in self.trans_dict[s][a].keys():
             expected_future_val += self.trans_dict[s][a][s_prime] * self.value_func[s_prime]
+
+
         return self.reward_func(s,a) + self.gamma*expected_future_val
 
     def _compute_reachable_state_space(self):

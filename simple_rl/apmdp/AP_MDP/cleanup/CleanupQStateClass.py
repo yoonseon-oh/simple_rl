@@ -13,8 +13,11 @@ class CleanupQState(State):
 
     def __init__(self, init_state, q, obj_loc):
 
+        obj_loc_list = []
+        for obj in obj_loc:
+            obj_loc_list.extend(obj)
 
-        State.__init__(self, data=list(init_state) + [q] + obj_loc)
+        State.__init__(self, data=list(init_state) + [q] + obj_loc_list)
         self.x = init_state[0]
         self.y = init_state[1]
         self.obj_id = init_state[2] # ID of the object a robot is carrying
@@ -35,5 +38,8 @@ class CleanupQState(State):
         return isinstance(other, State) and self.x == other.x and self.y == other.y and self.q==other.q and self.obj_id == other.obj_id
 
     def update_data(self):
-        self.data = [self.x, self.y, self.obj_id, self.q] + self.obj_loc
+        obj_loc_list = []
+        for obj in self.obj_loc:
+            obj_loc_list.extend(obj)
+        self.data = [self.x, self.y, self.obj_id, self.q] + obj_loc_list
 
