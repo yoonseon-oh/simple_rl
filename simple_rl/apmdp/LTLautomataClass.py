@@ -180,7 +180,7 @@ class LTLautomata():
 
         return paths_result, words_result
 
-    def _simplify_dict(self, AP_tree): # TODO: Complete
+    def _simplify_dict(self, AP_tree):
         trans_dict_simplified = {}
         for key in self.trans_dict.keys():
             cur_dict = {}

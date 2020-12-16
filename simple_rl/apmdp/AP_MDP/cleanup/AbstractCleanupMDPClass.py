@@ -8,52 +8,47 @@ from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.planning import ValueIteration
 from simple_rl.amdp.AMDPTaskNodesClass import NonPrimitiveAbstractTask, RootTaskNode
-from simple_rl.apmdp.settings.build_cube_env_1 import build_cube_env
+from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
 
 from sympy import *
 import random
+import copy
 
-class CubeL2State(State):
-    def __init__(self, floor_number, q, is_terminal=False):
-        State.__init__(self, data=[floor_number,q], is_terminal=is_terminal)
-        self.agent_on_floor_number = floor_number
+class CleanupL2State(State):
+    def __init__(self, obj_room, q, is_terminal=False): # obj_room = [obj0_room, obj1_room, ..., objn_room]
+        State.__init__(self, data= obj_room + [q], is_terminal=is_terminal)
+        self.obj_room = obj_room
         self.q = q # logic state
 
     def __hash__(self):
         return hash(tuple(self.data))
 
     def __str__(self):
-        return 'Agent on the floor {}, Q: {}'.format(self.agent_on_floor_number, self.q)
+        return 'room numbers of objects {}, Q: {}'.format(self.obj_room, self.q)
 
     def __repr__(self):
         return self.__str__()
 
     def __eq__(self, other):
-        return isinstance(other, CubeL2State) and self.agent_on_floor_number == other.agent_on_floor_number
+        return isinstance(other, CleanupL2State) and self.obj_room == other.obj_room and self.q == other.q
 
-class CubeL2GroundedAction(NonPrimitiveAbstractTask):
-    def __init__(self, l2_action_string, subtasks, lowerDomain):
-        self.action = l2_action_string
-        self.goal_floor = self.extract_goal_floor(self.action)
+class CleanupL2GroundedAction(NonPrimitiveAbstractTask): # relation between L2 task and L1 state
+    # l2_action: [ObjID, RoomID]
+    def __init__(self, l2_action, subtasks, lowerDomain):
+        self.action_name = str(l2_action)
+        self.target_obj = l2_action[0]
+        self.goal_room = l2_action[1]
 
-        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}
-        self.ap_maps = {'a': (2, 'state', self.goal_floor)}
+        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True} # TODO: lowest?
+        self.ap_maps = {'a': ('In', l2_action)}
         tf, rf = self._terminal_function, self._reward_function
         self.l1_domain = lowerDomain
-        NonPrimitiveAbstractTask.__init__(self, l2_action_string, subtasks, tf, rf)
+        NonPrimitiveAbstractTask.__init__(self, self.action_name, subtasks, tf, rf)
 
     @classmethod
-    def extract_goal_floor(cls, action): # parser
-        floor_numbers = re1.findall(r'\d+', action)
-        if len(floor_numbers) == 0:
-            raise ValueError('unable to extract floor number from L2Action {}'.format(action))
-        return int(floor_numbers[0])
+    def _terminal_function(self, state): # state: L1
 
-    def _terminal_function(self, state):
-
-        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number] == self.goal_floor
-
-        #return self.l1_domain.get_floor_numbers(state.agent_in_room_number)[0] == self.goal_floor
+        return self.l1_domain.obj_room[self.target_obj] == self.goal_room
 
     def _reward_function(self, state):
         if state.q == 1:
@@ -63,50 +58,52 @@ class CubeL2GroundedAction(NonPrimitiveAbstractTask):
         else:
             return -100
 
-    def _floor_number(self, state):
-        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number]
+#    def _floor_number(self, state):
+#        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number]
         #return self.l1_domain.get_floor_numbers(state.room_number)[0]
 
-class CubeL1State(State):
-    def __init__(self, room_number, q, is_terminal=False):
-        State.__init__(self, data=[room_number, q], is_terminal=is_terminal)
-        self.agent_in_room_number = room_number
+class CleanupL1State(State):
+    def __init__(self, robot_at, robot_in, obj_id, obj_room, q, is_terminal=False):
+        State.__init__(self, data=[robot_at, robot_in, obj_id]+obj_room+[q], is_terminal=is_terminal)
+        self.robot_at = robot_at
+        self.robot_in = robot_in
+        self.obj_id = obj_id
+        self.obj_room = obj_room
         self.q = q # logic state
 
     def __hash__(self):
         return hash(tuple(self.data))
 
     def __str__(self):
-        return 'Agent in room {}, Q: {}'.format(self.agent_in_room_number, self.q)
+        return 'Agent at objectID {}, roomID {}, object_ID {}, obj_room {}, Q: {}'.format(self.robot_at, self.robot_in, self.obj_id,
+                                                                                          self.obj_room, self.q)
 
     def __repr__(self):
         return self.__str__()
 
     def __eq__(self, other):
-        return isinstance(other, CubeL1State) and self.agent_in_room_number == other.agent_in_room_number
+        return isinstance(other, CleanupL1State) and self.robot_at == other.robot_at and self.robot_in == other.robot_in \
+                    and self.obj_id == other.obj_id and self.obj_room == other.obj_room and self.q == other.q
 
-class CubeL1GroundedAction(NonPrimitiveAbstractTask):
-    def __init__(self, l1_action_string, subtasks, lowerDomain):
-        self.action = l1_action_string
-        self.goal_room = self.extract_goal_room(self.action)
-        #self.goal_state = CubeL1State(goal_room, 0, is_terminal=True)
+class CleanupL1GroundedAction(NonPrimitiveAbstractTask): # L1_action: ['PICKUP', obj_id], ['PLACE'], ['NavRoom', roomid], ['NavObj', objid]
+    def __init__(self, l1_action, subtasks, lowerDomain):
+        self.action_name = str(l1_action)
 
-        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}
-        self.ap_maps = {'a': (1, 'state', self.goal_room)}
+        self.goal_constraints, self.ap_maps = self.extract_goal(l1_action)
         tf, rf = self._terminal_function, self._reward_function
         self.l0_domain = lowerDomain
-        NonPrimitiveAbstractTask.__init__(self, l1_action_string, subtasks, tf, rf)
+        NonPrimitiveAbstractTask.__init__(self, self.action_name, subtasks, tf, rf)
 
-    @classmethod
-    def extract_goal_room(cls, action):
-        room_numbers = re1.findall(r'\d+', action)
-        if len(room_numbers) == 0:
-            raise ValueError('unable to extract room number from L1Action {}'.format(action))
-        return int(room_numbers[0])
+    def extract_goal(self, l1_action):
+        action2predicate = {'PICKUP': 'On',  'PLACE': 'On', 'NavRoom':'RobotIn', 'NavObj': 'RobotAt'}
+        arg = {'PICKUP': l1_action[1],  'PLACE': -1, 'NavRoom': l1_action[1], 'NavObj': l1_action[1]}
+        constraints = {'goal': 'a', 'stay': '~a', 'lowest': True} # lowest:
+        ap_maps = {'a': (action2predicate[l1_action[0]], arg[l1_action[0]])}
 
-    def _terminal_function(self, state):
-        return self.l0_domain.get_room_numbers((state.x, state.y, state.z))[0] == self.goal_room
+        return constraints, ap_maps
 
+    def _terminal_function(self, state): # state : the lowest level state
+        return state.q != 0
 
     def _reward_function(self, state):
         if state.q == 1:
@@ -116,45 +113,44 @@ class CubeL1GroundedAction(NonPrimitiveAbstractTask):
         else:
             return -100
 
-
-    def _room_number(self, state):
-        return self.l0_domain.get_room_numbers((int(state.x), int(state.y), int(state.z)))[0] # TODO: Check what l0_domain is
-
-class CubeRootL2GroundedAction(RootTaskNode):
-    def __init__(self, action_str, subtasks, l2_domain, terminal_func, reward_func, constraints, ap_maps):
-        self.action = 'Root_' + action_str
+class CleanupRootL2GroundedAction(RootTaskNode):
+    def __init__(self, action, subtasks, l2_domain, terminal_func, reward_func, constraints, ap_maps):
+        self.action_str = 'Root_' + str(action)
         self.goal_constraints = constraints
         self.ap_maps = ap_maps
 
-        RootTaskNode.__init__(self, self.action, subtasks, l2_domain, terminal_func, reward_func)
+        RootTaskNode.__init__(self, self.action_str, subtasks, l2_domain, terminal_func, reward_func)
 
-class CubeRootL1GroundedAction(RootTaskNode):
-    def __init__(self, action_str, subtasks, l1_domain, terminal_func, reward_func, constraints, ap_maps):
-        self.action = 'Root_' + action_str
+class CleanupRootL1GroundedAction(RootTaskNode):
+    def __init__(self, action, subtasks, l1_domain, terminal_func, reward_func, constraints, ap_maps):
+        self.action_str = 'Root_' + str(action)
         #self.goal_state = CubeL1State(CubeL1GroundedAction.extract_goal_room(action_str), is_terminal=True)
         self.goal_constraints = constraints
         self.ap_maps = ap_maps
 
-        RootTaskNode.__init__(self, self.action, subtasks, l1_domain, terminal_func, reward_func)
+        RootTaskNode.__init__(self, self.action_str, subtasks, l1_domain, terminal_func, reward_func)
 
-class CubeL2MDP(MDP):
-    ACTIONS = ["toFloor%d" %ii for ii in range(1,4)]
-    def __init__(self, starting_floor=1, gamma=0.99, env_file=[], constraints={}, ap_maps={}):
+class CleanupL2MDP(MDP):
+    ACTIONS = []#[list(x) for x in itertools.product(0,)] #[obj_id, room_id]
+    def __init__(self,init_state = CleanupL2State(), gamma=0.99, env_file=[], constraints={}, ap_maps={}):
+        # state_init: [obj_room1, obj_room2, ..., obj_roomn]
         self.terminal_func = lambda state: state.q != 0
         self.constraints = constraints
         self.ap_maps = ap_maps
 
         if len(env_file) != 0:
-            self.cube_env = env_file[0]
-            CubeL2MDP.ACTIONS = self.cube_env['L2ACTIONS']
+            self.env = env_file[0]
+            CleanupL2MDP.ACTIONS = self.env['L2ACTIONS']
         else:
             print("Input: env_file")
 
-        initial_state = CubeL2State(starting_floor, self._transition_q(starting_floor, ""))
+        # initial state
+        initial_state = init_state
+        initial_state.q = self._evaluate_q(initial_state)
         if initial_state.q != 0:
             initial_state.set_terminal(True)
 
-        MDP.__init__(self, CubeL2MDP.ACTIONS, self._transition_func, self._reward_func, init_state=initial_state,
+        MDP.__init__(self, CleanupL2MDP.ACTIONS, self._transition_func, self._reward_func, init_state=initial_state,
                      gamma=gamma)
 
     def _reward_func(self, state, action):
@@ -170,41 +166,24 @@ class CubeL2MDP(MDP):
 
         return reward
 
-    def _transition_func(self, state, action):
+    def _transition_func(self, state, action): #[target_object, goal_room]
         if state.is_terminal():
             return state
 
-        current_floor = state.agent_on_floor_number
-        next_state = None
-        action_floor_number = int(action.split('toFloor')[1])
+        next_state = copy.deepcopy(state)
+        # the target object can be moved to only adjacent room
+        if action[1] in self.env['transition_table'][state.obj_room[action[0]]]:
+            next_state.obj_room[[action[0]]] = action[1]
 
-        if abs(current_floor - action_floor_number) == 1:  # transition function
-
-            evaluated_APs = self._evaluate_APs(action_floor_number)
-
-            for ap in evaluated_APs.keys():
-                exec('%s = symbols(\'%s\')' % (ap, ap))
-
-            if eval(self.constraints['goal']).subs(evaluated_APs):
-                next_q = 1
-            elif eval(self.constraints['stay']).subs(evaluated_APs):
-                next_q = 0
-            else:
-                next_q = -1
-
-            next_state = CubeL2State(action_floor_number, next_q)
-            if next_state.q != 0:
-                next_state.set_terminal(True)
-
-        if next_state is None:
-            next_state = state
-
+        next_state.q = self._evaluated_q(next_state)
+        if next_state.q != 0:
+            next_state.set_terminal(True)
 
         return next_state
 
-    def _transition_q(self, floor_num, action):
+    def _evaluate_q(self, state):
         # evaluate APs
-        evaluated_APs = self._evaluate_APs(floor_num)
+        evaluated_APs = self._evaluate_APs(state)
 
         # q state transition
         # define symbols
@@ -221,29 +200,28 @@ class CubeL2MDP(MDP):
         return next_q
 
 
-    def _evaluate_APs(self, floor_num):
+    def _evaluate_APs(self, state):
         evaluated_APs = {}
+
         for ap in self.ap_maps.keys():
-            if self.ap_maps[ap][0] == 2:
-                if self.ap_maps[ap][2] == floor_num:
-                    evaluated_APs[ap] = True
-                else:
-                    evaluated_APs[ap] = False
+            if self.ap_maps[ap][0] == "In":  # an object is in a room
+                evaluated_APs[ap] = state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1]
+
         return evaluated_APs
 
     def __str__(self):
-        return 'AbstractCubeL2MDP: InitState: {}, Goal: {}'.format(self.init_state, self.constraints['goal'])
+        return 'AbstractCleanupL2MDP: InitState: {}, Goal: {}'.format(self.init_state, self.constraints['goal'])
 
 #    @classmethod
-    def action_for_floor_number(self, floor_number):
-        for action in CubeL2MDP.ACTIONS:
-            if str(floor_number) in action:
-                return action
-        raise ValueError('unable to find action corresponding to floor {}'.format(floor_number))
+#    def action_for_floor_number(self, floor_number):
+#        for action in CleanupL2MDP.ACTIONS:
+#            if str(floor_number) in action:
+#                return action
+#        raise ValueError('unable to find action corresponding to floor {}'.format(floor_number))
 
-class CubeL1MDP(MDP):
+class CleanupL1MDP(MDP):
     ACTIONS = ["toRoom%d" %ii for ii in range(1, 11)]  # actions??
-    def __init__(self, starting_room=1, gamma=0.99, slip_prob=0.0, env_file=[], constraints = {}, ap_maps = {}):
+    def __init__(self, l1_state, gamma=0.99, slip_prob=0.0, env_file=[], constraints = {}, ap_maps = {}):
         # TODO: work
         self.terminal_func = lambda state: state.q != 0
         self.constraints = constraints
@@ -251,16 +229,17 @@ class CubeL1MDP(MDP):
         self.slip_prob = slip_prob
 
         if len(env_file) != 0:
-            self.cube_env = env_file[0]
-            CubeL1MDP.ACTIONS = self.cube_env['L1ACTIONS']
+            self.env = env_file[0]
+            CleanupL1MDP.ACTIONS = self.env['L1ACTIONS']
         else:
             print("Input: env_file")
 
-        initial_state = CubeL1State(starting_room, self._transition_q(starting_room, ""))
+        initial_state = l1_state
+        initial_state.q = self.evaluate_q(initial_state)
         if initial_state.q != 0:
             initial_state.set_terminal(True)
 
-        MDP.__init__(self, CubeL1MDP.ACTIONS, self._transition_func, self._reward_func, init_state=initial_state,
+        MDP.__init__(self, CleanupL1MDP.ACTIONS, self._transition_func, self._reward_func, init_state=initial_state,
                      gamma=gamma)
 
     def _reward_func(self, state, action):
@@ -277,45 +256,38 @@ class CubeL1MDP(MDP):
         return reward
 
 
-    def _transition_func(self, state, action):
+    def _transition_func(self, state, action): # action # L1_action: ['PICKUP', obj_id], ['PLACE'], ['NavRoom', roomid], ['NavObj', objid]
         if state.is_terminal():
             return state
 
-        current_room = state.agent_in_room_number
-        next_state = None
-        action_room_number = int(action.split('toRoom')[1])
-        if current_room in self.cube_env['transition_table'].keys():
-            if action_room_number in self.cube_env['transition_table'][current_room]:
-                floor_num = self.cube_env['room_to_floor'][action_room_number]
-                # evaluation
-                evaluated_APs = self._evaluate_APs(action_room_number, floor_num)
+        next_state = copy.deepcopy(state)
+        if action[0] == 'PICKUP':
+            if state.robot_at == action[1]:
+                next_state.obj_id = action[1]
+                next_state.robot_at = action[1]
 
-                for ap in evaluated_APs.keys():
-                    exec('%s = symbols(\'%s\')' % (ap, ap))
+        elif action[0] == 'PLACE':
+            next_state.obj_id = -1
 
-                if eval(self.constraints['goal']).subs(evaluated_APs):
-                    next_q = 1
-                elif eval(self.constraints['stay']).subs(evaluated_APs):
-                    next_q = 0
-                else:
-                    next_q = -1
+        elif action[0] == 'NavRoom':
+            if action[1] in self.env['transition_table'][state.robot_in]:
+                next_state.robot_in = action[1]
+                if state.obj_id !=-1: # robot is carrying an object
+                    next_state.obj_room[state.obj_id] = action[1]
 
-                next_state = CubeL1State(action_room_number, next_q)
+        elif action[0] == 'NavObj':
+            if state.robot_in == state.obj_room[action[1]]:
+                next_state.robot_at = action[1]
 
-                if next_state.q != 0:
-                    next_state.set_terminal(True)
-
-        if next_state is None:
-            next_state = state
-
-            #next_state._is_terminal = (next_state.q == 1)
+        next_state.q = self.evaluate_q(next_state)
+        if next_state.q != 0:
+            next_state.set_terminal(True)
 
         return next_state
 
-    def _transition_q(self, room_num, action):
+    def evaluate_q(self, state): # TODO: 여기차례
         # evaluate APs
-        floor_num = self.cube_env['room_to_floor'][room_num]
-        evaluated_APs = self._evaluate_APs(room_num, floor_num)
+        evaluated_APs = self._evaluate_APs(state)
 
         # q state transition
         # define symbols
@@ -331,37 +303,37 @@ class CubeL1MDP(MDP):
 
         return next_q
 
-    def _evaluate_APs(self, room_number, floor_num):
+    def _evaluate_APs(self, state):
         evaluated_APs = {}
-
         for ap in self.ap_maps.keys():
-            if (self.ap_maps[ap][0] == 1) and (self.ap_maps[ap][2] == room_number):
-                evaluated_APs[ap] = True
-            elif (self.ap_maps[ap][0] == 2) and (self.ap_maps[ap][2] == floor_num): #%self.get_floor_numbers(room_number)[0]):
-                evaluated_APs[ap] = True
-            elif self.ap_maps[ap][0] >= 1:
-                evaluated_APs[ap] = False
+            if self.ap_maps[ap][0] == "In": # an object is in a room
+               evaluated_APs[ap] = state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1]
+            elif self.ap_maps[ap][0] == "On":
+               evaluated_APs[ap] = state.obj_id == self.ap_maps[ap][1]
+
+            elif self.ap_maps[ap][0] == "RobotIn": # a robot is in a room
+               evaluated_APs[ap] = state.robot_in == self.ap_maps[ap][1]
+
+            elif self.ap_maps[ap][0] == "RobotAt":
+                evaluated_APs[ap] = state.robot_at == self.ap_maps[ap][1]
+
         return evaluated_APs
-
-
-    def get_floor_numbers(self, room_number):
-        return [self.cube_env['room_to_floor'][room_number]]
-
 
     def __str__(self):
         return 'AbstractFourRoomMDP: InitState: {}, GoalState: {}'.format(self.init_state, self.constraints['goal'])
 
 #    @classmethod
-    def action_for_room_number(self, room_number):
-        for action in CubeL1MDP.ACTIONS:
-            if str(room_number) in action:
-                return action
-        raise ValueError('unable to find action corresponding to room {}'.format(room_number))
+#    def action_for_room_number(self, room_number):
+#        for action in CubeL1MDP.ACTIONS:
+#            if str(room_number) in action:
+#                return action
+#        raise ValueError('unable to find action corresponding to room {}'.format(room_number))
 
 # -----------------------------------
 # Debug functions
 # -----------------------------------
 
+"""
 def debug_l1_grid_world():
     def get_l1_policy(start_room=None, goal_room=None, mdp=None):
         if mdp is None:
@@ -378,7 +350,7 @@ def debug_l1_grid_world():
             policy[state_seq[i]] = action_seq[i]
         return policy
     policy = get_l1_policy(1, 4)
-
+"""
 if __name__ == '__main__':
-    mdp = CubeL1MDP(env_file=[build_cube_env()])
+    mdp = CleanupL1MDP(env_file=[build_cube_env()])
     print('done')

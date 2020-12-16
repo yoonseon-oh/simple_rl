@@ -121,7 +121,6 @@ class ValueIteration(Planner):
             for a in self.actions:
                 for samples in range(self.sample_rate): # Take @sample_rate samples to estimate E[V]
                     next_state = self.transition_func(s,a)
-
                     if next_state not in self.states:
                         self.states.add(next_state)
                         state_queue.put(next_state)
