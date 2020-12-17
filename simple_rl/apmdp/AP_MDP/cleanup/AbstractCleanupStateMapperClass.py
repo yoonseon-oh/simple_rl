@@ -17,7 +17,7 @@ class AbstractCleanupL1StateMapper(AMDPStateMapper):
         obj_room = []
         for obj_xy in l0_state.obj_loc:
             obj_room.append(self.lower_domain.xy_to_room(obj_xy))
-        robot_highlevel= self.lower_domain.get_highlevel_pose((l0_state.x,l0_state.y),l0_state.obj_loc)
+        robot_highlevel= self.lower_domain.get_highlevel_pose((l0_state.x,l0_state.y,l0_state.obj_id),l0_state.obj_loc)
 
         return CleanupL1State(robot_at=robot_highlevel['object'], robot_in=robot_highlevel['room'], obj_id=l0_state.obj_id, obj_room=obj_room, q=l0_state.q)
 

@@ -1,7 +1,9 @@
 import sympy
-import spot
+import sys
+sys.path.append('../spot-2.8.7')
 import time
 from simple_rl.apmdp.LTLautomataClass import LTLautomata
+import spot
 
 # Generic AMDP imports.
 from simple_rl.apmdp.AP_MDP.AMDPSolver2Class import AMDPAgent
@@ -14,7 +16,7 @@ from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupMDPClass import *
 from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupPolicyGeneratorClass import *
 from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupStateMapperClass import *
 
-from simple_rl.apmdp.settings.build_cube_env_1 import build_cube_env
+from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
 
 from simple_rl.run_experiments import run_agents_on_mdp
 
@@ -76,13 +78,19 @@ class LTLAMDP():
                     constraints['goal'] = cur_words[tt]
                     constraints['stay'] = [s for s in trans_fcn.keys() if trans_fcn[s] == cur_path[tt]][0]
                     cur_stay.append(constraints['stay'])
+
                     # 2. Parse: Which level corresponds to the current sub - problem
                     sub_ap_maps = {}
                     sub_level = 2
                     for ap in self.ap_maps.keys():
                         if ap in constraints['goal'] or ap in constraints['stay']:
                             sub_ap_maps[ap] = self.ap_maps[ap]
-                            sub_level = min(sub_level, sub_ap_maps[ap][0])
+                            if sub_ap_maps[ap][0] == 'In':
+                                sub_level = min(sub_level, 2)
+                            elif sub_ap_maps[ap][0] in ['RobotIn', 'RobotAt', 'On']:
+                                sub_level = min(sub_level, 1)
+
+                    print(sub_level, sub_ap_maps)
                     # solve at the lowest level
                     if FLAG_LOWEST:
                         sub_level = 0
@@ -144,7 +152,7 @@ class LTLAMDP():
         return state_seq_opt, action_seq_opt, len_action_opt, backup_num
 
     def _solve_subproblem_L0(self, init_locs=(1, 1, -1), constraints={},
-                             ap_maps={}, verbose=False): #TODO
+                             ap_maps={}, verbose=False):
         mdp = CleanupQMDP(init_robot=init_locs, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps,
                           slip_prob=self.slip_prob)
         value_iter = ValueIteration(mdp, sample_rate = 1, max_iterations=50)
@@ -193,6 +201,7 @@ class LTLAMDP():
             # list of primitive actions (l0 domain)
             l1Subtasks = [PrimitiveAbstractTask(action) for action in l0Domain.ACTIONS]
             # list of nonprimitive actions (l1 domain)
+            여기여기
             a2rt = [CleanupL1GroundedAction(a, l1Subtasks, l0Domain) for a in l1Domain.ACTIONS]
             l1Root = CleanupRootL1GroundedAction(l1Domain.ACTIONS[0], a2rt, l1Domain,
                                               l1Domain.terminal_func, l1Domain.reward_func,

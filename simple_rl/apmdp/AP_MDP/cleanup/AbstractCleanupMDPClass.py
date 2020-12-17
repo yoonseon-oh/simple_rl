@@ -95,10 +95,13 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask): # L1_action: ['PICKUP',
         NonPrimitiveAbstractTask.__init__(self, self.action_name, subtasks, tf, rf)
 
     def extract_goal(self, l1_action):
-        action2predicate = {'PICKUP': 'On',  'PLACE': 'On', 'NavRoom':'RobotIn', 'NavObj': 'RobotAt'}
-        arg = {'PICKUP': l1_action[1],  'PLACE': -1, 'NavRoom': l1_action[1], 'NavObj': l1_action[1]}
-        constraints = {'goal': 'a', 'stay': '~a', 'lowest': True} # lowest:
-        ap_maps = {'a': (action2predicate[l1_action[0]], arg[l1_action[0]])}
+        constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}  # lowest:
+        if l1_action[0] == 'PLACE':
+            ap_maps = {'a': ('On', -1)}
+        else:
+            action2predicate = {'PICKUP': 'On', 'NavRoom':'RobotIn', 'NavObj': 'RobotAt'}
+            arg = {'PICKUP': l1_action[1],  'NavRoom': l1_action[1], 'NavObj': l1_action[1]}
+            ap_maps = {'a': (action2predicate[l1_action[0]], arg[l1_action[0]])}
 
         return constraints, ap_maps
 
@@ -132,7 +135,7 @@ class CleanupRootL1GroundedAction(RootTaskNode):
 
 class CleanupL2MDP(MDP):
     ACTIONS = []#[list(x) for x in itertools.product(0,)] #[obj_id, room_id]
-    def __init__(self,init_state = CleanupL2State(), gamma=0.99, env_file=[], constraints={}, ap_maps={}):
+    def __init__(self,init_state = [], gamma=0.99, env_file=[], constraints={}, ap_maps={}):
         # state_init: [obj_room1, obj_room2, ..., obj_roomn]
         self.terminal_func = lambda state: state.q != 0
         self.constraints = constraints

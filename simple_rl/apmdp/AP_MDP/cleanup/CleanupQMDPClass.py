@@ -101,7 +101,7 @@ class CleanupQMDP(MDP):
 
         # initialize the state
         init_state = CleanupQState(init_robot, q=-1, obj_loc=self.obj_loc_init)
-        init_state.q = self._transition_q(init_state, "")
+        init_state.q = self._transition_q(init_state)
 
         if init_state.q != 0:
             init_state.set_terminal(True)
@@ -248,7 +248,7 @@ class CleanupQMDP(MDP):
 
     def get_highlevel_pose(self,robot_init,obj_loc):
         high_pose = {'room': -1, 'object':-1}
-        for ii in range(0,self.num_obj):
+        for ii in range(0,len(obj_loc)):
             if ii != robot_init[2] and (robot_init[0], robot_init[1]) == obj_loc[ii]:
                 high_pose['object']= ii
 
@@ -267,7 +267,7 @@ class CleanupQMDP(MDP):
 
 if __name__ == '__main__':
     constraints = {'goal': 'a', 'stay': 'b','lowest':[]}
-    ap_maps = {'b': ('On', -1), 'a': ('RobotIn', 1)}
+    ap_maps = {'b': ('On', -1), 'a': ('In', (1,1))}
     init_robot = (1,3,1)
     #ex) ap_maps = {'a': ('In', [1, 1]), 'b':('On',1), 'c':('RobotIn',1), 'd':('RobotAt',1),'e':('RobotIn',0)}
 

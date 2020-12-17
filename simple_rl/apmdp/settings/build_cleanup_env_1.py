@@ -61,8 +61,9 @@ def build_cube_env():
     cube_env['L2ACTIONS'] = [list(x) for x in
                              itertools.product(list(range(0,cube_env['num_room'])),
                                                list(range(0,cube_env['num_obj'])))]
-    cube_env['L1ACTIONS'] = [["RobotIn", ii] for ii in range(0, cube_env['num_room'])]\
-                            +[["RobotAt", ii] for ii in range(0, cube_env['num_obj'])] +["PICKUP", "PLACE"]
+    cube_env['L1ACTIONS'] = [["NavRoom", ii] for ii in range(0, cube_env['num_room'])]\
+                            +[["NavObj", ii] for ii in range(0, cube_env['num_obj'])]\
+                            +[["PICKUP", ii] for ii in range(0, cube_env['num_obj'])]+[["PLACE"]]
     cube_env['L0ACTIONS'] = ["north", "south", "east", "west", "pickup", "place"]
 
     # save
