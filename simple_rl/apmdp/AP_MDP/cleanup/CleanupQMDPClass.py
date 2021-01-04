@@ -23,13 +23,13 @@ class CleanupQMDP(MDP):
     ''' Class for a cleanup domain - lowest level of AP-MDP'''
 
     ACTIONS = ["north","south","east","west","pickup","place"]
-    def __init__(self, len_x=9, len_y=9, init_robot=(1,1,-1), q_init=0, env_file = [],
+    def __init__(self, len_x=9, len_y=9, init_state=(1,1,-1,0), q_init=0, env_file = [],
                  gamma=0.99, name="cleanup",  slip_prob=0.0,
                  is_goal_terminal=True, step_cost=0.0, constraints={'goal':[],'stay':[]}, ap_maps = {}):
         '''
         Args:
             len_x, len_y, len_z (int)
-            init_robot (tuple: (int, int,int)): the state of a robot
+            init_state: CleanupQState
             env_file: specify environment)
             constraints: logic formula of 'goal' and 'stay' for the reward function
                         - goal (large positive), stay (zero), otherwise (large negative)
@@ -49,16 +49,17 @@ class CleanupQMDP(MDP):
             self.walls = cube_env['walls']
             self.num_room = cube_env['num_room']
             self.room_to_locs = cube_env['room_to_locs']
-            self.obj_loc_init = cube_env['obj_to_locs']
-            self.obj_loc = cube_env['obj_to_locs']
+            self.obj_loc_init = init_state.obj_loc
+            self.obj_loc = init_state.obj_loc
             self.num_obj = cube_env['num_obj']
             self.obj_color = cube_env['obj_color']
             self.slip_prob = slip_prob
+            self.transition_table = cube_env['transition_table']
 
         self.actions = ["north", "south", "east", "west", "pickup", "place"]
         # initialize constraints
         if 'lowest' in constraints.keys():  # Todo
-            high_state = self.get_highlevel_pose(init_robot,self.obj_loc)
+            high_state = self.get_highlevel_pose((init_state.x,init_state.y,init_state.obj_id),self.obj_loc)
             if 'RobotIn' == ap_maps['a'][0]:  # goal condition is about navigation
                 self.constraints = {'goal': 'a', 'stay': 'b'}
                 self.ap_maps = {'a': ap_maps['a'],
@@ -67,40 +68,27 @@ class CleanupQMDP(MDP):
 
             elif 'RobotAt' == ap_maps['a'][0]:  # goal condition is about navigation
                 obj_room = self.xy_to_room(self.obj_loc_init[ap_maps['a'][1]])
-                self.constraints = {'goal': 'a', 'stay': 'b | c'}
-                self.ap_maps = {'a': ap_maps['a'],
-                                'b': ('RobotIn', high_state['room']), 'c': ('RobotIn', obj_room)}  # AP --> real world
-
-
-                if high_state[0] == 'room':
-                    stay_condition = ('RobotIn', high_state[1])
-                elif high_state[0] == 'object':
-                    stay_condition = ('RobotAt', high_state[1])
-                else:
-                    print("error")
-                    stay_condition = 'None'
-
                 self.constraints = {'goal': 'a', 'stay': 'b'}
                 self.ap_maps = {'a': ap_maps['a'],
-                                'b': stay_condition}  # AP --> real world
+                                'b': ('RobotIn', high_state['room'])}  # AP --> real world
+
                 self.actions = ['north','south','west','east']
 
             elif ap_maps['a'][0] == 'On':
-                self.constraints = {'goal': 'a', 'stay': '~a & b'}
+                self.constraints = {'goal': 'a', 'stay': '~a'}
                 if ap_maps['a'][1] != -1:
-                    self.ap_maps = {'a': ap_maps['a'], 'b': ('RobotAt',ap_maps['a'][1])}
+                    self.ap_maps = {'a': ap_maps['a']}#, 'b': ('RobotAt',ap_maps['a'][1])}
                     self.actions = ['pickup']
                 else:
-                    self.ap_maps = {'a': ap_maps['a'], 'b': ('RobotAt', init_robot[2])}
+                    self.ap_maps = {'a': ap_maps['a']}#, 'b': ('RobotAt', init_robot[2])}
                     self.actions = ['place']
         else:
             self.constraints = constraints  # constraints for LTL
             self.ap_maps = ap_maps
 
-        print(self.ap_maps, self.constraints)
+        #print("MDP0: ",self.ap_maps, self.constraints)
 
         # initialize the state
-        init_state = CleanupQState(init_robot, q=-1, obj_loc=self.obj_loc_init)
         init_state.q = self._transition_q(init_state)
 
         if init_state.q != 0:
@@ -123,12 +111,12 @@ class CleanupQMDP(MDP):
     def _transition_func(self, state, action):
         next_state = self._transition_env(state, action) # compute the transition of the environment
         next_state.set_terminal(is_term=False)
-        next_state.q = self._transition_q(next_state, action)
+        next_state.q = self._transition_q(next_state)
 
         if next_state.q != 0:
             next_state.set_terminal(True)
             #next_state._is_terminal = (next_q == 1)
-        print(state, next_state)
+        #print(state, next_state)
         next_state.update_data()
 
         return next_state
@@ -163,23 +151,25 @@ class CleanupQMDP(MDP):
         elif action == "west" and state.x > 1 and not self.is_wall(state.x - 1, state.y):
             next_state.x = state.x - 1
         elif action == "pickup":
-            try:
-                obj_id = state.obj_loc.index((state.x, state.y))
-                next_state.obj_id = obj_id
-            except ValueError:
-                pass
+            if state.obj_id == -1:
+                try:
+                    obj_id = state.obj_loc.index((state.x, state.y))
+                    next_state.obj_id = obj_id
+                except ValueError:
+                    pass
 
         elif action == "place":
             if state.obj_id !=- 1:
                 next_state.obj_id = -1
                 next_state.obj_loc[state.obj_id]=(next_state.x, next_state.y)
 
+
         # if an object is on the robot, the robot and the object should be at the same location.
         if next_state.obj_id !=-1:
             next_state.obj_loc[next_state.obj_id] = (next_state.x, next_state.y)
 
         next_state.update_data()
-        #print(state, action, next_state)
+
         return next_state
 
     def is_loc_in_room(self, loc, room_number):
@@ -234,7 +224,8 @@ class CleanupQMDP(MDP):
         #ap_maps: ex) {a: ('in', [obj_id, room_id]), b: ('on', obj_id), c: ('RobotIn', room_id),, d: ('RobotAt', obj_id)}
         for ap in self.ap_maps.keys():
             if self.ap_maps[ap][0] == "In": # an object is in a room
-               evaluated_APs[ap] = state.obj_loc[self.ap_maps[ap][1][0]] in self.room_to_locs[self.ap_maps[ap][1][1]]
+               evaluated_APs[ap] = (state.obj_loc[self.ap_maps[ap][1][0]] in self.room_to_locs[self.ap_maps[ap][1][1]]) \
+                                   and (state.obj_id == -1)
             elif self.ap_maps[ap][0] == "On":
                evaluated_APs[ap] = state.obj_id == self.ap_maps[ap][1]
 

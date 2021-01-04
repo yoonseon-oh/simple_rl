@@ -7,6 +7,7 @@ from simple_rl.mdp.StateClass import State
 from simple_rl.mdp.MDPClass import MDP
 from simple_rl.amdp.AMDPTaskNodesClass import AbstractTask, RootTaskNode
 from simple_rl.apmdp.AP_MDP.AbstractCubeMDPClass import CubeL2GroundedAction
+from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupMDPClass import CleanupL2GroundedAction
 
 class AMDPAgent(object):
     ''' Generic solver for all abstr_domains that adhere to the AMDP framework (Gopalan et al). '''
@@ -63,6 +64,7 @@ class AMDPAgent(object):
         self.backup_num = self.backup_num + backup_num
         if level > 0:
             num_iterate = 0   # YS
+
             # check if there is a solution
             #flag_feasible = self._check_feasibility(grounded_task, level, policy, state)
             while (not grounded_task.is_terminal(state)):
@@ -79,7 +81,7 @@ class AMDPAgent(object):
         else:
             num_iterate = 0
             while not grounded_task.is_terminal(state):
-                action = policy[state]
+                action = policy[state] # 상위 goal이 안내려오는데
                 self.policy_stack[level][state] = action
                 if verbose: print('({}, {})'.format(state, action))
                 reward, state = self.base_mdp.execute_agent_action(action)
@@ -109,11 +111,12 @@ class AMDPAgent(object):
             action = policy[state]
             if isinstance(grounded_task, CubeL2GroundedAction):
                 state = grounded_task.l1_domain._transition_func(state, action)
+            elif isinstance(grounded_task, CleanupL2GroundedAction):
+                state = grounded_task.l1_domain._transition_func(state, action)
             else:
                 state = grounded_task.domain._transition_func(state, action)
 
             if grounded_task.is_terminal(state):
-
                 return True
 
         return False

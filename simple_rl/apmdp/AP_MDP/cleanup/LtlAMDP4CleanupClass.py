@@ -17,6 +17,7 @@ from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupPolicyGeneratorClass import *
 from simple_rl.apmdp.AP_MDP.cleanup.AbstractCleanupStateMapperClass import *
 
 from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
+from simple_rl.apmdp.AP_MDP.cleanup.CleanupDrawing import *
 
 from simple_rl.run_experiments import run_agents_on_mdp
 
@@ -29,11 +30,13 @@ class LTLAMDP():
                         ex) {a:[(int) level, 'action' or 'state', value], b: [0,'action', 'south']
         '''
         self.automata = LTLautomata(ltlformula) # Translate LTL into the automata
-        self.ap_maps = ap_maps
+        self.ap_maps = {}
+        for ap in self.automata.APs:
+            self.ap_maps[ap] = ap_maps[ap]
+
         self.cube_env = env_file[0] #build_cube_env() #define environment
-        #self._generate_AP_tree() # relationship between atomic propositions-TODO:
         # simplify automata
-        #self.automata._simplify_dict(self.relation_TF) # TODO:
+        self._simplify_dict_() # TODO:
         self.slip_prob = slip_prob
         self.verbose = verbose
 
@@ -52,10 +55,11 @@ class LTLAMDP():
         action_seq_opt = []
         # Find a path in the environment
         for np in range(0, n_path):
+            print('solve: buchi path', np)
             flag_success = True
             cur_path = q_paths[np] # current q path
             cur_words = q_words[np] # current q words
-            cur_loc = init_loc
+            cur_state = init_state = CleanupQState(init_state=init_loc, q=-1, obj_loc=self.cube_env['obj_to_locs'])
 
             action_seq = []
             state_seq = []
@@ -64,12 +68,12 @@ class LTLAMDP():
             len_action = 0
             for tt in range(0, len(cur_words)):
                 # do not find a solution again if the problem is solved once,
-                if (cur_path[tt], cur_path[tt+1], cur_loc) in Paths_saved.keys():
+                if (cur_path[tt], cur_path[tt+1], cur_state) in Paths_saved.keys():
 
-                    state_seq_sub = Paths_saved[(cur_path[tt], cur_path[tt+1], cur_loc)]['state_seq_sub']
-                    action_seq_sub = Paths_saved[(cur_path[tt], cur_path[tt + 1], cur_loc)]['action_seq_sub']
+                    state_seq_sub = Paths_saved[(cur_path[tt], cur_path[tt+1], cur_state)]['state_seq_sub']
+                    action_seq_sub = Paths_saved[(cur_path[tt], cur_path[tt + 1], cur_state)]['action_seq_sub']
                     backup_num_sub = 0
-                    cur_stay = Paths_saved[(cur_path[tt], cur_path[tt + 1], cur_loc)]['cur_stay']
+                    cur_stay = Paths_saved[(cur_path[tt], cur_path[tt + 1], cur_state)]['cur_stay']
 
                 else:
                     trans_fcn = self.automata.trans_dict[cur_path[tt]]
@@ -99,18 +103,18 @@ class LTLAMDP():
                         print("----- Solve in level {} MDP : goal {}, stay {} -----".format(sub_level,constraints['goal'], constraints['stay']))
                     # 3. Solve AMDP
                     if sub_level == 0:
-                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L0(init_locs=cur_loc, constraints=constraints, ap_maps =sub_ap_maps)
+                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L0(init_state=cur_state, constraints=constraints, ap_maps =sub_ap_maps)
 
                     elif sub_level == 1:
                         # solve
-                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L1(init_locs=cur_loc, constraints=constraints, ap_maps=sub_ap_maps)
+                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L1(init_state=cur_state, constraints=constraints, ap_maps=sub_ap_maps)
                     elif sub_level == 2:
                         # solve
-                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L2(init_locs=cur_loc, constraints=constraints, ap_maps=sub_ap_maps)
+                        action_seq_sub, state_seq_sub, backup_num_sub = self._solve_subproblem_L2(init_state=cur_state, constraints=constraints, ap_maps=sub_ap_maps)
 
 
                     # Save solution
-                    Paths_saved[(cur_path[tt], cur_path[tt+1], cur_loc)] = {'state_seq_sub': state_seq_sub,
+                    Paths_saved[(cur_path[tt], cur_path[tt+1], cur_state)] = {'state_seq_sub': state_seq_sub,
                                                                         'action_seq_sub': action_seq_sub, 'backup_num_sub': backup_num_sub,
                                                                             'cur_words': cur_words, 'cur_stay': cur_stay}
                 # update
@@ -119,8 +123,9 @@ class LTLAMDP():
                 action_seq.append(action_seq_sub)
                 len_action = len_action + len(action_seq_sub)
 
-
-                #cur_loc = (state_seq_sub[-1].x, state_seq_sub[-1].y, state_seq_sub[-1].z)
+                # update initial state
+                cur_state = copy.deepcopy(state_seq_sub[-1])
+                cur_state.set_terminal(False)
                 if state_seq_sub[-1].q != 1:
                     flag_success = False
                     break
@@ -140,20 +145,16 @@ class LTLAMDP():
                         print("Goal: {}, Stay: {}".format(cur_words[k], cur_stay[k]))
                         for i in range(len(action_seq[k])):
                             print("state", state_seq[k][i], action_seq[k][i])
-                            #room_number, floor_number = self._get_abstract_number(state_seq[k][i])  #TODO: ???
 
-                            #print("\t {} in room {} on the floor {}, {}".format(state_seq[k][i], room_number, floor_number, action_seq[k][i]))
                         print('\t----------------------------------------')
-                    #room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
-                    #print("\t {} in room {} on the floor {}".format(state_seq[k][-1], room_number, floor_number))
                     print("state", state_seq[k][-1])
                     print("=====================================================")
 
         return state_seq_opt, action_seq_opt, len_action_opt, backup_num
 
-    def _solve_subproblem_L0(self, init_locs=(1, 1, -1), constraints={},
+    def _solve_subproblem_L0(self, init_state=(1, 1, -1), constraints={},
                              ap_maps={}, verbose=False):
-        mdp = CleanupQMDP(init_robot=init_locs, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps,
+        mdp = CleanupQMDP(init_state=init_state, env_file = [self.cube_env], constraints = constraints, ap_maps = ap_maps,
                           slip_prob=self.slip_prob)
         value_iter = ValueIteration(mdp, sample_rate = 1, max_iterations=50)
         value_iter.run_vi()
@@ -171,11 +172,11 @@ class LTLAMDP():
         return action_seq, state_seq, num_backup
 
 
-    def _solve_subproblem_L1(self, init_locs=(1, 1, 1), constraints={}, ap_maps={},
-                             verbose=False):
+    def _solve_subproblem_L1(self, init_state, constraints={}, ap_maps={},
+                             verbose=True):
 
         # define l0 domain
-        l0Domain = CleanupQMDP(init_robot=init_locs, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps,
+        l0Domain = CleanupQMDP(init_state=init_state, env_file=[self.cube_env], constraints=constraints, ap_maps=ap_maps,
                                slip_prob=self.slip_prob)
         backup_num = 0
         # if the current state satisfies the constraint already, we don't have to solve it.
@@ -201,7 +202,7 @@ class LTLAMDP():
             # list of primitive actions (l0 domain)
             l1Subtasks = [PrimitiveAbstractTask(action) for action in l0Domain.ACTIONS]
             # list of nonprimitive actions (l1 domain)
-            여기여기
+
             a2rt = [CleanupL1GroundedAction(a, l1Subtasks, l0Domain) for a in l1Domain.ACTIONS]
             l1Root = CleanupRootL1GroundedAction(l1Domain.ACTIONS[0], a2rt, l1Domain,
                                               l1Domain.terminal_func, l1Domain.reward_func,
@@ -230,10 +231,11 @@ class LTLAMDP():
 
         return action_seq, state_seq, backup_num
 
-    def _solve_subproblem_L2(self, init_locs=(1, 1, -1), constraints={},
+    def _solve_subproblem_L2(self, init_state, constraints={},
                              ap_maps={}, verbose=False):
+
         # define l0 domain
-        l0Domain = CleanupQMDP(init_robot=init_locs, env_file=[self.cube_env], constraints=constraints,
+        l0Domain = CleanupQMDP(init_state=init_state, env_file=[self.cube_env], constraints=constraints,
                                ap_maps=ap_maps, slip_prob= self.slip_prob)
         backup_num = 0
         # if the current state satisfies the constraint already, we don't have to solve it.
@@ -269,7 +271,7 @@ class LTLAMDP():
             a2rt = [CleanupL1GroundedAction(a, l1Subtasks, l0Domain) for a in l1Domain.ACTIONS]
             a2rt2 = [CleanupL2GroundedAction(a, a2rt, l1Domain) for a in l2Domain.ACTIONS]
 
-            l2Root = CleanupRootL2GroundedAction(l2Domain.Actions[0], a2rt2, l2Domain,
+            l2Root = CleanupRootL2GroundedAction(l2Domain.ACTIONS[0], a2rt2, l2Domain,
                                               l2Domain.terminal_func, l2Domain.reward_func, constraints=constraints,
                                               ap_maps=ap_maps)
 
@@ -302,124 +304,142 @@ class LTLAMDP():
         return action_seq, state_seq, backup_num
 
 
-    def _generate_AP_tree(self): # return the relationship between atomic propositions
-        # TODO: WRONG CHECK!
-        relation_TF = {}
-        for key in self.ap_maps.keys():
-            level = self.ap_maps[key][0]  # current level
-            lower_list = []
-            notlower_list = []
-            samelevel_list = []
-            higher_list = []
-            nothigher_list = []
+    def _simplify_dict_(self):
+        trans_dict_simplified = {}
 
-            ap = self.ap_maps[key]
+        for key in self.automata.trans_dict.keys():
+            cur_dict = {}
+            for key2 in self.automata.trans_dict[key].keys():
+                if key2 == '1':
+                    cur_dict[key2] = self.automata.trans_dict[key][key2]
+                elif not self._check_contradiction(logical_formula=key2):
+                    cur_dict[key2] = self.automata.trans_dict[key][key2]
 
-            if level == 0:   # the current level
-                for key2 in self.ap_maps.keys():
-                    ap2 = self.ap_maps[key2]
-                    if ap2[0] == 0:  # level 0
-                        samelevel_list.append(key2)
-                    if ap2[0] == 1:  # level 1
-                        if ap2[1] == 'state' and ap[2] in self.cube_env['room_to_locs'][ap2[2]]:
-                            higher_list.append(key2)
-                        else:
-                            nothigher_list.append(key2)
-                    if ap2[0] == 2:  # level 2
-                        if ap2[1] == 'state' and ap[2] in self.cube_env['floor_to_locs'][ap2[2]]:
-                            higher_list.append(key2)
-                        else:
-                            nothigher_list.append(key2)
+            trans_dict_simplified[key] = cur_dict
 
-            if level == 1:
-                for key2 in self.ap_maps.keys():
-                    ap2 = self.ap_maps[key2]
-                    if ap2[0] == 0 and ap2[1] == 'state':  # lower
-                        if ap2[2] in self.cube_env['room_to_locs'][ap[2]]:
-                            lower_list.append(key2)
-                        else:
-                            notlower_list.append(key2)
+        self.automata.trans_dict = trans_dict_simplified
 
-                    if self.ap_maps[key2][0] == 1: # same level
-                        samelevel_list.append(key2)
+    def _check_contradiction(self, logical_formula):
+        # define symbols
+        aps = [ap for ap in self.automata.APs if ap in logical_formula]
+        for ap in aps:
+            exec('%s = symbols(\'%s\')' % (ap, ap))
 
-                    if ap2[0] == 2 and ap2[1] == 'state': # higher level
-                        if ap[2] in self.cube_env['floor_to_rooms'][ap2[2]]:
-                            higher_list.append(key2)
-                        else:
-                            nothigher_list.append(key2)
+        num_ap = len(aps)
 
-            if level == 2:
-                for key2 in self.ap_maps.keys():
-                    ap2 = self.ap_maps[key2]
-                    if ap2[0] == 0 and ap2[1] == 'state':  # lower
-                        if ap2[2] in self.cube_env['floor_to_locs'][ap[2]]:
-                            lower_list.append(key2)
-                        else:
-                            notlower_list.append(key2)
+        tf_table = [[True], [False]]  # compute possible tf_table
 
-                    if ap2[0] == 1 and ap2[2] in self.cube_env['floor_to_rooms'][self.ap_maps[key][2]]:
-                        lower_list.append(key2)
-                    elif self.ap_maps[key2][0] == 1:
-                        notlower_list.append(key2)
+        aps = self.automata.APs
+        for ii in range(1, num_ap):
+            ap1 = aps[ii]
+            flag_determined = False
+            related_list = []  # the index in the list and ap1 cannot be both True
 
-                    if ap2[0] == 2:
-                        samelevel_list.append(key2)
+            for jj in range(0, ii):
+                ap2 = aps[jj]
+                if self.ap_maps[ap1] == self.ap_maps[ap2]:
+                    related_list.append((jj, 'same'))
+                elif self.ap_maps[ap1][0] == self.ap_maps[ap2][0]:
+                    if self.ap_maps[ap1][0] == 'In':
+                        if self.ap_maps[ap1][1][0] == self.ap_maps[ap2][1][0]:
+                            related_list.append((jj, 'not'))
+                    else:
+                        related_list.append((jj, 'not'))
+                elif self.ap_maps[ap1][0] == 'In' and self.ap_maps[ap2][0] == 'On' and self.ap_maps[ap2][1] == -1:
+                    related_list.append((jj, 'not'))
+                elif self.ap_maps[ap2][0] == 'In' and self.ap_maps[ap1][0] == 'On' and self.ap_maps[ap1][1] == -1:
+                    related_list.append((jj, 'not'))
 
-            relation_TF[key] = {'lower': lower_list, 'same': samelevel_list, 'lower_not': notlower_list,
-                                'higher': higher_list, 'higher_not': nothigher_list}
+            # update tf table
+            tf_table_new = []
+            for tf in tf_table:
+                tf_cur = {True: True, False: True}
+                for rel in related_list:
+                    if rel[1] == 'same':
+                        tf_cur[tf[rel[0]]] = True
+                        tf_cur[~tf[rel[0]]] = False
+                    elif tf_cur[rel[0]]:
+                        tf_cur[True] = False
+                        tf_cur[False] = True
 
-        self.relation_TF = relation_TF
+                if tf_cur[True]:
+                    tf_table_new.append(tf+[True])
+                if tf_cur[False]:
+                    tf_table_new.append(tf+[False])
+
+            tf_table = copy.deepcopy(tf_table_new)
+
+        # Check if ltl formula can be true
+        Flag_true = False
+        for tf in tf_table:
+            Flag_true = Flag_true or (eval(logical_formula)).subs(dict(zip(aps,tf)))
+
+        return not Flag_true
 
 
-    def format_output(self, state_seq, action_seq):
+
+    def format_output(self, state_seq, action_seq, env):
+        # compute a room id and an object id of objects
         sseq = []
         aseq = []
-        room_seq = []
-        floor_seq = []
+        state1_seq = []
         for k in range(len(action_seq)):
-
             for i in range(len(action_seq[k])):
-                room_number, floor_number = self._get_abstract_number(state_seq[k][i])
 
-                sseq.append(state_seq[k][i].data[0:3])
+                state1_seq.append(self.state0_to_1(state_seq[k][i],env))
+                #sseq.append(state_seq[k][i].data)
+                sseq.append(state_seq[k][i])
                 aseq.append(action_seq[k][i])
-                room_seq.append(room_number)
-                floor_seq.append(floor_number)
 
-        room_number, floor_number = self._get_abstract_number(state_seq[k][-1])
+        state1_seq.append(self.state0_to_1(state_seq[k][-1], env))
+        sseq.append(state_seq[k][-1])
 
-        sseq.append(state_seq[k][-1].data[0:3])
-        room_seq.append(room_number)
-        floor_seq.append(floor_number)
+        return sseq, aseq, state1_seq
 
-        return sseq, aseq, room_seq, floor_seq
+    def state0_to_1(selfe,state, env):
+        num_obj = len(state.obj_loc)
+        obj_room = [-1] * num_obj
+        robot_high = [-1, -1, -1]
+        for ii in range(0, num_obj):  # object id
+            for jj in range(0, env['num_room']):
+                if state.obj_loc[ii] in env['room_to_locs'][jj]:
+                    obj_room[ii] = jj
+
+                if (state.x, state.y) in env['room_to_locs'][jj]:
+                    robot_high[1] = jj
+
+                if state.x == state.obj_loc[ii][0] and state.y == state.obj_loc[ii][1]:
+                    robot_high[0] = ii
+
+        robot_high[2] = state.obj_id
+        return robot_high + obj_room
+
 
 if __name__ == '__main__':
 
     cube_env = build_cube_env()
 
     init_loc = (1,1,-1)
-    ltl_formula = 'F a'  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
-    ap_maps = {'a':('RobotIn', 1)}
+    ltl_formula = 'F (b & F a) '  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
+    ap_maps = {'a':('In', (1,3)), 'b':('RobotIn', 2)}
     start_time = time.time()
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
-
     sseq, aseq, len_actions, backup = ltl_amdp.solve(init_loc, FLAG_LOWEST=False)
 
     computing_time = time.time() - start_time
 
     # make the prettier output
-    s_seq, a_seq, r_seq, f_seq = ltl_amdp.format_output(sseq, aseq)
+    s_seq, a_seq, s1_seq = ltl_amdp.format_output(sseq, aseq, cube_env)
 
-#    for t in range(0, len(a_seq)):
-#        print("\t {} in room {} on the floor {}, {}".format(s_seq[t], r_seq[t], f_seq[t], a_seq[t]))
-#    print("\t {} in room {} on the floor {}".format(s_seq[-1], r_seq[-1], f_seq[-1]))
+    draw_state_seq(cube_env, s_seq, save_fig ='../results/{}.png'.format(ltl_formula))
+    plt.pause(5)
+    for t in range(0, len(a_seq)):
+        print(s1_seq[t], a_seq[t])
+    print(s1_seq[-1])
 
     print("Summary")
     print("\t Time: {} seconds, the number of actions: {}, backup: {}"
           .format(round(computing_time, 3), len_actions, backup))
-
 
 
 

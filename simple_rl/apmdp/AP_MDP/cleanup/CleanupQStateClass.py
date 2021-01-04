@@ -26,7 +26,8 @@ class CleanupQState(State):
         #0self.obj_att = obj_att
 
     def __hash__(self):
-        return hash(tuple(self.data))
+        return hash(tuple([self.x, self.y, self.obj_id, self.q] + self.obj_loc))
+
 
     def __str__(self):
         return "s: (" + str(self.x) + "," + str(self.y) + "," + str(self.obj_id) + ","+ str(self.q)+","+ str(self.obj_loc)+ ")"

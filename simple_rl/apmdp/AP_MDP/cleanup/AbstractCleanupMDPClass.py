@@ -15,16 +15,18 @@ import random
 import copy
 
 class CleanupL2State(State):
-    def __init__(self, obj_room, q, is_terminal=False): # obj_room = [obj0_room, obj1_room, ..., objn_room]
-        State.__init__(self, data= obj_room + [q], is_terminal=is_terminal)
+    def __init__(self,  obj_room, q, obj_id = -1, is_terminal=False): # obj_room = [obj0_room, obj1_room, ..., objn_room]
+        State.__init__(self, data= [obj_id] + obj_room + [q], is_terminal=is_terminal)
+        self.obj_id = obj_id
         self.obj_room = obj_room
         self.q = q # logic state
 
     def __hash__(self):
-        return hash(tuple(self.data))
+        #return hash(tuple(self.data))
+        return hash(tuple([self.obj_id] +self.obj_room + [self.q]))
 
     def __str__(self):
-        return 'room numbers of objects {}, Q: {}'.format(self.obj_room, self.q)
+        return 'active {} room numbers of objects {}, Q: {}'.format(self.obj_id, self.obj_room, self.q)
 
     def __repr__(self):
         return self.__str__()
@@ -34,21 +36,30 @@ class CleanupL2State(State):
 
 class CleanupL2GroundedAction(NonPrimitiveAbstractTask): # relation between L2 task and L1 state
     # l2_action: [ObjID, RoomID]
-    def __init__(self, l2_action, subtasks, lowerDomain):
-        self.action_name = str(l2_action)
-        self.target_obj = l2_action[0]
-        self.goal_room = l2_action[1]
-
-        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True} # TODO: lowest?
-        self.ap_maps = {'a': ('In', l2_action)}
-        tf, rf = self._terminal_function, self._reward_function
+    def __init__(self, l2_action_str, subtasks, lowerDomain):
+        self.action_name = l2_action_str
         self.l1_domain = lowerDomain
+        l2_action_parse = l2_action_str.split('_')
+        self.goal_constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}  # TODO: lowest?
+
+        if l2_action_parse[0] == "Deactivate":
+            self.ap_maps = {'a': ('On', -1)}
+        else:
+            l2_action = [int(l2_action_parse[1]), int(l2_action_parse[2])]
+            self.target_obj = l2_action[0]
+            self.goal_room = l2_action[1]
+            self.goal_constraints = {'goal': 'a & b', 'stay': '~a | ~b', 'lowest': True}  # TODO: lowest?
+            self.ap_maps = {'a': ('RobotIn', self.goal_room), 'b':('On', self.target_obj)} #
+
+        tf, rf = self._terminal_function, self._reward_function
+
         NonPrimitiveAbstractTask.__init__(self, self.action_name, subtasks, tf, rf)
 
-    @classmethod
     def _terminal_function(self, state): # state: L1
-
-        return self.l1_domain.obj_room[self.target_obj] == self.goal_room
+        if self.ap_maps['a'][0]== 'On':
+            return state.obj_id == -1
+        else:
+            return state.obj_room[self.target_obj] == self.goal_room and state.obj_id == self.target_obj
 
     def _reward_function(self, state):
         if state.q == 1:
@@ -57,10 +68,6 @@ class CleanupL2GroundedAction(NonPrimitiveAbstractTask): # relation between L2 t
             return -1
         else:
             return -100
-
-#    def _floor_number(self, state):
-#        return self.l1_domain.cube_env['room_to_floor'][state.agent_in_room_number]
-        #return self.l1_domain.get_floor_numbers(state.room_number)[0]
 
 class CleanupL1State(State):
     def __init__(self, robot_at, robot_in, obj_id, obj_room, q, is_terminal=False):
@@ -72,10 +79,11 @@ class CleanupL1State(State):
         self.q = q # logic state
 
     def __hash__(self):
-        return hash(tuple(self.data))
+        #return hash(tuple(self.data))
+        return hash(tuple([self.robot_at, self.robot_in, self.obj_id]+self.obj_room+[self.q]))
 
     def __str__(self):
-        return 'Agent at objectID {}, roomID {}, object_ID {}, obj_room {}, Q: {}'.format(self.robot_at, self.robot_in, self.obj_id,
+        return 'Agent At {}, In {}, object_ID {}, obj_room {}, Q: {}'.format(self.robot_at, self.robot_in, self.obj_id,
                                                                                           self.obj_room, self.q)
 
     def __repr__(self):
@@ -85,28 +93,46 @@ class CleanupL1State(State):
         return isinstance(other, CleanupL1State) and self.robot_at == other.robot_at and self.robot_in == other.robot_in \
                     and self.obj_id == other.obj_id and self.obj_room == other.obj_room and self.q == other.q
 
+
 class CleanupL1GroundedAction(NonPrimitiveAbstractTask): # L1_action: ['PICKUP', obj_id], ['PLACE'], ['NavRoom', roomid], ['NavObj', objid]
     def __init__(self, l1_action, subtasks, lowerDomain):
-        self.action_name = str(l1_action)
-
+        self.action_name = l1_action
+        self.l0_domain = lowerDomain
         self.goal_constraints, self.ap_maps = self.extract_goal(l1_action)
         tf, rf = self._terminal_function, self._reward_function
-        self.l0_domain = lowerDomain
+
         NonPrimitiveAbstractTask.__init__(self, self.action_name, subtasks, tf, rf)
 
-    def extract_goal(self, l1_action):
+    def extract_goal(self, l1_action_str):
+        l1_action = l1_action_str.split("_")
         constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}  # lowest:
+        state = self.l0_domain.cur_state
+        high_pose = self.l0_domain.get_highlevel_pose((state.x, state.y, state.obj_id), state.obj_loc)
+
         if l1_action[0] == 'PLACE':
+            constraints = {'goal': 'a', 'stay': '~a', 'lowest': True}  # lowest:
             ap_maps = {'a': ('On', -1)}
+        elif l1_action[0] == 'NavRoomAdj':
+            ap_maps  = {'a': ('RobotIn', self.l0_domain.transition_table[high_pose['room']][int(l1_action[1])])}
         else:
-            action2predicate = {'PICKUP': 'On', 'NavRoom':'RobotIn', 'NavObj': 'RobotAt'}
+            l1_action[1] = int(l1_action[1])
+            action2predicate = {'PICKUP': 'On', 'NavRoom':'RobotIn', 'NavObj': 'RobotAt', 'NavRoomAdj': 'RobotIn'}
             arg = {'PICKUP': l1_action[1],  'NavRoom': l1_action[1], 'NavObj': l1_action[1]}
             ap_maps = {'a': (action2predicate[l1_action[0]], arg[l1_action[0]])}
 
         return constraints, ap_maps
 
     def _terminal_function(self, state): # state : the lowest level state
-        return state.q != 0
+        goal = self.ap_maps['a']
+        flag_terminal = False
+        if goal[0] == 'On':
+            flag_terminal = (state.obj_id == goal[1])
+        elif goal[0] == 'RobotIn':
+            flag_terminal = ((state.x,state.y) in self.l0_domain.room_to_locs[goal[1]])
+        elif goal[0] == 'RobotAt':
+            flag_terminal = ((state.x, state.y) == state.obj_loc[goal[1]])
+
+        return flag_terminal
 
     def _reward_function(self, state):
         if state.q == 1:
@@ -118,7 +144,7 @@ class CleanupL1GroundedAction(NonPrimitiveAbstractTask): # L1_action: ['PICKUP',
 
 class CleanupRootL2GroundedAction(RootTaskNode):
     def __init__(self, action, subtasks, l2_domain, terminal_func, reward_func, constraints, ap_maps):
-        self.action_str = 'Root_' + str(action)
+        self.action_str = 'Root_' + action
         self.goal_constraints = constraints
         self.ap_maps = ap_maps
 
@@ -126,7 +152,7 @@ class CleanupRootL2GroundedAction(RootTaskNode):
 
 class CleanupRootL1GroundedAction(RootTaskNode):
     def __init__(self, action, subtasks, l1_domain, terminal_func, reward_func, constraints, ap_maps):
-        self.action_str = 'Root_' + str(action)
+        self.action_str = 'Root_' + action
         #self.goal_state = CubeL1State(CubeL1GroundedAction.extract_goal_room(action_str), is_terminal=True)
         self.goal_constraints = constraints
         self.ap_maps = ap_maps
@@ -146,7 +172,7 @@ class CleanupL2MDP(MDP):
             CleanupL2MDP.ACTIONS = self.env['L2ACTIONS']
         else:
             print("Input: env_file")
-
+        print("MDPL2:", self.constraints, self.ap_maps)
         # initial state
         initial_state = init_state
         initial_state.q = self._evaluate_q(initial_state)
@@ -169,19 +195,27 @@ class CleanupL2MDP(MDP):
 
         return reward
 
-    def _transition_func(self, state, action): #[target_object, goal_room]
+    def _transition_func(self, state, action_str): #[target_object, goal_room]
+        action_tmp = action_str.split("_")
         if state.is_terminal():
             return state
-
         next_state = copy.deepcopy(state)
-        # the target object can be moved to only adjacent room
-        if action[1] in self.env['transition_table'][state.obj_room[action[0]]]:
-            next_state.obj_room[[action[0]]] = action[1]
 
-        next_state.q = self._evaluated_q(next_state)
+        if action_str == "Deactivate":
+            next_state.obj_id = -1
+        else:
+            if state.obj_id == -1:
+                action = [int(action_tmp[1]), int(action_tmp[2])]
+                # the target object can be moved to only adjacent room
+                if action[1] in self.env['transition_table'][state.obj_room[action[0]]]:
+                    next_state.obj_room[action[0]] = action[1]
+                    next_state.obj_id = action[0]
+
+        next_state.q = self._evaluate_q(next_state)
         if next_state.q != 0:
             next_state.set_terminal(True)
 
+        #print("MDP2-Trans:",state, action_str, next_state)
         return next_state
 
     def _evaluate_q(self, state):
@@ -208,7 +242,7 @@ class CleanupL2MDP(MDP):
 
         for ap in self.ap_maps.keys():
             if self.ap_maps[ap][0] == "In":  # an object is in a room
-                evaluated_APs[ap] = state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1]
+                evaluated_APs[ap] = (state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1]) and (state.obj_id == -1)
 
         return evaluated_APs
 
@@ -227,16 +261,53 @@ class CleanupL1MDP(MDP):
     def __init__(self, l1_state, gamma=0.99, slip_prob=0.0, env_file=[], constraints = {}, ap_maps = {}):
         # TODO: work
         self.terminal_func = lambda state: state.q != 0
+        self.slip_prob = slip_prob
         self.constraints = constraints
         self.ap_maps = ap_maps
-        self.slip_prob = slip_prob
 
         if len(env_file) != 0:
             self.env = env_file[0]
             CleanupL1MDP.ACTIONS = self.env['L1ACTIONS']
+
         else:
             print("Input: env_file")
 
+        if 'lowest' in self.constraints.keys():  # if L1 is a subproblem, reduce action space
+            if self.ap_maps['a'][0] == 'On':
+                CleanupL1MDP.ACTIONS = ['PLACE']
+            else:
+                CleanupL1MDP.ACTIONS = ["NavRoom_"+ str(ii) for ii in range(0, self.env['num_room'])] \
+                            +["NavObj_"+ str(self.ap_maps['b'][1]), "PICKUP_"+ str(self.ap_maps['b'][1]) ] \
+
+        else:
+            predicates = [val[0] for val  in self.ap_maps.values()]
+            predicates = []
+            CleanupL1MDP.ACTIONS = ["NavRoom_"+ str(ii) for ii in range(0, self.env['num_room'])] + ["PLACE"]
+            for ap in self.ap_maps.values():
+                if ap[0] == 'RobotAt':
+                    str_act = 'NavObj_' + str(ap[1])
+                    if str_act not in CleanupL1MDP.ACTIONS:
+                        CleanupL1MDP.ACTIONS.append(str_act)
+
+                elif ap[0] == 'On':
+                    if ap[1] != -1:
+                        str_act = 'NavObj_' + str(ap[1])
+                        if str_act not in CleanupL1MDP.ACTIONS:
+                            CleanupL1MDP.ACTIONS.append(str_act)
+
+                        str_act = 'PICKUP_' + str(ap[1])
+                        if str_act not in CleanupL1MDP.ACTIONS:
+                            CleanupL1MDP.ACTIONS.append(str_act)
+                elif ap[0] == 'In':
+                    str_act = 'NavObj_' + str(ap[1][0])
+                    if str_act not in CleanupL1MDP.ACTIONS:
+                        CleanupL1MDP.ACTIONS.append(str_act)
+
+                    str_act = 'PICKUP_' + str(ap[1][0])
+                    if str_act not in CleanupL1MDP.ACTIONS:
+                        CleanupL1MDP.ACTIONS.append(str_act)
+
+        print("MDPL1:", self.constraints, self.ap_maps, l1_state)
         initial_state = l1_state
         initial_state.q = self.evaluate_q(initial_state)
         if initial_state.q != 0:
@@ -244,6 +315,8 @@ class CleanupL1MDP(MDP):
 
         MDP.__init__(self, CleanupL1MDP.ACTIONS, self._transition_func, self._reward_func, init_state=initial_state,
                      gamma=gamma)
+
+        #print("MDP1", self.constraints, self.ap_maps, initial_state)
 
     def _reward_func(self, state, action):
 
@@ -259,36 +332,56 @@ class CleanupL1MDP(MDP):
         return reward
 
 
-    def _transition_func(self, state, action): # action # L1_action: ['PICKUP', obj_id], ['PLACE'], ['NavRoom', roomid], ['NavObj', objid]
+    def _transition_func(self, state, action_str): # action # L1_action: ['PICKUP', obj_id], ['PLACE'], ['NavRoom', roomid], ['NavObj', objid]
+        action = action_str.split("_")
+        if len(action)>1 : action[1] = int(action[1])
         if state.is_terminal():
             return state
 
         next_state = copy.deepcopy(state)
         if action[0] == 'PICKUP':
-            if state.robot_at == action[1]:
+            if state.robot_at == action[1] and state.obj_id ==-1:
                 next_state.obj_id = action[1]
-                next_state.robot_at = action[1]
+                next_state.robot_at = -1
 
         elif action[0] == 'PLACE':
             next_state.obj_id = -1
+            next_state.robot_at = state.obj_id
 
         elif action[0] == 'NavRoom':
             if action[1] in self.env['transition_table'][state.robot_in]:
                 next_state.robot_in = action[1]
                 if state.obj_id !=-1: # robot is carrying an object
                     next_state.obj_room[state.obj_id] = action[1]
+                next_state.robot_at = -1
+
+        elif action[0] == 'NavRoomAdj':
+            if action[1] < len(self.env['transition_table'][state.robot_in]):
+                next_state.robot_in = self.env['transition_table'][state.robot_in][action[1]]
+                if state.obj_id !=-1: # robot is carrying an object
+                    next_state.obj_room[state.obj_id] =next_state.robot_in
+                next_state.robot_at = -1
 
         elif action[0] == 'NavObj':
             if state.robot_in == state.obj_room[action[1]]:
                 next_state.robot_at = action[1]
 
+        if next_state.obj_id != -1:
+            next_state.obj_room[next_state.obj_id] = next_state.robot_in
+
         next_state.q = self.evaluate_q(next_state)
         if next_state.q != 0:
             next_state.set_terminal(True)
 
+        #if state == next_state: # if the transition does not work,
+        #    next_state.q = -1
+        #    next_state.set_terminal(True)
+
+        #print("MDP1 transition: ", state, action, next_state)
+
         return next_state
 
-    def evaluate_q(self, state): # TODO: 여기차례
+    def evaluate_q(self, state):
         # evaluate APs
         evaluated_APs = self._evaluate_APs(state)
 
@@ -310,7 +403,8 @@ class CleanupL1MDP(MDP):
         evaluated_APs = {}
         for ap in self.ap_maps.keys():
             if self.ap_maps[ap][0] == "In": # an object is in a room
-               evaluated_APs[ap] = state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1]
+               evaluated_APs[ap] = state.obj_room[self.ap_maps[ap][1][0]] == self.ap_maps[ap][1][1] and state.obj_id == -1
+
             elif self.ap_maps[ap][0] == "On":
                evaluated_APs[ap] = state.obj_id == self.ap_maps[ap][1]
 

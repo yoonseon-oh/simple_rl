@@ -77,7 +77,7 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
              grounded_task (FourRoomL1GroundedAction): L1 TaskNode defining L0 subgoal
         '''
 #        destination_locations = self.domain.room_to_locs[grounded_task.goal_state.agent_in_room_number]
-        init_location = (state.x, state.y, state.obj_id)
-        mdp = CleanupQMDP(init_loc=init_location, env_file=self.env_file,
+        #init_location = (state.x, state.y, state.obj_id)
+        mdp = CleanupQMDP(init_state=state, env_file=self.env_file,
                           constraints=grounded_task.goal_constraints, ap_maps=grounded_task.ap_maps)
         return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100) # 500, 100

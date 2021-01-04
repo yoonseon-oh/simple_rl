@@ -33,6 +33,6 @@ class AbstractCleanupL2StateMapper(AMDPStateMapper): # TODO: Modify
             projected_state (TaxiL1State): Mapping of state into L2 space
         '''
 
-        return CleanupL2State(l1_state.obj_room, l1_state.q)
+        return CleanupL2State(l1_state.obj_room, l1_state.q, obj_id = l1_state.obj_id)
 
 
