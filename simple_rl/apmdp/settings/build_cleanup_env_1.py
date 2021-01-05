@@ -50,11 +50,11 @@ def build_cube_env():
     # A robot can go to the object's location if it is in the current room
 
     # Define attributes
-    cube_env['room_color'] = {0: 'red', 1: 'blue', 2: 'green', 3:'yellow'}
+    cube_env['room_color'] = {0: 'salmon', 1: 'lightyellow', 2: 'lightcyan', 3:'pink'}
 
     # Define objects
     cube_env['obj_to_locs']=[(1,3),(1,5) ]#,(5,6),(6,8)]
-    cube_env['obj_color'] = {0: 'red', 1: 'blue', 2: 'green', 3: 'yellow'}
+    cube_env['obj_color'] = {0: 'red', 1: 'darkolivegreen', 2: 'green', 3: 'navy'}
     cube_env['num_obj'] = len(cube_env['obj_to_locs'])
 
 

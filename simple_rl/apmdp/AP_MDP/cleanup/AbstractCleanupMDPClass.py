@@ -204,7 +204,7 @@ class CleanupL2MDP(MDP):
         if action_str == "Deactivate":
             next_state.obj_id = -1
         else:
-            if state.obj_id == -1:
+            if state.obj_id == -1 or state.obj_id == int(action_tmp[1]):
                 action = [int(action_tmp[1]), int(action_tmp[2])]
                 # the target object can be moved to only adjacent room
                 if action[1] in self.env['transition_table'][state.obj_room[action[0]]]:

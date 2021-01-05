@@ -86,7 +86,7 @@ class CleanupQMDP(MDP):
             self.constraints = constraints  # constraints for LTL
             self.ap_maps = ap_maps
 
-        #print("MDP0: ",self.ap_maps, self.constraints)
+
 
         # initialize the state
         init_state.q = self._transition_q(init_state)
@@ -98,7 +98,7 @@ class CleanupQMDP(MDP):
         # initialize MDP
         MDP.__init__(self, self.actions, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
-
+        print("MDP0: ", self.ap_maps, self.constraints, self.init_state)
         '''
         if 'lowest' in constraints.keys():
             self.constraints = {'goal': 'a', 'stay': 'b'}
@@ -233,7 +233,7 @@ class CleanupQMDP(MDP):
                evaluated_APs[ap] = (state.x, state.y) in self.room_to_locs[self.ap_maps[ap][1]]
 
             elif self.ap_maps[ap][0] == "RobotAt":
-                evaluated_APs[ap] = (state.x, state.y) == state.obj_loc[self.ap_maps[ap][1]]
+                evaluated_APs[ap] = (state.x, state.y) == state.obj_loc[self.ap_maps[ap][1]] and (state.obj_id != self.ap_maps[ap][1])
 
         return evaluated_APs
 

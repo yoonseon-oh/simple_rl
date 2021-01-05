@@ -2,6 +2,8 @@ import sympy
 import sys
 sys.path.append('../spot-2.8.7')
 import time
+import glob
+from datetime import datetime
 from simple_rl.apmdp.LTLautomataClass import LTLautomata
 import spot
 
@@ -36,7 +38,7 @@ class LTLAMDP():
 
         self.cube_env = env_file[0] #build_cube_env() #define environment
         # simplify automata
-        self._simplify_dict_() # TODO:
+        self._simplify_dict_()
         self.slip_prob = slip_prob
         self.verbose = verbose
 
@@ -417,12 +419,24 @@ class LTLAMDP():
 
 if __name__ == '__main__':
 
-    cube_env = build_cube_env()
+    # Settings
+    init_loc = (5,8,-1)
+    ltl_formula = '~c U (a & b) '  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
+    ap_maps = {'a':('On', 1), 'b':('RobotIn', 1),'c':('RobotAt',0)}
+    save_dir = '/media/ys/SharedData/Research/AP-MDP-result'
 
-    init_loc = (1,1,-1)
-    ltl_formula = 'F (b & F a) '  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
-    ap_maps = {'a':('In', (1,3)), 'b':('RobotIn', 2)}
+    # initialize
     start_time = time.time()
+    cube_env = build_cube_env()
+    # figure name
+    now = datetime.now()
+    datestr = now.strftime('%Y%m%d-%H-%M')
+    listfig = glob.glob('{}/{}*.png'.format(save_dir,datestr))
+    save_name = '{}-{}.png'.format(datestr,len(listfig))
+
+
+
+    # Solve
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
     sseq, aseq, len_actions, backup = ltl_amdp.solve(init_loc, FLAG_LOWEST=False)
 
@@ -431,7 +445,7 @@ if __name__ == '__main__':
     # make the prettier output
     s_seq, a_seq, s1_seq = ltl_amdp.format_output(sseq, aseq, cube_env)
 
-    draw_state_seq(cube_env, s_seq, save_fig ='../results/{}.png'.format(ltl_formula))
+    draw_state_seq(cube_env, s_seq, save_fig ='{}/{}'.format(save_dir,save_name), title=str(ltl_formula) + str(ltl_amdp.ap_maps))
     plt.pause(5)
     for t in range(0, len(a_seq)):
         print(s1_seq[t], a_seq[t])
