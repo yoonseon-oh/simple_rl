@@ -214,8 +214,11 @@ class LTLAMDP():
             agent.solve()
             backup_num = agent.backup_num
 
+            print("solved")
+
             # Plan
             state = l0Domain.init_state
+            l0Domain.object_avoid=[] # empty for planning
             action_seq = []
             state_seq = [state]
             while state in agent.policy_stack[0].keys():
@@ -287,6 +290,7 @@ class LTLAMDP():
 
             # Plan: Extract action seq, state_seq
             state = l0Domain.init_state
+            l0Domain.object_avoid = []
             action_seq = []
             state_seq = [state]
             while state in agent.policy_stack[0].keys():
@@ -416,25 +420,40 @@ class LTLAMDP():
         robot_high[2] = state.obj_id
         return robot_high + obj_room
 
+def ltl2str(ltl, ap_maps):
+    ltl_str = ''
+    for c in ltl:
+        if c in ap_maps.keys():
+            if ap_maps[c][0] == 'In':
+                ltl_str = ltl_str + "{}({},{})".format(ap_maps[c][0],ap_maps[c][1][0],ap_maps[c][1][1])
+            else:
+                ltl_str = ltl_str + "{}({})".format(ap_maps[c][0], ap_maps[c][1])
+        else:
+            ltl_str = ltl_str + c
+    print(ltl_str)
+    return ltl_str
+
+
+
 
 if __name__ == '__main__':
 
     # Settings
-    init_loc = (5,8,-1)
-    ltl_formula = '~c U (a & b) '  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
-    ap_maps = {'a':('On', 1), 'b':('RobotIn', 1),'c':('RobotAt',0)}
+    init_loc = (4,5,-1)
+    ltl_formula = '~a U b & F c '  # ex) 'F(a & F( b & Fc))', 'F a', '~a U b'
+    ap_maps = {'a':('RobotIn', 2), 'b':('On', 0),'c':('In',(0,2))}
     save_dir = '/media/ys/SharedData/Research/AP-MDP-result'
 
     # initialize
     start_time = time.time()
     cube_env = build_cube_env()
+    #cube_env['num_obj'] = 3
+    #cube_env['obj_to_locs'] = cube_env['obj_to_locs'][0:cube_env['num_obj']]
     # figure name
     now = datetime.now()
     datestr = now.strftime('%Y%m%d-%H-%M')
     listfig = glob.glob('{}/{}*.png'.format(save_dir,datestr))
     save_name = '{}-{}.png'.format(datestr,len(listfig))
-
-
 
     # Solve
     ltl_amdp = LTLAMDP(ltl_formula, ap_maps, env_file=[cube_env], slip_prob=0.0, verbose=True)
@@ -445,7 +464,7 @@ if __name__ == '__main__':
     # make the prettier output
     s_seq, a_seq, s1_seq = ltl_amdp.format_output(sseq, aseq, cube_env)
 
-    draw_state_seq(cube_env, s_seq, save_fig ='{}/{}'.format(save_dir,save_name), title=str(ltl_formula) + str(ltl_amdp.ap_maps))
+    draw_state_seq(cube_env, s_seq, save_fig ='{}/{}'.format(save_dir,save_name), title=ltl2str(ltl_formula,ap_maps))
     plt.pause(5)
     for t in range(0, len(a_seq)):
         print(s1_seq[t], a_seq[t])

@@ -55,8 +55,10 @@ class CleanupQMDP(MDP):
             self.obj_color = cube_env['obj_color']
             self.slip_prob = slip_prob
             self.transition_table = cube_env['transition_table']
+            self.notblocked = cube_env['notblock']
 
         self.actions = ["north", "south", "east", "west", "pickup", "place"]
+        self.object_avoid = []#list(range(0,self.num_obj))
         # initialize constraints
         if 'lowest' in constraints.keys():  # Todo
             high_state = self.get_highlevel_pose((init_state.x,init_state.y,init_state.obj_id),self.obj_loc)
@@ -65,13 +67,15 @@ class CleanupQMDP(MDP):
                 self.ap_maps = {'a': ap_maps['a'],
                                 'b': ('RobotIn', high_state['room'])}  # AP --> real world
                 self.actions = ['north','south','east','west']
+                self.object_avoid = list(range(0, self.num_obj))
 
             elif 'RobotAt' == ap_maps['a'][0]:  # goal condition is about navigation
-                obj_room = self.xy_to_room(self.obj_loc_init[ap_maps['a'][1]])
+
                 self.constraints = {'goal': 'a', 'stay': 'b'}
                 self.ap_maps = {'a': ap_maps['a'],
                                 'b': ('RobotIn', high_state['room'])}  # AP --> real world
-
+                self.object_avoid = list(range(0, self.num_obj))
+                self.object_avoid.remove(ap_maps['a'][1])
                 self.actions = ['north','south','west','east']
 
             elif ap_maps['a'][0] == 'On':
@@ -80,13 +84,12 @@ class CleanupQMDP(MDP):
                     self.ap_maps = {'a': ap_maps['a']}#, 'b': ('RobotAt',ap_maps['a'][1])}
                     self.actions = ['pickup']
                 else:
-                    self.ap_maps = {'a': ap_maps['a']}#, 'b': ('RobotAt', init_robot[2])}
-                    self.actions = ['place']
+                    self.constraints = {'goal': 'a', 'stay': 'b'}
+                    self.ap_maps = {'a': ap_maps['a'], 'b': ('RobotIn', high_state['room'])}#, 'b': ('RobotAt', init_robot[2])}
+                    self.actions = ['north','south','west','east','place']
         else:
             self.constraints = constraints  # constraints for LTL
             self.ap_maps = ap_maps
-
-
 
         # initialize the state
         init_state.q = self._transition_q(init_state)
@@ -98,7 +101,8 @@ class CleanupQMDP(MDP):
         # initialize MDP
         MDP.__init__(self, self.actions, self._transition_func, self._reward_func, init_state=init_state,
                      gamma=gamma)
-        print("MDP0: ", self.ap_maps, self.constraints, self.init_state)
+
+        print("MDP0: ", self.ap_maps, self.constraints, self.init_state, self.object_avoid)
         '''
         if 'lowest' in constraints.keys():
             self.constraints = {'goal': 'a', 'stay': 'b'}
@@ -115,8 +119,7 @@ class CleanupQMDP(MDP):
 
         if next_state.q != 0:
             next_state.set_terminal(True)
-            #next_state._is_terminal = (next_q == 1)
-        #print(state, next_state)
+
         next_state.update_data()
 
         return next_state
@@ -142,13 +145,17 @@ class CleanupQMDP(MDP):
                 action = -1
 
         # Compute action
-        if action == "north" and state.y < self.len_y and not self.is_wall(state.x, state.y + 1):
+        if action == "north" and state.y < self.len_y and not self.is_wall(state.x, state.y + 1) \
+                and self.canGo_object((state.x, state.y + 1),state.obj_id,state.obj_loc):
             next_state.y = state.y + 1
-        elif action == "south" and state.y > 1 and not self.is_wall(state.x, state.y - 1):
+        elif action == "south" and state.y > 1 and not self.is_wall(state.x, state.y - 1)\
+                and self.canGo_object((state.x, state.y - 1),state.obj_id,state.obj_loc):
             next_state.y = state.y - 1
-        elif action == "east" and state.x < self.len_x and not self.is_wall(state.x + 1, state.y):
+        elif action == "east" and state.x < self.len_x and not self.is_wall(state.x + 1, state.y)\
+                and self.canGo_object((state.x+1, state.y),state.obj_id,state.obj_loc):
             next_state.x = state.x + 1
-        elif action == "west" and state.x > 1 and not self.is_wall(state.x - 1, state.y):
+        elif action == "west" and state.x > 1 and not self.is_wall(state.x - 1, state.y)\
+                and self.canGo_object((state.x-1, state.y),state.obj_id, state.obj_loc):
             next_state.x = state.x - 1
         elif action == "pickup":
             if state.obj_id == -1:
@@ -160,8 +167,11 @@ class CleanupQMDP(MDP):
 
         elif action == "place":
             if state.obj_id !=- 1:
-                next_state.obj_id = -1
-                next_state.obj_loc[state.obj_id]=(next_state.x, next_state.y)
+                obj_list = state.obj_loc[0:state.obj_id]+state.obj_loc[(state.obj_id+1)::]
+                if (next_state.x, next_state.y) not in self.notblocked:
+                    if (next_state.x, next_state.y) not in obj_list:
+                        next_state.obj_id = -1
+                        next_state.obj_loc[state.obj_id]=(next_state.x, next_state.y)
 
 
         # if an object is on the robot, the robot and the object should be at the same location.
@@ -246,6 +256,12 @@ class CleanupQMDP(MDP):
         high_pose ['room']=self.xy_to_room((robot_init[0], robot_init[1]))
 
         return high_pose
+    def canGo_object(self, xy, obj_id,obj_loc): #return True if a robot can go considering object distribution
+        for ii in self.object_avoid:
+            if ii != obj_id and xy == obj_loc[ii]:
+                return False
+        return True
+
 
     def xy_to_room(self, xy):
         for ii in range(0, self.num_room):

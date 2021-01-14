@@ -1,13 +1,14 @@
 import time
 import os
 from simple_rl.apmdp.AP_MDP.cleanup.CleanupQMDPClass import CleanupQMDP
+from simple_rl.apmdp.AP_MDP.cleanup.CleanupQPlainMDPClass import CleanupQPlainMDP
 from simple_rl.apmdp.AP_MDP.LtlAMDPClass import LTLAMDP
 from simple_rl.apmdp.settings.build_cleanup_env_1 import build_cube_env
 from simple_rl.planning import ValueIteration
 
 def run_plain_pMDP(init_loc, ltl_formula, cube_env, ap_maps, verbose=False):
     start_time = time.time()
-    mdp = RoomCubePlainMDP(init_loc = init_loc, ltl_formula=ltl_formula, env_file=[cube_env],
+    mdp = CleanupQPlainMDP(init_loc = init_loc, ltl_formula=ltl_formula, env_file=[cube_env],
                            ap_maps=ap_maps)
 
     value_iter = ValueIteration(mdp, sample_rate=1, max_iterations=50)
@@ -123,9 +124,10 @@ if __name__ == '__main__':
     run_num = 1.0   #the number of run
     flag_verbose = False  # Show result paths
     flag_save = False
+    # select the world (1: small, 2: large cube world)    # select the world (1: small, 2: large cube world)
     num_env = 1 #environment name : build_cube_env(num_env).py 3: for examples
     init_loc = (1,1,1)
-    # select the world (1: small, 2: large cube world)
+
     formula_set = eval("formula_set{}".format(num_env))
     ap_maps_set = eval("ap_maps_set{}".format(num_env))
 

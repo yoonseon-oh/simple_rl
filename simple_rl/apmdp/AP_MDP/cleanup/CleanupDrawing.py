@@ -20,7 +20,11 @@ def draw_env(env):
             img[y][x][2] = color[2]
 
     plt.imshow(img)
-
+    plt.annotate('R0', xy=(0, 4))
+    plt.annotate('R1', xy=(0, 10))
+    plt.annotate('R2', xy=(6, 2))
+    plt.annotate('R3', xy=(6, 6))
+    plt.annotate('R4', xy=(6, 10))
     # draw objects
     for ii in range(0, env['num_obj']):
         plt.plot(env['obj_to_locs'][ii][0],env['obj_to_locs'][ii][1],'^',mec='black',
@@ -44,10 +48,12 @@ def draw_state_seq(env,state_seq, save_fig = "", title=""):
             img[y][x][2] = color[2]
 
     plt.imshow(img)
-    plt.annotate('R0', xy=(0, 10))
-    plt.annotate('R1', xy=(6,2))
-    plt.annotate('R2', xy=(6, 6))
-    plt.annotate('R3', xy=(6, 10))
+    plt.annotate('R0', xy=(0, 4))
+    plt.annotate('R1', xy=(0, 10))
+    plt.annotate('R2', xy=(6,2))
+    plt.annotate('R3', xy=(6, 6))
+    plt.annotate('R4', xy=(6, 10))
+
 
 
     # Extract trajectories
@@ -74,6 +80,8 @@ def draw_state_seq(env,state_seq, save_fig = "", title=""):
 
 
     plt.plot(robot_seq['x'], robot_seq['y'], lw=1, c='black')
+    plt.plot(robot_seq['x'][0], robot_seq['y'][0],'s', lw=1, c='black',mfc='white')
+    plt.plot(robot_seq['x'][-1], robot_seq['y'][-1], 's', lw=1, c='black')
     plt.annotate('I', xy=(robot_seq['x'][0], robot_seq['y'][0]))
     plt.annotate('F', xy=(robot_seq['x'][-1], robot_seq['y'][-1]))
     plt.title(title)

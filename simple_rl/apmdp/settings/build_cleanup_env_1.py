@@ -2,20 +2,21 @@ import numpy as np
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import itertools
+from simple_rl.apmdp.AP_MDP.cleanup.CleanupDrawing import *
 
 def build_cube_env():
     cube_env = {} # Define settings as a dictionary
     len_x, cube_env['len_x'] = 8, 8   # the number of grids (x-axis)
     len_y, cube_env['len_y'] = 11, 11  # the number of grids (y-axis)
-    num_room, cube_env['num_room'] = 4, 4 # the number of rooms
+    num_room, cube_env['num_room'] = 5, 5 # the number of rooms
     #room_len, cube_env['room_len'] = 2, 2
 
     # Define a map : room number, w (wall), 0: door
     map = [] # map[z][y][x]
-    map = [[0]*len_y, [0]*len_y, [0]*len_y]
-    map.append(['w',0,'w','w','w','w','w','w','w',0,'w'])
-    map.extend([[1, 1, 1,'w',2 ,2 ,2 ,'w',3 ,3 ,3], [1 ,1 ,1 ,1 ,2 ,2 ,2 ,'w',3 ,3 ,3],
-                [1,1,1, 'w', 2,2,2,2, 3, 3, 3], [1, 1, 1, 'w', 2, 2, 2, 'w', 3, 3, 3]])
+    map = [[0]*5+['w']+[1]*5, [0]*5+[1]*(len_y-5), [0]*5+['w']+[1]*5]
+    map.append(['w',0,'w','w','w','w','w','w','w',1,'w'])
+    map.extend([[2,2,2,'w',3,3,3 ,'w',4 ,4 ,4], [2,2,2 ,2,3,3,3 ,'w',4 ,4 ,4],
+                [2,2,2, 'w', 3,3,3,3, 4 ,4 ,4], [2,2,2, 'w',3,3,3, 'w', 4 ,4 ,4]])
 
     cube_env['map'] = map
 
@@ -45,26 +46,29 @@ def build_cube_env():
     cube_env['walls'] = walls
 
     # Define transition table (connectivity between rooms)
-    cube_env['transition_table'] = {0:[1, 3], 1: [0, 2], 2:[1,3], 3:[0, 2]}
+    cube_env['transition_table'] = {0:[1, 2], 1: [0, 4], 2:[0,3], 3:[2, 4], 4:[3,1]}
+    cube_env['notblock'] = [(1, 4), (1, 5), (1, 6), (2, 9), (3, 9), (4, 9), (6, 6), (6, 7), (6, 8), (5, 2), (5, 3),
+                            (5, 4)]
     cube_env['maxnum_adjroom'] = 2
     # A robot can go to the object's location if it is in the current room
 
     # Define attributes
-    cube_env['room_color'] = {0: 'salmon', 1: 'lightyellow', 2: 'lightcyan', 3:'pink'}
+    cube_env['room_color'] = {0: 'salmon', 1: 'lightyellow', 2: 'lightcyan', 3:'pink', 4: 'mediumspringgreen' }
 
     # Define objects
-    cube_env['obj_to_locs']=[(1,3),(1,5) ]#,(5,6),(6,8)]
-    cube_env['obj_color'] = {0: 'red', 1: 'darkolivegreen', 2: 'green', 3: 'navy'}
+    cube_env['obj_to_locs']=[(1,3),(1,8),(5,6),(6,9)]
+    cube_env['obj_color'] = {0: 'red', 1: 'darkolivegreen', 2: 'coral', 3: 'navy'}
     cube_env['num_obj'] = len(cube_env['obj_to_locs'])
 
 
 
-    #cube_env['L2ACTIONS'] = ["Activate_" + str(ii) for ii in range(0, cube_env['num_obj'])]\
-    #                        + ["NavRoom2_"+ str(ii) for ii in range(0, cube_env['num_room'])] + ["Deactivate"]
     # Define Actions
-    cube_env['L2ACTIONS'] = ["MoveObj_"+ str(x[0])+"_"+ str(x[1]) for x in
-                             itertools.product(list(range(0,cube_env['num_obj'])),
-                                               list(range(0,cube_env['num_room'])))] + ["Deactivate"]
+    cube_env['L2ACTIONS'] = ["Activate_" + str(ii) for ii in range(0, cube_env['num_obj'])] \
+                            + ["GotoRoom_" + str(ii) for ii in range(0, cube_env['num_room'])] + ["Deactivate"]
+
+    #cube_env['L2ACTIONS'] = ["MoveObj_"+ str(x[0])+"_"+ str(x[1]) for x in
+    #                         itertools.product(list(range(0,cube_env['num_obj'])),
+    #                                           list(range(0,cube_env['num_room'])))] + ["Deactivate"]
     cube_env['L1ACTIONS'] = ["NavRoom_"+ str(ii) for ii in range(0, cube_env['num_room'])] \
                             +["NavObj_"+ str(ii) for ii in range(0, cube_env['num_obj'])] \
                             +["PICKUP_" + str(ii) for ii in range(0, cube_env['num_obj'])] \
@@ -106,7 +110,7 @@ def draw_cleanup_env(env):
 
 if __name__ == '__main__':
     env = build_cube_env()
-    draw_cleanup_env(env)
+    draw_env(env)
     plt.pause(10)
 
     print("done")

@@ -28,7 +28,7 @@ class CleanupL2PolicyGenerator(AMDPPolicyGenerator):
         mdp = CleanupL2MDP(init_state=l2_state, env_file=self.env_file,
                            constraints=grounded_action.goal_constraints,
                         ap_maps=grounded_action.ap_maps)
-        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100)
+        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=50)
 
     def generate_abstract_state(self, l1_state):
         return self.state_mapper.map_state(l1_state)
@@ -59,7 +59,7 @@ class CleanupL1PolicyGenerator(AMDPPolicyGenerator):
         mdp = CleanupL1MDP(l1_state, env_file=self.env_file,
                         constraints=grounded_action.goal_constraints,
                         ap_maps=grounded_action.ap_maps)
-        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100)
+        return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=50)
 
     def generate_abstract_state(self, l0_state):
         return self.state_mapper.map_state(l0_state)
@@ -78,6 +78,7 @@ class CleanupL0PolicyGenerator(AMDPPolicyGenerator):
         '''
 #        destination_locations = self.domain.room_to_locs[grounded_task.goal_state.agent_in_room_number]
         #init_location = (state.x, state.y, state.obj_id)
+        print("generate_policy-CleanupL0PolicyGenerator is called:{}",grounded_task)
         mdp = CleanupQMDP(init_state=state, env_file=self.env_file,
                           constraints=grounded_task.goal_constraints, ap_maps=grounded_task.ap_maps)
         return self.get_policy(mdp, verbose=self.verbose, max_iterations=50, horizon=100) # 500, 100

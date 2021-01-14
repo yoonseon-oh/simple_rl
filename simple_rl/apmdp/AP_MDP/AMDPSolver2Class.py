@@ -81,10 +81,11 @@ class AMDPAgent(object):
         else:
             num_iterate = 0
             while not grounded_task.is_terminal(state):
-                action = policy[state] # 상위 goal이 안내려오는데
+                action = policy[state]
                 self.policy_stack[level][state] = action
                 if verbose: print('({}, {})'.format(state, action))
-                reward, state = self.base_mdp.execute_agent_action(action)
+                # YS fix
+                reward, state = self.base_mdp.execute_agent_action(action)  # YS fix
                 self.state_stack[level] = state
                 num_iterate = num_iterate + 1  # YS
                 if num_iterate > self.max_iterate[level]:  # YS
